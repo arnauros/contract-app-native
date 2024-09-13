@@ -1,0 +1,26 @@
+# Ignore Google Cloud Service Account Credentials
+*firebase-adminsdk*.json
+
+# Ignore config files that might contain sensitive information
+config/*.json
+functions/config/*.json
+
+# Ignore node modules
+node_modules/
+
+# Ignore any .env files
+.env
+
+echo "
+node_modules/
+*firebase-adminsdk*.json
+config/*.json
+functions/config/*.json
+*.log
+ui-debug.log
+" >> .gitignore
+
+node_modules/
+build/
+dist/
+public/
