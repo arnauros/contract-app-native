@@ -4,7 +4,7 @@ console.log("Client script initialized");
 const config = {
   apiUrl: "https://us-central1-contract-app-native.cloudfunctions.net/app",
 };
-
+console.log('test')
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("DOMContentLoaded");
 
