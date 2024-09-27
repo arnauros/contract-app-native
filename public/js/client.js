@@ -336,7 +336,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         alert("Please either type or draw a signature.");
         return;
       }
-
+      //
       formData["signature"] = signature;
       if (editor) {
         const blocks = await editor.save();
