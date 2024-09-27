@@ -1,0 +1,24 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - main  # or whatever your main branch is
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14' # specify your node version
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Deploy to Firebase
+        run: npm run build && firebase deploy --token ${{ secrets.FIREBASE_TOKEN }}  # Ensure FIREBASE_TOKEN is stored in GitHub Secrets
