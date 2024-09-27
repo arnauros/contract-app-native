@@ -5,6 +5,9 @@ on:
     branches:
       - main #
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -31,7 +34,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add package-lock.json functions/package-lock.json
           git commit -m "Update lock files" || echo "No changes to commit"
-          git push
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
