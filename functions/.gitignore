@@ -10,6 +10,7 @@ node_modules/
 
 # Ignore any .env files
 .env
+.runtimeconfig.json
 
 echo "
 node_modules/

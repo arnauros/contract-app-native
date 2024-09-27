@@ -1,20 +1,17 @@
 {
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs18",
-    "memory": "512MB",
-    "timeoutSeconds": 60,
-    "ignore": [
-      "node_modules",
-      ".git",
-      "firebase-debug.log",
-      "firebase-debug.*.log",
-      "*.local"
-    ],
-    "predeploy": [],
-
-    "codebase": "default"
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ],
+      "predeploy": []
+    }
+  ],
   "storage": {
     "rules": "storage.rules"
   },
@@ -24,7 +21,7 @@
     "rewrites": [
       {
         "source": "**",
-        "destination": "/index.html"
+        "function": "app"
       }
     ]
   }

@@ -2,7 +2,15 @@
   "projects": {
     "default": "contract-app-native"
   },
-  "targets": {},
+  "targets": {
+    "contract-app-native": {
+      "hosting": {
+        "default": [
+          "contract-app-native"
+        ]
+      }
+    }
+  },
   "etags": {},
   "dataconnectEmulatorConfig": {}
 }
