@@ -4,7 +4,7 @@ console.log("Client script initialized");
 const config = {
   apiUrl: "https://us-central1-contract-app-native.cloudfunctions.net/app",
 };
-console.log('test')
+
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("DOMContentLoaded");
 
@@ -327,12 +327,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const typedSignature = signatureInput ? signatureInput.value.trim() : "";
       let signature = "";
+      let uploadedFile = "";
 
       if (typedSignature !== "") {
         signature = typedSignature;
-      } else if (signaturePad && !signaturePad.isEmpty()) {
-        signature = signaturePad.toDataURL();
-      } else {
+      }
+
+      // Prioritize signaturePad over typedSignature
+      if (signaturePad && !signaturePad.isEmpty()) {
+        signature = signaturePad.toDataURL()
+        uploadedFile = await uploadByFile(dataURLtoBlob(signature));
+
+        if (!uploadedFile.success) {
+          alert("Signature upload failed. Please try again")
+          return;
+        }
+      }
+
+      if (signature === "") {
         alert("Please either type or draw a signature.");
         return;
       }
@@ -352,7 +364,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             type: "image",
             data: {
               file: {
-                url: signature,
+                url: uploadedFile?.file?.url ?? signature
               },
               caption: "Signed by Contractor",
               withBorder: false,
@@ -362,15 +374,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         } else {
           // If the signature line is not found, append the signature at the end
-          await editor.blocks.append("image", {
+          const blocksCount = editor.blocks.getBlocksCount();
+          await editor.blocks.insert("image", {
             file: {
-              url: signature,
+              url: uploadedFile?.file?.url ?? signature
             },
             caption: "Signed by Contractor",
             withBorder: false,
             withBackground: false,
             stretched: false,
-          });
+          }, '', blocksCount);
         }
       }
 
@@ -411,6 +424,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           editorContent: editorContent,
           status: "ready_to_send",
         });
+
+        // Make editor readonly
+        editor.readOnly.toggle()
+        console.log('Editor in read only mode')
 
         const sendContractUrl = `${config.apiUrl}/send-contract`;
         const response = await fetch(sendContractUrl, {
@@ -518,21 +535,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  async function uploadImageToFirebase(file) {
+  function dataURLtoBlob(dataURL) {
+    const byteString = atob(dataURL.split(",")[1]);
+    const mimeString = dataURL.split(",")[0].split(":")[1].split(";")[0];
+
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+
+    return {
+      blob: new Blob([ab], { type: mimeString }),
+      type: mimeString.split("/")[1]
+    };
+}
+
+  async function uploadImageToFirebase(file, type = 'png') {
     const storageRef = firebase.storage().ref();
-    const imageRef = storageRef.child(`images/${file.name}`);
-    await imageRef.put(file);
-    return imageRef.getDownloadURL();
+    const imageRef = storageRef.child(`images/${Date.now()}.${type}`);
+
+    return await imageRef.put(file)
+      .then(() => imageRef.getDownloadURL())
+      .then(downloadURL => {
+        return {
+          success: 1,
+          file: {
+            url: downloadURL,
+          },
+        }
+      })
+      .catch(error => {
+          console.error("Error uploading image to Firebase:", error);
+          
+          return {
+            success: 0,
+            file: {
+              url: null,
+            },
+          }
+      });
   }
 
   async function uploadByFile(file) {
-    const imageUrl = await uploadImageToFirebase(file);
-    return {
-      success: 1,
-      file: {
-        url: imageUrl,
-      },
-    };
+    return await uploadImageToFirebase(file.blob, file.type);
   }
 
   async function uploadByUrl(url) {
