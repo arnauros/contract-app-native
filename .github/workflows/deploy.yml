@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 jobs:
@@ -15,8 +15,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -24,29 +22,10 @@ jobs:
           node-version: "18"
           cache: "npm"
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.npm
-            node_modules
-            functions/node_modules
-          key: ${{ runner.OS }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-npm-cache-
-
       - name: Install dependencies
         run: |
-          npm install
-          cd functions && npm install
-
-      - name: Commit updated lock files
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add package-lock.json functions/package-lock.json
-          git diff-index --quiet HEAD || git commit -m "Update lock files"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          npm ci
+          cd functions && npm ci
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
@@ -57,6 +36,6 @@ jobs:
           credentials_json: "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}"
 
       - name: Deploy to Firebase
-        run: firebase deploy --only hosting,functions
+        run: firebase deploy --only functions,hosting --project contract-app-native
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
