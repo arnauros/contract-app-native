@@ -115,6 +115,54 @@ app.post("/send-contract", async (req, res) => {
   }
 });
 
+// User registration
+app.post("/register", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: password,
+    });
+
+    res
+      .status(201)
+      .json({
+        message: "User registered successfully",
+        userId: userRecord.uid,
+      });
+  } catch (error) {
+    console.error("Error registering user:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to register user", details: error.message });
+  }
+});
+
+// User login
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // Firebase Admin SDK does not support password authentication directly.
+    // You need to use Firebase Client SDK on the client-side to sign in users.
+    // Here, you can verify the ID token sent from the client after successful login.
+
+    const idToken = req.body.idToken; // Assume the client sends the ID token after login
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+    res.json({
+      message: "User logged in successfully",
+      userId: decodedToken.uid,
+    });
+  } catch (error) {
+    console.error("Error logging in user:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to log in user", details: error.message });
+  }
+});
+
 app.get("/", (req, res) => {
   res.send(
     "Welcome to the Contract App. Use /api/openai to interact with the AI."

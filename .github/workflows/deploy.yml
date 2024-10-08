@@ -3,10 +3,11 @@ name: Deploy to Firebase
 on:
   push:
     branches:
-      - main #
+      - main
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   deploy:
@@ -47,10 +48,10 @@ jobs:
           git diff-index --quiet HEAD || git commit -m "Update lock files"
           git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
-      - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
         with:
-          args: deploy --only hosting,functions
-        env:
-          # yamllint disable-line rule:line-length
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          credentials_json: "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}"
+
+      - name: Deploy to Firebase
+        run: firebase deploy --only hosting,functions
