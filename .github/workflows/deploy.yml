@@ -39,3 +39,4 @@ jobs:
         run: firebase deploy --only functions,hosting --project contract-app-native
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+#
