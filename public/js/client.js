@@ -224,18 +224,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Function URL:", functionUrl);
 
     const promptText = `Create a contract using the following details:
-  Project Description: ${formData["textField-1"] || "[No project description provided]"}
-  Tech Stack: ${formData["textField-2"] || "[No tech stack provided]"}
-  Additional Information from PDF:
-  ${pdfContent || "[No PDF content available]"}
+    Project Description: ${formData["textField-1"] || "[No project description provided]"}
+    Tech Stack: ${formData["textField-2"] || "[No tech stack provided]"}
+    Additional Information from PDF:
+    ${pdfContent || "[No PDF content available]"}
 
-  Instructions:
-  - Analyze both the user-provided information and the PDF content.
-  - Create a unified contract that incorporates all relevant details without redundancy.
-  - If there are conflicts between user-provided information and PDF content, prioritize the user-provided information but mention any significant discrepancies.
-  - Ensure the contract follows a logical structure with clear sections (e.g., Project Scope, Timeline, Budget, Terms and Conditions).
-  - If any critical information is missing, add placeholders or suggest what kind of information should be added.
-  - The final contract should be coherent, professional, and ready for review and signatures.`;
+    Instructions:
+    - Analyze both the user-provided information and the PDF content.
+    - Create a unified contract that incorporates all relevant details without redundancy.
+    - If there are conflicts between user-provided information and PDF content, prioritize the user-provided information but mention any significant discrepancies.
+    - Ensure the contract follows a logical structure with clear sections (e.g., Project Scope, Timeline, Budget, Terms and Conditions).
+    - If any critical information is missing, add placeholders or suggest what kind of information should be added.
+    - The final contract should be coherent, professional, and ready for review and signatures.`;
 
     console.log("Sending prompt to AI:", promptText);
 
