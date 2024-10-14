@@ -324,7 +324,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (signButton) {
     signButton.addEventListener("click", async (event) => {
       event.preventDefault();
-
+      if (document.getElementById('sign-appended-div')) {
+        const appended_element = document.getElementById("sign-appended-div");
+        appended_element.remove(); // Removes the div with the 'div-02' id
+      }
       const typedSignature = signatureInput ? signatureInput.value.trim() : "";
       let signature = "";
       let uploadedFile = "";
@@ -352,45 +355,151 @@ document.addEventListener("DOMContentLoaded", async () => {
       formData["signature"] = signature;
       if (editor) {
         const blocks = await editor.save();
-        const signatureLineIndex = blocks.blocks.findIndex(
-          (block) =>
-            block.type === "paragraph" &&
-            block.data.text.includes("Signed by contractor")
-        );
+        const paragraphs = document.querySelectorAll('.ce-paragraph');
 
-        if (signatureLineIndex !== -1) {
-          // Replace the signature line with the signature image
-          await editor.blocks.update(signatureLineIndex, {
-            type: "image",
-            data: {
-              file: {
-                url: uploadedFile?.file?.url ?? signature
-              },
-              caption: "Signed by Contractor",
-              withBorder: false,
-              withBackground: false,
-              stretched: false,
-            },
-          });
-        } else {
-          // If the signature line is not found, append the signature at the end
-          const blocksCount = editor.blocks.getBlocksCount();
-          await editor.blocks.insert("image", {
-            file: {
-              url: uploadedFile?.file?.url ?? signature
-            },
-            caption: "Signed by Contractor",
-            withBorder: false,
-            withBackground: false,
-            stretched: false,
-          }, '', blocksCount);
-        }
+        // Loop through each element and use switch to check for specific text
+        paragraphs.forEach((paragraph, index) => {
+          const textContent = paragraph.textContent.trim(); // Get the text content and trim extra spaces
+
+          // Create the new div element to be added
+          const newDiv = document.createElement('div');
+          newDiv.className = 'appended-div'; // Optional: Add a class for styling
+          newDiv.id = 'sign-appended-div';
+          newDiv.innerHTML = '<img id="signature_image" class="image-tool__image-picture" src="'+signature+'" width="250px" height="150px">'; // Content inside the new div
+          const boldText = paragraph.querySelector('b')?.textContent.trim();
+
+          // Check if the bold text matches what you're looking for
+          
+          switch (boldText) {
+          // Using 'true' in the switch to allow matching on the includes() condition
+           
+            case 'Contractor Signature:':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;
+
+            case 'Designer Signature:':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;
+            case "Developer's Signature":
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;
+            case 'Signature: ______________________':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;
+            case 'Service Provider Signature:':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;            
+            case 'Service Provider:':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;            
+            case 'Developer Signature:':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break;            
+            case '[Designer Name]':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case '[Your Name/Company Name]':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case 'Developer:':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case '[Service Provider Name]':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case 'Developer Signature: ______________________   Date: _______________':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case '[Your Name/Your Company Name]':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case '[Service Provider Name]':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            case '[Contractor Name]':
+              paragraph.insertAdjacentElement('afterend', newDiv);
+              break; 
+            default:
+              //console.log(`No signature found in block ${index + 1}`);
+          }
+        });
+         
+         
+        // if (signatureLineIndex !== -1) {
+        //   // Replace the signature line with the signature image
+        //   await editor.blocks.update(signatureLineIndex, {
+        //     type: "image",
+        //     data: {
+        //       file: {
+        //         url: uploadedFile?.file?.url ?? signature
+        //       },
+        //       caption: "Signed by Contractor",
+        //       withBorder: false,
+        //       withBackground: false,
+        //       stretched: false,
+        //     },
+        //   });
+        // } else {
+        //   // If the signature line is not found, append the signature at the end
+        //   const blocksCount = editor.blocks.getBlocksCount();
+        //   await editor.blocks.insert("image", {
+        //     file: {
+        //       url: uploadedFile?.file?.url ?? signature
+        //     },
+        //     caption: "Signed by Contractor",
+        //     withBorder: false,
+        //     withBackground: false,
+        //     stretched: false,
+        //   }, '', blocksCount);
+        // }
       }
 
       if (currentSlideIndex < slides.length - 1) {
         currentSlideIndex++;
         showSlide(currentSlideIndex);
       }
+      setTimeout(() => {
+        if (window.getComputedStyle(document.getElementById("slide-4")).display === "block") {
+          const toolbars = document.getElementsByClassName("ce-toolbar");          
+          
+          // Convert the HTMLCollection to an array and remove each element
+          Array.from(toolbars).forEach(toolbar => toolbar.remove());
+          document.getElementById("generatedDocument").setAttribute("contenteditable", true);
+          const generatedDocument = document.getElementById('generatedDocument');
+          if (!document.getElementById("edit_mode_div")) {
+            const newDivNew = '<div class="editble_button" id="edit_mode_div"><span>Edit Agreement</span></div>';  
+            // Use insertAdjacentHTML to insert the new div as HTML
+            generatedDocument.insertAdjacentHTML('afterbegin', newDivNew);
+          }
+          // Set the parent element to non-editable
+          generatedDocument.setAttribute('contenteditable', 'false');
+      
+          // Set all child elements to non-editable
+          const allChildren = generatedDocument.querySelectorAll('*');
+          allChildren.forEach(child => {
+          child.setAttribute('contenteditable', 'false');
+          });
+          const edit_mode_bu = document.getElementById('edit_mode_div');
+          if(edit_mode_bu){
+            edit_mode_bu.addEventListener('click', () => {
+              //editor.readOnly.toggle()
+              if (currentSlideIndex) {   
+                currentSlideIndex--;              
+                showSlide(currentSlideIndex);
+              }
+              edit_mode_bu.remove();
+              generatedDocument.setAttribute('contenteditable', 'true');
+      
+              // Set all child elements to non-editable
+              const allChildren = generatedDocument.querySelectorAll('*');
+              allChildren.forEach(child => {
+              child.setAttribute('contenteditable', 'true');
+              });
+              console.log('Editor in read only mode')
+            })
+          }
+        }
+      },500);       
     });
   }
 
@@ -400,6 +509,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  
   if (sendButton) {
     sendButton.addEventListener("click", async (event) => {
       event.preventDefault();
