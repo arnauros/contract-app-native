@@ -235,7 +235,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     - If there are conflicts between user-provided information and PDF content, prioritize the user-provided information but mention any significant discrepancies.
     - Ensure the contract follows a logical structure with clear sections (e.g., Project Scope, Timeline, Budget, Terms and Conditions).
     - If any critical information is missing, add placeholders or suggest what kind of information should be added.
-    - The final contract should be coherent, professional, and ready for review and signatures.`;
+    - The final contract should be coherent, professional, and ready for review and signatures.
+    - Always Add placeholders for Signature and only one time add other then client like '[SIGNATURE_GOES_HERE]'`;
 
     console.log("Sending prompt to AI:", promptText);
 
@@ -367,61 +368,25 @@ document.addEventListener("DOMContentLoaded", async () => {
           newDiv.id = 'sign-appended-div';
           newDiv.innerHTML = '<img id="signature_image" class="image-tool__image-picture" src="'+signature+'" width="250px" height="150px">'; // Content inside the new div
           const boldText = paragraph.querySelector('b')?.textContent.trim();
-
-          // Check if the bold text matches what you're looking for
-          
-          switch (boldText) {
-          // Using 'true' in the switch to allow matching on the includes() condition
-           
-            case 'Contractor Signature:':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;
-
-            case 'Designer Signature:':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;
-            case "Developer's Signature":
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;
-            case 'Signature: ______________________':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;
-            case 'Service Provider Signature:':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;            
-            case 'Service Provider:':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;            
-            case 'Developer Signature:':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break;            
-            case '[Designer Name]':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case '[Your Name/Company Name]':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case 'Developer:':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case '[Service Provider Name]':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case 'Developer Signature: ______________________   Date: _______________':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case '[Your Name/Your Company Name]':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case '[Service Provider Name]':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            case '[Contractor Name]':
-              paragraph.insertAdjacentElement('afterend', newDiv);
-              break; 
-            default:
-              //console.log(`No signature found in block ${index + 1}`);
+          if(boldText){            
+            // Check if the bold text matches what you're looking for
+            
+            switch (boldText) {
+            // Using 'true' in the switch to allow matching on the includes() condition
+            
+              case '[SIGNATURE_GOES_HERE]':
+                paragraph.insertAdjacentElement('afterend', newDiv);
+                break;
+              
+              default:
+                //console.log(`No signature found in block ${index + 1}`);
+            }
+          }else{
+            if (paragraph.textContent.includes('[SIGNATURE_GOES_HERE]')) {
+                paragraph.insertAdjacentElement('afterend', newDiv);
+            }
           }
+
         });
          
          
