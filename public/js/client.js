@@ -361,7 +361,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Loop through each element and use switch to check for specific text
         paragraphs.forEach((paragraph, index) => {
           const textContent = paragraph.textContent.trim(); // Get the text content and trim extra spaces
-
           // Create the new div element to be added
           const newDiv = document.createElement('div');
           newDiv.className = 'appended-div'; // Optional: Add a class for styling
@@ -376,13 +375,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             
               case '[SIGNATURE_GOES_HERE]':
                 paragraph.insertAdjacentElement('afterend', newDiv);
+                console.log('found in block');
                 break;
               
               default:
                 //console.log(`No signature found in block ${index + 1}`);
             }
-          }else{
-            if (paragraph.textContent.includes('[SIGNATURE_GOES_HERE]')) {
+          }else{             
+            // Check if the normalized content contains the placeholder
+            if (paragraph.textContent.includes('[SIGNATURE_GOES_HERE]')) { 
+                console.log('signature found in block');
                 paragraph.insertAdjacentElement('afterend', newDiv);
             }
           }
