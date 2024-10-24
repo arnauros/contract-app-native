@@ -236,7 +236,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     - Ensure the contract follows a logical structure with clear sections (e.g., Project Scope, Timeline, Budget, Terms and Conditions).
     - If any critical information is missing, add placeholders or suggest what kind of information should be added.
     - The final contract should be coherent, professional, and ready for review and signatures.
-    - Always Add placeholders for Signature and only one time add other then client like '[SIGNATURE_GOES_HERE]'`;
+    - Always Add blank span tag with attribute of class="SIGNATURE_GOES_HERE" not visiable for Signature and only one time add other then client`;
 
     console.log("Sending prompt to AI:", promptText);
 
@@ -356,7 +356,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       formData["signature"] = signature;
       if (editor) {
         const blocks = await editor.save();
-        const paragraphs = document.querySelectorAll('.ce-paragraph');
+        const paragraphs = document.querySelectorAll('.SIGNATURE_GOES_HERE');
 
         // Loop through each element and use switch to check for specific text
         paragraphs.forEach((paragraph, index) => {
@@ -367,6 +367,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           newDiv.id = 'sign-appended-div';
           newDiv.innerHTML = '<img id="signature_image" class="image-tool__image-picture" src="'+signature+'" width="250px" height="150px">'; // Content inside the new div
           const boldText = paragraph.querySelector('b')?.textContent.trim();
+
           if(boldText){            
             // Check if the bold text matches what you're looking for
             
@@ -383,10 +384,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
           }else{             
             // Check if the normalized content contains the placeholder
-            if (paragraph.textContent.includes('[SIGNATURE_GOES_HERE]')) { 
-                console.log('signature found in block');
-                paragraph.insertAdjacentElement('afterend', newDiv);
-            }
+            paragraph.insertAdjacentElement('afterend', newDiv);
+            // if (paragraph.textContent.includes('[SIGNATURE_GOES_HERE]')) { 
+            //     console.log('signature found in block');
+            //     paragraph.insertAdjacentElement('afterend', newDiv);
+            // }
           }
 
         });
