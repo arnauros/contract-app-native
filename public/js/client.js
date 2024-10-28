@@ -224,18 +224,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Function URL:", functionUrl);
 
     const promptText = `Create a contract using the following details:
-  Project Description: ${formData["textField-1"] || "[No project description provided]"}
-  Tech Stack: ${formData["textField-2"] || "[No tech stack provided]"}
-  Additional Information from PDF:
-  ${pdfContent || "[No PDF content available]"}
+    Project Description: ${formData["textField-1"] || "[No project description provided]"}
+    Tech Stack: ${formData["textField-2"] || "[No tech stack provided]"}
+    Additional Information from PDF:
+    ${pdfContent || "[No PDF content available]"}
 
-  Instructions:
-  - Analyze both the user-provided information and the PDF content.
-  - Create a unified contract that incorporates all relevant details without redundancy.
-  - If there are conflicts between user-provided information and PDF content, prioritize the user-provided information but mention any significant discrepancies.
-  - Ensure the contract follows a logical structure with clear sections (e.g., Project Scope, Timeline, Budget, Terms and Conditions).
-  - If any critical information is missing, add placeholders or suggest what kind of information should be added.
-  - The final contract should be coherent, professional, and ready for review and signatures.`;
+    Instructions:
+    - Analyze both the user-provided information and the PDF content.
+    - Create a unified contract that incorporates all relevant details without redundancy.
+    - If there are conflicts between user-provided information and PDF content, prioritize the user-provided information but mention any significant discrepancies.
+    - Ensure the contract follows a logical structure with clear sections (e.g., Project Scope, Timeline, Budget, Terms and Conditions).
+    - If any critical information is missing, add placeholders or suggest what kind of information should be added.
+    - The final contract should be coherent, professional, and ready for review and signatures.
+    - Always Add blank span tag with attribute of class="SIGNATURE_GOES_HERE" not visiable for Signature and only one time add other then client`;
 
     console.log("Sending prompt to AI:", promptText);
 
@@ -324,7 +325,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (signButton) {
     signButton.addEventListener("click", async (event) => {
       event.preventDefault();
-
+      if (document.getElementById('sign-appended-div')) {
+        const appended_element = document.getElementById("sign-appended-div");
+        appended_element.remove(); // Removes the div with the 'div-02' id
+      }
       const typedSignature = signatureInput ? signatureInput.value.trim() : "";
       let signature = "";
       let uploadedFile = "";
@@ -352,45 +356,119 @@ document.addEventListener("DOMContentLoaded", async () => {
       formData["signature"] = signature;
       if (editor) {
         const blocks = await editor.save();
-        const signatureLineIndex = blocks.blocks.findIndex(
-          (block) =>
-            block.type === "paragraph" &&
-            block.data.text.includes("Signed by contractor")
-        );
+        const paragraphs = document.querySelectorAll('.SIGNATURE_GOES_HERE');
 
-        if (signatureLineIndex !== -1) {
-          // Replace the signature line with the signature image
-          await editor.blocks.update(signatureLineIndex, {
-            type: "image",
-            data: {
-              file: {
-                url: uploadedFile?.file?.url ?? signature
-              },
-              caption: "Signed by Contractor",
-              withBorder: false,
-              withBackground: false,
-              stretched: false,
-            },
-          });
-        } else {
-          // If the signature line is not found, append the signature at the end
-          const blocksCount = editor.blocks.getBlocksCount();
-          await editor.blocks.insert("image", {
-            file: {
-              url: uploadedFile?.file?.url ?? signature
-            },
-            caption: "Signed by Contractor",
-            withBorder: false,
-            withBackground: false,
-            stretched: false,
-          }, '', blocksCount);
-        }
+        // Loop through each element and use switch to check for specific text
+        paragraphs.forEach((paragraph, index) => {
+          const textContent = paragraph.textContent.trim(); // Get the text content and trim extra spaces
+          // Create the new div element to be added
+          const newDiv = document.createElement('div');
+          newDiv.className = 'appended-div'; // Optional: Add a class for styling
+          newDiv.id = 'sign-appended-div';
+          newDiv.innerHTML = '<img id="signature_image" class="image-tool__image-picture" src="'+signature+'" width="250px" height="150px">'; // Content inside the new div
+          const boldText = paragraph.querySelector('b')?.textContent.trim();
+
+          if(boldText){            
+            // Check if the bold text matches what you're looking for
+            
+            switch (boldText) {
+            // Using 'true' in the switch to allow matching on the includes() condition
+            
+              case '[SIGNATURE_GOES_HERE]':
+                paragraph.insertAdjacentElement('afterend', newDiv);
+                console.log('found in block');
+                break;
+              
+              default:
+                //console.log(`No signature found in block ${index + 1}`);
+            }
+          }else{             
+            // Check if the normalized content contains the placeholder
+            paragraph.insertAdjacentElement('afterend', newDiv);
+            // if (paragraph.textContent.includes('[SIGNATURE_GOES_HERE]')) { 
+            //     console.log('signature found in block');
+            //     paragraph.insertAdjacentElement('afterend', newDiv);
+            // }
+          }
+
+        });
+         
+         
+        // if (signatureLineIndex !== -1) {
+        //   // Replace the signature line with the signature image
+        //   await editor.blocks.update(signatureLineIndex, {
+        //     type: "image",
+        //     data: {
+        //       file: {
+        //         url: uploadedFile?.file?.url ?? signature
+        //       },
+        //       caption: "Signed by Contractor",
+        //       withBorder: false,
+        //       withBackground: false,
+        //       stretched: false,
+        //     },
+        //   });
+        // } else {
+        //   // If the signature line is not found, append the signature at the end
+        //   const blocksCount = editor.blocks.getBlocksCount();
+        //   await editor.blocks.insert("image", {
+        //     file: {
+        //       url: uploadedFile?.file?.url ?? signature
+        //     },
+        //     caption: "Signed by Contractor",
+        //     withBorder: false,
+        //     withBackground: false,
+        //     stretched: false,
+        //   }, '', blocksCount);
+        // }
       }
 
       if (currentSlideIndex < slides.length - 1) {
         currentSlideIndex++;
         showSlide(currentSlideIndex);
       }
+      setTimeout(() => {
+        if (window.getComputedStyle(document.getElementById("slide-4")).display === "block") {
+          const toolbars = document.getElementsByClassName("ce-toolbar");          
+          
+          // Convert the HTMLCollection to an array and remove each element
+          Array.from(toolbars).forEach(toolbar => toolbar.remove());
+          document.getElementById("generatedDocument").setAttribute("contenteditable", true);
+          const generatedDocument = document.getElementById('generatedDocument');
+          if (!document.getElementById("edit_mode_div")) {
+            const newDivNew = '<div class="editble_button" id="edit_mode_div"><span>Edit Agreement</span></div>';  
+            // Use insertAdjacentHTML to insert the new div as HTML
+            generatedDocument.insertAdjacentHTML('afterbegin', newDivNew);
+          }
+          // Set the parent element to non-editable
+          generatedDocument.setAttribute('contenteditable', 'false');
+      
+          // Set all child elements to non-editable
+          const allChildren = generatedDocument.querySelectorAll('*');
+          allChildren.forEach(child => {
+          child.setAttribute('contenteditable', 'false');
+          });
+          const edit_mode_bu = document.getElementById('edit_mode_div');
+          if(edit_mode_bu){
+            edit_mode_bu.addEventListener('click', () => {
+              //editor.readOnly.toggle()
+              if (currentSlideIndex) {   
+                currentSlideIndex--;              
+                showSlide(currentSlideIndex);
+              }
+              edit_mode_bu.remove();
+              generatedDocument.setAttribute('contenteditable', 'true');
+      
+              // Set all child elements to non-editable
+              const allChildren = generatedDocument.querySelectorAll('*');
+              allChildren.forEach(child => {
+              child.setAttribute('contenteditable', 'true');
+              });
+              console.log('Editor in read only mode')
+            })
+          }
+        }
+      },500);       
     });
   }
 
@@ -400,6 +478,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  
   if (sendButton) {
     sendButton.addEventListener("click", async (event) => {
       event.preventDefault();
