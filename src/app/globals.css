@@ -5,6 +5,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-family: "Inter", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,7 +16,336 @@
 }
 
 body {
+  height: 100%;
+  margin: 0;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-family);
 }
+
+.common-topbar {
+  height: 40px;
+  width: 100%;
+  background-color: var(--background);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.7s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+/* Add this to your existing globals.css */
+.ProseMirror {
+  min-height: 200px;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+  }
+
+  > * + * {
+    margin-top: 0.75em;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  ul,
+  ol {
+    padding: 0 1rem;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.1;
+  }
+
+  code {
+    background-color: rgba(97, 97, 97, 0.1);
+    color: #616161;
+  }
+
+  position: relative;
+  padding-left: 48px !important; /* Increased padding for menu */
+}
+
+.ProseMirror > * {
+  position: relative !important;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror > *.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.ProseMirror > *.drop-target {
+  position: relative;
+}
+
+.ProseMirror > *.drop-target::before {
+  content: "";
+  position: absolute;
+  left: -3rem;
+  right: 0;
+  top: -2px;
+  height: 2px;
+  background-color: #2563eb;
+  pointer-events: none;
+}
+
+.ProseMirror p.is-empty::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror > *:hover::before {
+  content: "";
+  position: absolute;
+  left: -3rem;
+  right: 0;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0.25rem;
+  pointer-events: none;
+}
+
+.drag-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ProseMirror > *:hover .drag-handle {
+  opacity: 1;
+}
+
+/* Block menu container */
+.block-menu {
+  position: absolute;
+  left: -2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 10;
+}
+
+/* Show block menu on hover */
+.ProseMirror > *:hover .block-menu {
+  opacity: 1;
+}
+
+/* Menu buttons */
+.block-menu button {
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.ProseMirror > *:hover .block-menu button {
+  opacity: 1;
+}
+
+/* Dragging styles */
+.ProseMirror > *.dragging {
+  background: #f3f4f6;
+  opacity: 0.5;
+  cursor: grabbing;
+  position: relative;
+}
+
+/* Drop target indicator */
+.ProseMirror > *.drop-target::before {
+  content: "";
+  position: absolute;
+  left: -3rem;
+  right: 0;
+  height: 2px;
+  background: #2563eb;
+  top: -1px;
+}
+
+/* Placeholder text */
+.ProseMirror p.is-empty::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Hover state for blocks */
+.ProseMirror > *:hover {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 3px;
+}
+
+/* Dragging state */
+.ProseMirror > *.dragging {
+  background: #f3f4f6;
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+/* Drop target indicator */
+.ProseMirror > *.drop-target::before {
+  content: "";
+  position: absolute;
+  left: -3rem;
+  right: 0;
+  height: 2px;
+  background: #2563eb;
+  top: -1px;
+}
+
+/* Debug styles */
+.ProseMirror > *::before {
+  content: "";
+  position: absolute;
+  left: -48px;
+  width: 40px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+
+.ProseMirror {
+  position: relative;
+  padding-left: 48px !important;
+}
+
+.ProseMirror > * {
+  position: relative;
+  margin: 0.5rem 0;
+}
+
+.block-menu-container {
+  position: absolute;
+  left: -48px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 0.5px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ProseMirror > *:hover .block-menu-container {
+  opacity: 1;
+}
+
+/* Dragging styles */
+.ProseMirror > *.dragging {
+  background: #f3f4f6;
+  opacity: 0.5;
+}
+
+.ProseMirror > *.drop-target::before {
+  content: "";
+  position: absolute;
+  left: -48px;
+  right: 0;
+  height: 2px;
+  background: #2563eb;
+  top: -1px;
+}
+
+.ProseMirror {
+  position: relative;
+  padding-left: 48px !important;
+}
+
+.block-container {
+  position: relative;
+  margin: 0.5rem 0;
+  transition: all 0.2s ease;
+}
+
+.block-content {
+  position: relative;
+}
+
+.block-menu {
+  position: absolute;
+  left: -48px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.block-container:hover .block-menu {
+  opacity: 1;
+}
+
+.block-menu svg {
+  color: #9ca3af;
+}
+
+.block-container.dragging {
+  opacity: 0.5;
+  background: #f3f4f6;
+  cursor: grabbing;
+}
+
+.block-container.drop-target::before {
+  content: "";
+  position: absolute;
+  left: -48px;
+  right: 0;
+  height: 2px;
+  background: #2563eb;
+  top: -1px;
+  pointer-events: none;
+}
+
+.block-wrapper {
+  position: relative;
+  padding-left: 48px;
+}
+
+.block-content {
+  position: relative;
+}
+
+.ProseMirror {
+  position: relative;
+}
+
+/* Rest of your existing BlockMenu styles */
