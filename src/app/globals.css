@@ -286,10 +286,10 @@ body {
   top: -1px;
 }
 
-.ProseMirror {
+/* .ProseMirror {
   position: relative;
   padding-left: 48px !important;
-}
+} */
 
 .block-container {
   position: relative;

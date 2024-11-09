@@ -60,11 +60,15 @@ export default function ContractPage() {
   }, []); // Empty dependency array
 
   if (isLoading) {
-    return <Skeleton />;
+    return (
+      <div className="min-h-screen bg-white">
+        <Skeleton />
+      </div>
+    );
   }
 
   return (
-    <div className="p-4">
+    <div className="min-h-screen bg-white">
       <ContractEditor formData={formData} initialContent={generatedContent} />
     </div>
   );
