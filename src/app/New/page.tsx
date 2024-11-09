@@ -11,10 +11,28 @@ export default function NewContractPage() {
     techStack: "The tech stack includes ",
     startDate: "",
     endDate: "",
-    attachments: [] as File[],
+    attachments: [] as Array<{
+      file: File;
+      summary?: string;
+    }>,
   });
 
   const pathname = usePathname();
+
+  const handleSubmit = async (formData: ContractData) => {
+    try {
+      // Generate a unique ID for the contract
+      const contractId = window.location.pathname.split("/").pop();
+
+      // Save to localStorage
+      localStorage.setItem(`contract-${contractId}`, JSON.stringify(formData));
+
+      // Navigate to the contract page
+      router.push(`/Contracts/${contractId}`);
+    } catch (error) {
+      console.error("Failed to save contract:", error);
+    }
+  };
 
   return (
     <main className="h-[calc(100vh-var(--topbar-height))] px-[calc(6rem)] pt-[20vh] relative">
@@ -30,6 +48,7 @@ export default function NewContractPage() {
                 onStageChange={setCurrentStep}
                 formData={formData}
                 setFormData={setFormData}
+                onSubmit={handleSubmit}
               />
 
               <div className="flex justify-center">
@@ -56,7 +75,17 @@ export default function NewContractPage() {
           <div className="absolute right-0 top-0 mt-20 mr-8 bg-gray-800 text-white p-4 rounded-lg shadow-lg w-80">
             <h2 className="text-lg font-bold mb-2">Console Log</h2>
             <pre className="text-sm whitespace-pre-wrap break-words">
-              {JSON.stringify(formData, null, 2)}
+              {JSON.stringify(
+                {
+                  ...formData,
+                  attachments: formData.attachments.map((att) => ({
+                    name: att?.file?.name || "Unknown file",
+                    summary: att?.summary || "Generating summary...",
+                  })),
+                },
+                null,
+                2
+              )}
             </pre>
           </div>
         </div>

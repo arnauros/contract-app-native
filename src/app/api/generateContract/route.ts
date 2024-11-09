@@ -2,87 +2,125 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Simple in-memory cache
-const cache = new Map();
-
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Get the contract from cache if it exists
-    if (cache.has(params.id)) {
-      return NextResponse.json({ text: cache.get(params.id) });
-    }
-
-    return NextResponse.json({ error: "Contract not found" }, { status: 404 });
-  } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch contract" },
-      { status: 500 }
-    );
-  }
-}
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = await request.json();
-
-    // Check cache
-    const cacheKey = prompt;
-    if (cache.has(cacheKey)) {
-      return NextResponse.json({ text: cache.get(cacheKey) });
-    }
+    const data = await request.json();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.7,
       messages: [
         {
           role: "system",
           content:
-            "You are a professional contract generator. Create clear, concise contracts without repetition. Use proper formatting and clear section breaks.",
+            "Generate a professional Contract. Format each section with a clear header.",
         },
         {
           role: "user",
-          content: `Create a professional contract with the following structure:
+          content: `Create a contract for:
+            Project: ${data.projectBrief}
+            Technical Scope: ${data.techStack}
+            Timeline: ${data.startDate || "TBD"} to ${data.endDate || "TBD"}
+            PDF: ${data.pdf || "TBD"}
+            
+            Imagine you are a lawyer and you are writing a contract for a client that specializes in ${
+              data.techStack
+            }, and is in the Design/Development/NoCode Designer space. Always use best practices for the industry.
 
-1. Title and Parties
-2. Project Scope
-3. Timeline
-4. Payment Terms
-5. Technical Specifications
-6. Terms and Conditions
-7. Signatures
+            Make sure you include all the sections and information that are provided. Always make sure the title is something related to the inputs if there are any.
+            
+            Make sure the format is as follows:
+            1. Title
+            2. Project Brief
+            3. Tech Stack
+            4. Timeline
+            5. Payment Terms
+            6. Confidentiality
+            7. Termination
+            
+            Do not include signatures or dates.`,
+        },
+      ],
+      temperature: 0.7,
+    });
 
-Use this information:
-${prompt}
+    const contractText = completion.choices[0].message.content;
 
-Important: Ensure no text duplication and maintain professional formatting.`,
+    // Convert the response into EditorJS blocks
+    const lines = contractText.split("\n").filter((line) => line.trim());
+    const blocks = [];
+
+    lines.forEach((line) => {
+      const cleanLine = line.replace(/\*\*/g, "").replace(/#/g, "").trim();
+
+      // First line is always H1 title
+      if (blocks.length === 0) {
+        blocks.push({
+          type: "header",
+          data: {
+            text: cleanLine,
+            level: 1,
+          },
+        });
+      }
+      // Section headers
+      else if (line.match(/^(\d+\.|##|#)\s+/)) {
+        blocks.push({
+          type: "header",
+          data: {
+            text: cleanLine.replace(/^\d+\.\s*/, ""),
+            level: 2,
+          },
+        });
+      }
+      // Bullet points with minimal spacing
+      else if (line.match(/^\s*-\s+/)) {
+        // Check if previous block was a list to combine bullets
+        const prevBlock = blocks[blocks.length - 1];
+        if (prevBlock && prevBlock.type === "list") {
+          prevBlock.data.items.push(cleanLine.replace(/^\s*-\s+/, ""));
+        } else {
+          blocks.push({
+            type: "list",
+            data: {
+              style: "unordered",
+              items: [cleanLine.replace(/^\s*-\s+/, "")],
+            },
+          });
+        }
+      }
+      // Regular paragraphs
+      else {
+        blocks.push({
+          type: "paragraph",
+          data: {
+            text: cleanLine,
+          },
+        });
+      }
+    });
+
+    return NextResponse.json({ blocks });
+  } catch (error) {
+    console.error("Contract generation failed:", error);
+    return NextResponse.json({
+      blocks: [
+        {
+          type: "header",
+          data: {
+            text: "Error Generating Contract",
+            level: 1,
+          },
+        },
+        {
+          type: "paragraph",
+          data: {
+            text: "Failed to generate contract. Please try again.",
+          },
         },
       ],
     });
-
-    // Clean up the response text
-    let text = completion.choices[0].message.content;
-    text = text
-      .replace(/\[\[.*?\]\]/g, "") // Remove double brackets
-      .replace(/\s+/g, " ") // Remove extra spaces
-      .replace(/(\w+)\s+\1/g, "$1"); // Remove consecutive duplicate words
-
-    // Cache the result
-    cache.set(cacheKey, text);
-
-    return NextResponse.json({ text });
-  } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate contract" },
-      { status: 500 }
-    );
   }
 }

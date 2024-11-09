@@ -14,7 +14,7 @@ export default function Button({
   onClick,
 }: ButtonProps) {
   const baseClasses =
-    "inline-flex justify-center items-center gap-3 rounded-lg bg-[#323232] text-white hover:bg-[#454545] transition-all duration-200 ease-in-out shadow-sm hover:shadow-md";
+    "inline-flex justify-center items-center gap-3 rounded-lg bg-[#323232] text-white hover:bg-[#454545] transition-all duration-200 ease-in-out shadow-sm hover:shadow-lg";
   const sizeClasses = {
     xs: "px-2 py-1 text-xs",
     sm: "px-2 py-1 text-sm",

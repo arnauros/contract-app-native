@@ -29,17 +29,26 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
   const handleSubmit = async () => {
     const mockContractId = Math.random().toString(36).substr(2, 9);
 
-    // Save initial form data without the generated contract
+    // Format the data properly before saving
+    const contractData = {
+      projectBrief: formData.projectBrief || "",
+      techStack: formData.techStack || "The tech stack includes ",
+      startDate: formData.startDate || "",
+      endDate: formData.endDate || "",
+      attachments: formData.attachments.map((att) => ({
+        summary: att.summary || "",
+        type: att.type || "brief",
+      })),
+      status: "draft",
+      id: mockContractId,
+    };
+
+    // Save with proper formatting
     localStorage.setItem(
-      `contract_${mockContractId}`,
-      JSON.stringify({
-        ...formData,
-        status: "generating", // Add status to track generation state
-        id: mockContractId,
-      })
+      `contract-${mockContractId}`,
+      JSON.stringify(contractData)
     );
 
-    // Navigate immediately
     router.push(`/Contracts/${mockContractId}`);
   };
 
