@@ -251,7 +251,7 @@ body {
 
 .block-menu-container {
   position: absolute;
-  left: -48px;
+  left: -88px;
   top: 50%;
   transform: translateY(-50%);
   width: 40px;
@@ -373,10 +373,14 @@ body {
 
 .audit-highlight {
   position: relative !important;
+  display: inline-block !important;
   background-color: rgba(59, 130, 246, 0.05) !important;
   border-left: 3px solid rgb(59, 130, 246) !important;
-  padding-left: 12px !important;
+  padding: 8px !important;
+  margin-left: 80px !important;
   transition: background-color 0.3s ease !important;
+  width: fit-content !important;
+  max-width: fit-content !important;
 }
 
 .audit-highlight:hover {
@@ -449,16 +453,6 @@ body {
   font-size: 0.875rem;
 }
 
-/* Make sure these styles are not being overridden */
-.audit-highlight {
-  position: relative !important;
-  background-color: rgba(59, 130, 246, 0.1) !important;
-  border-radius: 4px !important;
-  padding: 8px !important;
-  margin: -8px !important;
-  transition: background-color 0.3s ease !important;
-}
-
 .ce-block {
   position: relative;
   margin: 0.5rem 0;
@@ -466,13 +460,13 @@ body {
 
 /* Add z-index to ensure highlights are visible */
 .ce-block.audit-highlight {
-  z-index: 1;
+  z-index: 0;
 }
 
 /* Color-coded highlights for the document */
 .audit-highlight {
   position: relative !important;
-  padding-left: 12px !important;
+  padding-left: 10px !important;
   transition: all 0.3s ease !important;
 }
 
@@ -515,4 +509,11 @@ body {
 .audit-highlight-upsell:hover,
 .audit-highlight-upsell.focused {
   background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+.ce-toolbar__actions {
+  position: absolute;
+  right: 100%;
+  display: flex;
+  padding-right: 20px; /* Changed from 5px */
 }
