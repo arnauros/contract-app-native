@@ -1,7 +1,9 @@
+/* Base Tailwind imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Root variables and theme */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -15,6 +17,8 @@
   }
 }
 
+/* Global styles */
+html,
 body {
   height: 100%;
   margin: 0;
@@ -23,12 +27,7 @@ body {
   font-family: var(--font-family);
 }
 
-.common-topbar {
-  height: 40px;
-  width: 100%;
-  background-color: var(--background);
-}
-
+/* Animation */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -40,21 +39,36 @@ body {
   }
 }
 
+@keyframes subtlePulse {
+  0% {
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  100% {
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+}
+
 .animate-fade-in {
   opacity: 0;
   animation: fadeIn 0.7s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
 
-html,
-body {
-  height: 100%;
-  margin: 0;
+/* Layout components */
+.common-topbar {
+  height: 40px;
+  width: 100%;
+  background-color: var(--background);
 }
 
-/* Add this to your existing globals.css */
+/* ProseMirror core styles */
 .ProseMirror {
+  position: relative;
   min-height: 200px;
   padding: 1rem;
+  padding-left: 55px !important;
   border: 1px solid #e5e7eb;
   border-radius: 0.375rem;
 
@@ -66,46 +80,65 @@ body {
   > * + * {
     margin-top: 0.75em;
   }
-
-  p {
-    margin: 0;
-  }
-
-  ul,
-  ol {
-    padding: 0 1rem;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    line-height: 1.1;
-  }
-
-  code {
-    background-color: rgba(97, 97, 97, 0.1);
-    color: #616161;
-  }
-
-  position: relative;
-  padding-left: 48px !important; /* Increased padding for menu */
 }
 
+/* ProseMirror block elements */
 .ProseMirror > * {
   position: relative !important;
   margin: 0.5rem 0;
 }
 
-.ProseMirror > *.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
+.ProseMirror p.is-empty::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
-.ProseMirror > *.drop-target {
+/* Block menu and drag handle */
+.block-menu {
+  position: absolute;
+  left: -2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 99999 !important;
+}
+
+.block-menu button {
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.drag-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Hover states */
+.ProseMirror > *:hover {
   position: relative;
+  z-index: 99998;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 3px;
+}
+
+.ProseMirror > *:hover .block-menu,
+.ProseMirror > *:hover .block-menu button,
+.ProseMirror > *:hover .drag-handle {
+  opacity: 1;
+}
+
+/* Drag and drop styles */
+.ProseMirror > *.dragging {
+  background: #f3f4f6;
+  opacity: 0.5;
+  cursor: grabbing;
 }
 
 .ProseMirror > *.drop-target::before {
@@ -119,242 +152,11 @@ body {
   pointer-events: none;
 }
 
-.ProseMirror p.is-empty::before {
-  color: #adb5bd;
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
-}
-
-.ProseMirror > *:hover::before {
-  content: "";
-  position: absolute;
-  left: -3rem;
-  right: 0;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 0.25rem;
-  pointer-events: none;
-}
-
-.drag-handle {
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.ProseMirror > *:hover .drag-handle {
-  opacity: 1;
-}
-
-/* Block menu container */
-.block-menu {
-  position: absolute;
-  left: -2.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  z-index: 10;
-}
-
-/* Show block menu on hover */
-.ProseMirror > *:hover .block-menu {
-  opacity: 1;
-}
-
-/* Menu buttons */
-.block-menu button {
-  padding: 2px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  opacity: 0;
-}
-
-.ProseMirror > *:hover .block-menu button {
-  opacity: 1;
-}
-
-/* Dragging styles */
-.ProseMirror > *.dragging {
-  background: #f3f4f6;
-  opacity: 0.5;
-  cursor: grabbing;
-  position: relative;
-}
-
-/* Drop target indicator */
-.ProseMirror > *.drop-target::before {
-  content: "";
-  position: absolute;
-  left: -3rem;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
-  top: -1px;
-}
-
-/* Placeholder text */
-.ProseMirror p.is-empty::before {
-  color: #adb5bd;
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
-}
-
-/* Hover state for blocks */
-.ProseMirror > *:hover {
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 3px;
-}
-
-/* Dragging state */
-.ProseMirror > *.dragging {
-  background: #f3f4f6;
-  opacity: 0.5;
-  cursor: grabbing;
-}
-
-/* Drop target indicator */
-.ProseMirror > *.drop-target::before {
-  content: "";
-  position: absolute;
-  left: -3rem;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
-  top: -1px;
-}
-
-/* Debug styles */
-.ProseMirror > *::before {
-  content: "";
-  position: absolute;
-  left: -48px;
-  width: 40px;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.05);
-  pointer-events: none;
-}
-
-.ProseMirror {
-  position: relative;
-  padding-left: 48px !important;
-}
-
-.ProseMirror > * {
-  position: relative;
-  margin: 0.5rem 0;
-}
-
-.block-menu-container {
-  position: absolute;
-  left: -88px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  gap: 0.5px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.ProseMirror > *:hover .block-menu-container {
-  opacity: 1;
-}
-
-/* Dragging styles */
-.ProseMirror > *.dragging {
-  background: #f3f4f6;
-  opacity: 0.5;
-}
-
-.ProseMirror > *.drop-target::before {
-  content: "";
-  position: absolute;
-  left: -48px;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
-  top: -1px;
-}
-
-/* .ProseMirror {
-  position: relative;
-  padding-left: 48px !important;
-} */
-
-.block-container {
-  position: relative;
-  margin: 0.5rem 0;
-  transition: all 0.2s ease;
-}
-
-.block-content {
-  position: relative;
-}
-
-.block-menu {
-  position: absolute;
-  left: -48px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.block-container:hover .block-menu {
-  opacity: 1;
-}
-
-.block-menu svg {
-  color: #9ca3af;
-}
-
-.block-container.dragging {
-  opacity: 0.5;
-  background: #f3f4f6;
-  cursor: grabbing;
-}
-
-.block-container.drop-target::before {
-  content: "";
-  position: absolute;
-  left: -48px;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
-  top: -1px;
-  pointer-events: none;
-}
-
-.block-wrapper {
-  position: relative;
-  padding-left: 48px;
-}
-
-.block-content {
-  position: relative;
-}
-
-.ProseMirror {
-  position: relative;
-}
-
-/* Rest of your existing BlockMenu styles */
-
-/* Adjust list item spacing */
+/* List styles */
 .cdx-list {
   padding: 0 !important;
   margin: 0.5rem 0 !important;
-  padding-left: 1.5rem !important; /* Match the paragraph left margin */
+  padding-left: 1.5rem !important;
 }
 
 .cdx-list__item {
@@ -363,7 +165,6 @@ body {
   padding-left: 0.5rem !important;
 }
 
-/* Adjust bullet point position */
 .cdx-list--unordered .cdx-list__item:before {
   top: 0.5rem !important;
   left: 0 !important;
@@ -371,126 +172,41 @@ body {
   margin-right: 0.25rem !important;
 }
 
+/* Audit highlight styles */
 .audit-highlight {
   position: relative !important;
   display: inline-block !important;
-  background-color: rgba(59, 130, 246, 0.05) !important;
-  border-left: 3px solid rgb(59, 130, 246) !important;
-  padding: 8px !important;
+  padding-left: 8px !important;
   margin-left: 80px !important;
   transition: background-color 0.3s ease !important;
   width: fit-content !important;
   max-width: fit-content !important;
-}
-
-.audit-highlight:hover {
-  background-color: rgba(59, 130, 246, 0.1) !important;
-}
-
-/* Add a subtle pulse animation to newly highlighted sections */
-@keyframes subtlePulse {
-  0% {
-    background-color: rgba(59, 130, 246, 0.05);
-  }
-  50% {
-    background-color: rgba(59, 130, 246, 0.1);
-  }
-  100% {
-    background-color: rgba(59, 130, 246, 0.05);
-  }
-}
-
-.audit-highlight {
+  z-index: 1;
   animation: subtlePulse 2s ease-in-out 1;
 }
 
-/* When clicking a suggestion, make that highlight more prominent */
-.audit-highlight.focused {
-  background-color: rgba(59, 130, 246, 0.15) !important;
-  border-left-width: 4px !important;
-}
-
-.audit-highlight-word {
-  background-color: rgba(59, 130, 246, 0.2);
-  border-bottom: 2px solid rgb(59, 130, 246);
-  border-radius: 2px;
-  padding: 2px 0;
-  transition: background-color 0.3s ease;
-}
-
-/* Ensure highlights are visible above other content */
-.audit-highlight,
-.audit-highlight-word {
-  z-index: 1;
-}
-
-.audit-highlight-word[data-highlight-text]::after {
-  content: attr(data-highlight-text);
-  position: absolute;
-  background-color: rgba(59, 130, 246, 0.2);
-  border-bottom: 2px solid rgb(59, 130, 246);
-  border-radius: 2px;
-}
-
-/* Update suggestion card styles */
-.suggestion-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-}
-
-.suggestion-card .issue-text {
-  font-weight: 500;
-  color: #374151;
-}
-
-.suggestion-card .suggestion-text {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.ce-block {
-  position: relative;
-  margin: 0.5rem 0;
-}
-
-/* Add z-index to ensure highlights are visible */
-.ce-block.audit-highlight {
-  z-index: 0;
-}
-
-/* Color-coded highlights for the document */
-.audit-highlight {
-  position: relative !important;
-  padding-left: 10px !important;
-  transition: all 0.3s ease !important;
-}
-
+/* Audit highlight variants */
 .audit-highlight-general {
-  background-color: rgba(245, 158, 11, 0.05) !important; /* amber/orange */
+  background-color: rgba(245, 158, 11, 0.05) !important;
   border-left: 3px solid rgb(245, 158, 11) !important;
 }
 
 .audit-highlight-rewording {
-  background-color: rgba(168, 85, 247, 0.05) !important; /* purple */
+  background-color: rgba(168, 85, 247, 0.05) !important;
   border-left: 3px solid rgb(168, 85, 247) !important;
 }
 
 .audit-highlight-spelling {
-  background-color: rgba(239, 68, 68, 0.05) !important; /* red */
+  background-color: rgba(239, 68, 68, 0.05) !important;
   border-left: 3px solid rgb(239, 68, 68) !important;
 }
 
 .audit-highlight-upsell {
-  background-color: rgba(34, 197, 94, 0.05) !important; /* green */
+  background-color: rgba(34, 197, 94, 0.05) !important;
   border-left: 3px solid rgb(34, 197, 94) !important;
 }
 
-/* Hover/focus states */
+/* Audit highlight hover states */
 .audit-highlight-general:hover,
 .audit-highlight-general.focused {
   background-color: rgba(245, 158, 11, 0.1) !important;
@@ -511,9 +227,63 @@ body {
   background-color: rgba(34, 197, 94, 0.1) !important;
 }
 
-.ce-toolbar__actions {
-  position: absolute;
-  right: 100%;
+/* Suggestion card styles */
+.suggestion-card {
   display: flex;
-  padding-right: 20px; /* Changed from 5px */
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+}
+
+.suggestion-card .issue-text {
+  font-weight: 500;
+  color: #374151;
+}
+
+.suggestion-card .suggestion-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.ce-header {
+  padding: 0.6em 0 1rem !important;
+}
+
+.ce-toolbar__actions {
+  padding-right: 10px !important;
+}
+
+/* Add these styles */
+.fixed-layout {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.fixed-content {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  overflow: hidden;
+}
+
+.fixed-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.scrollable-content {
+  overflow-y: auto;
+  height: 100%;
+  padding: 0;
+}
+
+/* If you need padding only for specific content inside */
+.content-wrapper {
+  padding: 1rem;
 }

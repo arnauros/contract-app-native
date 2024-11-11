@@ -6,7 +6,7 @@ import {
   InformationCircleIcon,
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface AuditIssue {
   type: "spelling" | "rewording" | "upsell" | "general";
@@ -44,6 +44,7 @@ export function ContractAudit({
 }: ContractAuditProps) {
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastScannedContent, setLastScannedContent] = useState<string>("");
 
   // Function to highlight all issues simultaneously
   const highlightAllIssues = (issues: AuditIssue[]) => {
@@ -70,45 +71,62 @@ export function ContractAudit({
     });
   };
 
-  const scanDocument = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/auditContract", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ blocks: editorContent.blocks }),
-      });
+  // Debounced scan function using useCallback
+  const debouncedScanDocument = useCallback(
+    async (content: any) => {
+      // Convert content to string for comparison
+      const contentString = JSON.stringify(content);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Check if content has changed
+      if (contentString === lastScannedContent) {
+        return;
       }
 
-      const data = await response.json();
-      setAuditData(data);
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/auditContract", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ blocks: content.blocks }),
+        });
 
-      // Highlight all issues immediately when data loads
-      if (data?.issues?.length > 0) {
-        highlightAllIssues(data.issues);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setAuditData(data);
+        setLastScannedContent(contentString);
+
+        // Highlight all issues immediately when data loads
+        if (data?.issues?.length > 0) {
+          highlightAllIssues(data.issues);
+        }
+      } catch (error) {
+        console.error("Audit failed:", error);
+        setAuditData({
+          issues: [],
+          summary: { total: 0, rewordings: 0, spelling: 0, upsell: 0 },
+        });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Audit failed:", error);
-      setAuditData({
-        issues: [],
-        summary: { total: 0, rewordings: 0, spelling: 0, upsell: 0 },
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [lastScannedContent]
+  );
 
-  // Run audit when editor content changes
+  // Use effect with debounce
   useEffect(() => {
     if (editorContent?.blocks) {
-      scanDocument();
+      const timeoutId = setTimeout(() => {
+        debouncedScanDocument(editorContent);
+      }, 1000); // 1 second debounce
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [editorContent]);
+  }, [editorContent, debouncedScanDocument]);
 
   // Add this helper function to get colors based on type
   const getTypeStyles = (type: string) => {
@@ -131,9 +149,9 @@ export function ContractAudit({
   };
 
   return (
-    <div className="space-y-4 max-h-[calc(100vh-180px)] overflow-y-auto">
-      {/* Summary Card */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 sticky top-0">
+    <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">
+      {/* Summary Card - Now outside of scroll container */}
+      <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-200 p-6 flex-shrink-0">
         <h2 className="text-gray-900 text-xl font-semibold mb-4">
           Contract Audit
         </h2>
@@ -182,34 +200,36 @@ export function ContractAudit({
         </button>
       </div>
 
-      {/* Suggestions Card */}
+      {/* Suggestions Card - Now in scrollable container */}
       {!isLoading && auditData?.issues && auditData.issues.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <h2 className="text-gray-700 text-lg font-medium mb-4 flex items-center gap-2">
-            <LightBulbIcon className="w-5 h-5 text-amber-500" />
-            Suggestions
-          </h2>
-          <div className="space-y-4">
-            {auditData.issues
-              .sort((a, b) => a.position.blockIndex - b.position.blockIndex)
-              .map((issue, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg cursor-pointer hover:opacity-90 transition-colors ${getTypeStyles(
-                    issue.type
-                  )}`}
-                  onClick={() => handleIssueClick(issue)}
-                >
-                  <div className="text-sm font-medium text-gray-900 mb-1">
-                    {issue.text}
-                  </div>
-                  {issue.suggestion && (
-                    <div className="text-sm text-gray-600">
-                      Suggestion: {issue.suggestion}
+        <div className="overflow-y-auto flex-grow">
+          <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-200 p-6">
+            <h2 className="text-gray-700 text-lg font-medium mb-4 flex items-center gap-2">
+              <LightBulbIcon className="w-5 h-5 text-amber-500" />
+              Suggestions
+            </h2>
+            <div className="space-y-4">
+              {auditData.issues
+                .sort((a, b) => a.position.blockIndex - b.position.blockIndex)
+                .map((issue, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg cursor-pointer hover:opacity-00 transition-colors ${getTypeStyles(
+                      issue.type
+                    )}`}
+                    onClick={() => handleIssueClick(issue)}
+                  >
+                    <div className="text-sm font-medium text-gray-900 mb-1">
+                      {issue.text}
                     </div>
-                  )}
-                </div>
-              ))}
+                    {issue.suggestion && (
+                      <div className="text-sm text-gray-600">
+                        Suggestion: {issue.suggestion}
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
       )}

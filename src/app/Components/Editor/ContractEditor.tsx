@@ -113,47 +113,49 @@ export function ContractEditor({
   };
 
   return (
-    <div className="max-w-4xl mx-auto relative">
-      <div className="px-8">
-        {/* Image with same padding as before */}
-        <div className="pt-[88px]">
-          <div
-            onClick={handleImageClick}
-            className="h-[8rem] w-[8rem] bg-gray-100 rounded-lg mb-12 ml-[90px] cursor-pointer overflow-hidden hover:opacity-90 transition-opacity relative"
-          >
-            {logoUrl === "/placeholder-logo.png" ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                <PhotoIcon className="h-6 w-6" />
-                <span className="text-[10px] mt-1">Add logo</span>
-              </div>
-            ) : (
-              <img
-                src={logoUrl}
-                alt="Contract logo"
-                className="w-full h-full object-cover"
+    <div className="content-wrapper">
+      <div className="max-w-4xl mx-auto relative">
+        <div className="px-8">
+          {/* Image with same padding as before */}
+          <div className="pt-[88px]">
+            <div
+              onClick={handleImageClick}
+              className="h-[8rem] w-[8rem] bg-gray-100 rounded-lg mb-12 ml-[90px] cursor-pointer overflow-hidden hover:opacity-90 transition-opacity relative"
+            >
+              {logoUrl === "/placeholder-logo.png" ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                  <PhotoIcon className="h-6 w-6" />
+                  <span className="text-[10px] mt-1">Add logo</span>
+                </div>
+              ) : (
+                <img
+                  src={logoUrl}
+                  alt="Contract logo"
+                  className="w-full h-full object-cover"
+                />
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
               />
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-            />
+            </div>
           </div>
+
+          {/* Rest of the editor */}
+          <div ref={containerRef} className="prose max-w-none" />
         </div>
 
-        {/* Rest of the editor */}
-        <div ref={containerRef} className="prose max-w-none" />
-      </div>
-
-      {/* Contract Audit Panel - Fixed position */}
-      <div className="fixed right-8 top-32 w-80">
-        <ContractAudit
-          editorContent={editorContent}
-          onFixClick={() => onAuditFix?.()}
-          onIssueClick={highlightBlock}
-        />
+        {/* Contract Audit Panel - Fixed position */}
+        <div className="fixed right-8 top-32 w-80">
+          <ContractAudit
+            editorContent={editorContent}
+            onFixClick={() => onAuditFix?.()}
+            onIssueClick={highlightBlock}
+          />
+        </div>
       </div>
     </div>
   );

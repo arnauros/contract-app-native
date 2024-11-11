@@ -39,6 +39,8 @@ export async function POST(request: Request) {
             5. Payment Terms
             6. Confidentiality
             7. Termination
+
+            Only use headings for section titles, usually one or two words unless its the title of the contract.
             
             Do not include signatures or dates.
             

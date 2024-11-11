@@ -16,11 +16,13 @@ export default function RootLayout({ children }) {
         <title>My App</title>
       </head>
       <body className="bg-gray-100 text-gray-900">
-        <div className="flex flex-col h-screen">
+        <div className="fixed-layout">
           <Topbar pathname={pathname} />
-          <div className="flex flex-1">
-            <Sidebar />
-            <main className="flex-1 overflow-auto">{children}</main>
+          <div className="fixed-content">
+            <div className="fixed-sidebar">
+              <Sidebar />
+            </div>
+            <main className="scrollable-content">{children}</main>
           </div>
         </div>
       </body>
