@@ -11,17 +11,14 @@ export function ContractBlock({ block, issues, onClick }: ContractBlockProps) {
 
   return (
     <div className="relative group">
-      <div className="prose max-w-none">
-        {/* Your existing block rendering logic */}
-        {block.data?.text}
-      </div>
+      <div className="prose max-w-none">{block.data?.text}</div>
 
       {hasIssues && (
-        <button
+        <div
+          className="absolute -left-8 top-1/2 -translate-y-1/2"
           onClick={() => onClick(issues!)}
-          className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <div className="relative">
+          <div className="relative cursor-pointer">
             <ExclamationCircleIcon className="h-6 w-6 text-amber-500" />
             {issues!.length > 1 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
@@ -29,7 +26,7 @@ export function ContractBlock({ block, issues, onClick }: ContractBlockProps) {
               </span>
             )}
           </div>
-        </button>
+        </div>
       )}
     </div>
   );

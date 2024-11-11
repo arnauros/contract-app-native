@@ -45,6 +45,26 @@ export function ContractAudit({
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Function to highlight all issues simultaneously
+  const highlightAllIssues = (issues: AuditIssue[]) => {
+    // Remove any existing highlights first
+    document
+      .querySelectorAll(".audit-highlight, .audit-highlight-word")
+      .forEach((el) => {
+        el.classList.remove("audit-highlight", "audit-highlight-word");
+        el.removeAttribute("data-highlight-text");
+      });
+
+    // Add highlights to all relevant blocks
+    const blocks = document.querySelectorAll(".ce-block");
+    issues.forEach((issue) => {
+      const targetBlock = blocks[issue.position.blockIndex];
+      if (targetBlock) {
+        targetBlock.classList.add("audit-highlight");
+      }
+    });
+  };
+
   const scanDocument = async () => {
     try {
       setIsLoading(true);
@@ -61,24 +81,17 @@ export function ContractAudit({
       }
 
       const data = await response.json();
-
-      // Validate the response structure
-      if (!data || typeof data !== "object") {
-        throw new Error("Invalid response format");
-      }
-
       setAuditData(data);
+
+      // Highlight all issues immediately when data loads
+      if (data?.issues?.length > 0) {
+        highlightAllIssues(data.issues);
+      }
     } catch (error) {
       console.error("Audit failed:", error);
-      // Set empty audit data instead of null
       setAuditData({
         issues: [],
-        summary: {
-          total: 0,
-          rewordings: 0,
-          spelling: 0,
-          upsell: 0,
-        },
+        summary: { total: 0, rewordings: 0, spelling: 0, upsell: 0 },
       });
     } finally {
       setIsLoading(false);

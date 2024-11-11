@@ -372,12 +372,38 @@ body {
 }
 
 .audit-highlight {
-  position: relative;
-  background-color: rgba(59, 130, 246, 0.1) !important;
-  border-radius: 4px !important;
-  padding: 8px !important;
-  margin: -8px !important;
+  position: relative !important;
+  background-color: rgba(59, 130, 246, 0.05) !important;
+  border-left: 3px solid rgb(59, 130, 246) !important;
+  padding-left: 12px !important;
   transition: background-color 0.3s ease !important;
+}
+
+.audit-highlight:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Add a subtle pulse animation to newly highlighted sections */
+@keyframes subtlePulse {
+  0% {
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  100% {
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+}
+
+.audit-highlight {
+  animation: subtlePulse 2s ease-in-out 1;
+}
+
+/* When clicking a suggestion, make that highlight more prominent */
+.audit-highlight.focused {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-left-width: 4px !important;
 }
 
 .audit-highlight-word {

@@ -80,41 +80,23 @@ export function ContractEditor({
   };
 
   const highlightBlock = (position: any) => {
-    console.log("Highlighting block:", position); // Debug log
-
-    // Remove existing highlights
-    document
-      .querySelectorAll(".audit-highlight, .audit-highlight-word")
-      .forEach((el) => {
-        el.classList.remove("audit-highlight", "audit-highlight-word");
-        el.removeAttribute("data-highlight-text");
-      });
-
     // Find all editor blocks
     const editorElement = containerRef.current;
-    if (!editorElement) {
-      console.log("Editor element not found"); // Debug log
-      return;
-    }
+    if (!editorElement) return;
 
     const blocks = editorElement.querySelectorAll(".ce-block");
-    console.log("Found blocks:", blocks.length); // Debug log
+    if (!blocks || !position) return;
 
-    if (!blocks || !position) {
-      console.log("No blocks or position found"); // Debug log
-      return;
-    }
+    // Remove focused class from all blocks
+    blocks.forEach((block) => {
+      block.classList.remove("focused");
+    });
 
     const targetBlock = blocks[position.blockIndex];
-    console.log("Target block:", targetBlock); // Debug log
+    if (!targetBlock) return;
 
-    if (!targetBlock) {
-      console.log("Target block not found"); // Debug log
-      return;
-    }
-
-    // Add highlight class
-    targetBlock.classList.add("audit-highlight");
+    // Add focused class to the clicked suggestion's block
+    targetBlock.classList.add("focused");
 
     // Scroll into view
     targetBlock.scrollIntoView({
