@@ -349,3 +349,24 @@ body {
 }
 
 /* Rest of your existing BlockMenu styles */
+
+/* Adjust list item spacing */
+.cdx-list {
+  padding: 0 !important;
+  margin: 0.5rem 0 !important;
+  padding-left: 1.5rem !important; /* Match the paragraph left margin */
+}
+
+.cdx-list__item {
+  padding: 0.25rem 0 !important;
+  margin: 0 !important;
+  padding-left: 0.5rem !important;
+}
+
+/* Adjust bullet point position */
+.cdx-list--unordered .cdx-list__item:before {
+  top: 0.5rem !important;
+  left: 0 !important;
+  margin-top: 0 !important;
+  margin-right: 0.25rem !important;
+}

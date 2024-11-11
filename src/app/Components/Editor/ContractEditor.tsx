@@ -6,15 +6,19 @@ import List from "@editorjs/list";
 import Paragraph from "@editorjs/paragraph";
 import Image from "@editorjs/image";
 import { useEffect, useRef, useState } from "react";
+import { PhotoIcon } from "@heroicons/react/24/outline";
+import { ContractAudit } from "./ContractAudit";
 
 interface ContractEditorProps {
   formData: any;
   initialContent: any;
+  onAuditFix?: () => void;
 }
 
 export function ContractEditor({
   formData,
   initialContent,
+  onAuditFix,
 }: ContractEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorJS | null>(null);
@@ -62,28 +66,30 @@ export function ContractEditor({
       // For now, just create a local URL for preview
       const url = URL.createObjectURL(file);
       setLogoUrl(url);
-
-      // TODO: Add actual image upload functionality here
-      // const formData = new FormData();
-      // formData.append('file', file);
-      // const response = await fetch('/api/uploadImage', ...);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto relative">
       <div className="px-8">
-        {/* Image with same extra left padding */}
-        <div className="pt-[88px] pl-[48px]">
+        {/* Image with same padding as before */}
+        <div className="pt-[88px]">
           <div
             onClick={handleImageClick}
-            className="w-16 h-16 bg-gray-100 rounded-lg mb-12 cursor-pointer overflow-hidden hover:opacity-90 transition-opacity"
+            className="h-[8rem] w-[8rem] bg-gray-100 rounded-lg mb-12 ml-[90px] cursor-pointer overflow-hidden hover:opacity-90 transition-opacity relative"
           >
-            <img
-              src={logoUrl}
-              alt="Contract logo"
-              className="w-full h-full object-cover"
-            />
+            {logoUrl === "/placeholder-logo.png" ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                <PhotoIcon className="h-6 w-6" />
+                <span className="text-[10px] mt-1">Add logo</span>
+              </div>
+            ) : (
+              <img
+                src={logoUrl}
+                alt="Contract logo"
+                className="w-full h-full object-cover"
+              />
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -94,25 +100,18 @@ export function ContractEditor({
           </div>
         </div>
 
-        {/* EditorJS container */}
-        <div
-          ref={containerRef}
-          className="prose max-w-none
-            [&_.ProseMirror]:!pl-0
-            [&_.ce-block__content]:max-w-full
-            [&_.ce-header]:font-inter
-            [&_.ce-header]:text-gray-900
-            [&_.ce-header]:font-semibold
-            [&_.ce-paragraph]:text-gray-700
-            [&_.ce-paragraph]:leading-relaxed
-            [&_.cdx-list]:my-2
-            [&_.cdx-list]:text-gray-700
-            [&_.cdx-list__item]:pl-2
-            [&_.cdx-list]:text-base
-            [&_h1]:text-4xl
-            [&_h2]:text-2xl
-            [&_h2]:mt-8
-            [&_h2]:mb-4"
+        {/* Rest of the editor */}
+        <div ref={containerRef} className="prose max-w-none" />
+      </div>
+
+      {/* Add ContractAudit component */}
+      <div className="fixed right-8 top-32">
+        <ContractAudit
+          issues={18}
+          rewordings={10}
+          spellingErrors={2}
+          upsellPotentials={3}
+          onFixClick={() => onAuditFix?.()}
         />
       </div>
     </div>

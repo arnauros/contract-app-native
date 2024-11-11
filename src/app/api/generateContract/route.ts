@@ -75,21 +75,15 @@ export async function POST(request: Request) {
           },
         });
       }
-      // Bullet points with minimal spacing
+      // Bullet points
       else if (line.match(/^\s*-\s+/)) {
-        // Check if previous block was a list to combine bullets
-        const prevBlock = blocks[blocks.length - 1];
-        if (prevBlock && prevBlock.type === "list") {
-          prevBlock.data.items.push(cleanLine.replace(/^\s*-\s+/, ""));
-        } else {
-          blocks.push({
-            type: "list",
-            data: {
-              style: "unordered",
-              items: [cleanLine.replace(/^\s*-\s+/, "")],
-            },
-          });
-        }
+        blocks.push({
+          type: "list",
+          data: {
+            style: "unordered",
+            items: [cleanLine.replace(/^\s*-\s+/, "")],
+          },
+        });
       }
       // Regular paragraphs
       else {

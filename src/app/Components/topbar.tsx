@@ -24,18 +24,24 @@ export default function Topbar({ pathname }: TopbarProps) {
   const renderContent = () => {
     if (pathname.startsWith("/Contracts/")) {
       return (
-        <div className="flex items-center justify-center gap-4">
-          <div className="flex items-center gap-1 bg-green-100 rounded-md px-2 py-1">
-            <span>1</span>
-            <span>Draft & Edit</span>
+        <div className="flex items-center h-10 justify-center gap-2 px-1 bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3 h-8 bg-[#E5FFE7] border border-gray-100 rounded-md px-1">
+            <span className="flex items-center justify-center w-6 h-6 bg-white rounded-md text-sm font-medium shadow-sm">
+              1
+            </span>
+            <span className="text-sm font-medium pr-2">Draft & Edit</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span>2</span>
-            <span>Sign</span>
+          <div className="flex items-center gap-3 h-8 px-1">
+            <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+              2
+            </span>
+            <span className="text-sm font-medium">Sign</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span>3</span>
-            <span>Send</span>
+          <div className="flex items-center gap-3 h-8 px-1">
+            <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+              3
+            </span>
+            <span className="text-sm font-medium">Send</span>
           </div>
         </div>
       );
@@ -62,7 +68,7 @@ export default function Topbar({ pathname }: TopbarProps) {
           className="h-8 w-auto"
         />
         {pathname.startsWith("/Contracts/") && (
-          <span className="text-gray-500 mx-4">{getBreadcrumb()}</span>
+          <span className="text-gray-500 text-sm mx-4">{getBreadcrumb()}</span>
         )}
         <div className="flex-1 flex justify-center">{renderContent()}</div>
         {pathname.startsWith("/Contracts/") && (
