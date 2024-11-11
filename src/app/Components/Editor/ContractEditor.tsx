@@ -24,7 +24,9 @@ export function ContractEditor({
   const editorRef = useRef<EditorJS | null>(null);
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.png");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editorContent, setEditorContent] = useState(null);
 
+  // Initialize editor with change handler
   useEffect(() => {
     if (editorRef.current || !containerRef.current) return;
 
@@ -44,6 +46,16 @@ export function ContractEditor({
         },
       },
       data: initialContent,
+      onChange: async (api) => {
+        const content = await api.saver.save();
+        setEditorContent(content);
+      },
+      onReady: () => {
+        // Initial content load
+        if (initialContent) {
+          setEditorContent(initialContent);
+        }
+      },
     });
 
     editorRef.current = editor;
@@ -54,7 +66,7 @@ export function ContractEditor({
         editorRef.current = null;
       }
     };
-  }, []);
+  }, [initialContent]);
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -107,10 +119,7 @@ export function ContractEditor({
       {/* Add ContractAudit component */}
       <div className="fixed right-8 top-32">
         <ContractAudit
-          issues={18}
-          rewordings={10}
-          spellingErrors={2}
-          upsellPotentials={3}
+          editorContent={editorContent}
           onFixClick={() => onAuditFix?.()}
         />
       </div>
