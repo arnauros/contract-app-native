@@ -24,7 +24,7 @@ export function ContractEditor({
   const editorRef = useRef<EditorJS | null>(null);
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.png");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editorContent, setEditorContent] = useState(null);
+  const [editorContent, setEditorContent] = useState(initialContent);
 
   // Initialize editor with change handler
   useEffect(() => {
@@ -46,15 +46,13 @@ export function ContractEditor({
         },
       },
       data: initialContent,
+      onReady: () => {
+        // Start audit immediately when editor is ready
+        setEditorContent(initialContent);
+      },
       onChange: async (api) => {
         const content = await api.saver.save();
         setEditorContent(content);
-      },
-      onReady: () => {
-        // Initial content load
-        if (initialContent) {
-          setEditorContent(initialContent);
-        }
       },
     });
 
@@ -79,6 +77,50 @@ export function ContractEditor({
       const url = URL.createObjectURL(file);
       setLogoUrl(url);
     }
+  };
+
+  const highlightBlock = (position: any) => {
+    console.log("Highlighting block:", position); // Debug log
+
+    // Remove existing highlights
+    document
+      .querySelectorAll(".audit-highlight, .audit-highlight-word")
+      .forEach((el) => {
+        el.classList.remove("audit-highlight", "audit-highlight-word");
+        el.removeAttribute("data-highlight-text");
+      });
+
+    // Find all editor blocks
+    const editorElement = containerRef.current;
+    if (!editorElement) {
+      console.log("Editor element not found"); // Debug log
+      return;
+    }
+
+    const blocks = editorElement.querySelectorAll(".ce-block");
+    console.log("Found blocks:", blocks.length); // Debug log
+
+    if (!blocks || !position) {
+      console.log("No blocks or position found"); // Debug log
+      return;
+    }
+
+    const targetBlock = blocks[position.blockIndex];
+    console.log("Target block:", targetBlock); // Debug log
+
+    if (!targetBlock) {
+      console.log("Target block not found"); // Debug log
+      return;
+    }
+
+    // Add highlight class
+    targetBlock.classList.add("audit-highlight");
+
+    // Scroll into view
+    targetBlock.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   };
 
   return (
@@ -116,11 +158,12 @@ export function ContractEditor({
         <div ref={containerRef} className="prose max-w-none" />
       </div>
 
-      {/* Add ContractAudit component */}
-      <div className="fixed right-8 top-32">
+      {/* Contract Audit Panel - Fixed position */}
+      <div className="fixed right-8 top-32 w-80">
         <ContractAudit
           editorContent={editorContent}
           onFixClick={() => onAuditFix?.()}
+          onIssueClick={highlightBlock}
         />
       </div>
     </div>

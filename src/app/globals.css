@@ -370,3 +370,75 @@ body {
   margin-top: 0 !important;
   margin-right: 0.25rem !important;
 }
+
+.audit-highlight {
+  position: relative;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border-radius: 4px !important;
+  padding: 8px !important;
+  margin: -8px !important;
+  transition: background-color 0.3s ease !important;
+}
+
+.audit-highlight-word {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-bottom: 2px solid rgb(59, 130, 246);
+  border-radius: 2px;
+  padding: 2px 0;
+  transition: background-color 0.3s ease;
+}
+
+/* Ensure highlights are visible above other content */
+.audit-highlight,
+.audit-highlight-word {
+  z-index: 1;
+}
+
+.audit-highlight-word[data-highlight-text]::after {
+  content: attr(data-highlight-text);
+  position: absolute;
+  background-color: rgba(59, 130, 246, 0.2);
+  border-bottom: 2px solid rgb(59, 130, 246);
+  border-radius: 2px;
+}
+
+/* Update suggestion card styles */
+.suggestion-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+}
+
+.suggestion-card .issue-text {
+  font-weight: 500;
+  color: #374151;
+}
+
+.suggestion-card .suggestion-text {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+/* Make sure these styles are not being overridden */
+.audit-highlight {
+  position: relative !important;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border-radius: 4px !important;
+  padding: 8px !important;
+  margin: -8px !important;
+  transition: background-color 0.3s ease !important;
+}
+
+.ce-block {
+  position: relative;
+  margin: 0.5rem 0;
+}
+
+/* Add z-index to ensure highlights are visible */
+.ce-block.audit-highlight {
+  z-index: 1;
+}
