@@ -468,3 +468,51 @@ body {
 .ce-block.audit-highlight {
   z-index: 1;
 }
+
+/* Color-coded highlights for the document */
+.audit-highlight {
+  position: relative !important;
+  padding-left: 12px !important;
+  transition: all 0.3s ease !important;
+}
+
+.audit-highlight-general {
+  background-color: rgba(245, 158, 11, 0.05) !important; /* amber/orange */
+  border-left: 3px solid rgb(245, 158, 11) !important;
+}
+
+.audit-highlight-rewording {
+  background-color: rgba(168, 85, 247, 0.05) !important; /* purple */
+  border-left: 3px solid rgb(168, 85, 247) !important;
+}
+
+.audit-highlight-spelling {
+  background-color: rgba(239, 68, 68, 0.05) !important; /* red */
+  border-left: 3px solid rgb(239, 68, 68) !important;
+}
+
+.audit-highlight-upsell {
+  background-color: rgba(34, 197, 94, 0.05) !important; /* green */
+  border-left: 3px solid rgb(34, 197, 94) !important;
+}
+
+/* Hover/focus states */
+.audit-highlight-general:hover,
+.audit-highlight-general.focused {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+.audit-highlight-rewording:hover,
+.audit-highlight-rewording.focused {
+  background-color: rgba(168, 85, 247, 0.1) !important;
+}
+
+.audit-highlight-spelling:hover,
+.audit-highlight-spelling.focused {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.audit-highlight-upsell:hover,
+.audit-highlight-upsell.focused {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}

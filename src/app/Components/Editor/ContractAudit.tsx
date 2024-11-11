@@ -34,7 +34,7 @@ interface AuditResponse {
 interface ContractAuditProps {
   editorContent?: any;
   onFixClick: () => void;
-  onIssueClick: (blockIndex: number) => void;
+  onIssueClick: (blockIndex: number, type: string) => void;
 }
 
 export function ContractAudit({
@@ -48,19 +48,24 @@ export function ContractAudit({
   // Function to highlight all issues simultaneously
   const highlightAllIssues = (issues: AuditIssue[]) => {
     // Remove any existing highlights first
-    document
-      .querySelectorAll(".audit-highlight, .audit-highlight-word")
-      .forEach((el) => {
-        el.classList.remove("audit-highlight", "audit-highlight-word");
-        el.removeAttribute("data-highlight-text");
-      });
+    document.querySelectorAll(".ce-block").forEach((el) => {
+      el.classList.remove(
+        "audit-highlight",
+        "audit-highlight-general",
+        "audit-highlight-rewording",
+        "audit-highlight-spelling",
+        "audit-highlight-upsell",
+        "focused"
+      );
+    });
 
-    // Add highlights to all relevant blocks
+    // Add highlights to all relevant blocks with their specific types
     const blocks = document.querySelectorAll(".ce-block");
     issues.forEach((issue) => {
       const targetBlock = blocks[issue.position.blockIndex];
       if (targetBlock) {
         targetBlock.classList.add("audit-highlight");
+        targetBlock.classList.add(`audit-highlight-${issue.type}`);
       }
     });
   };
@@ -109,20 +114,19 @@ export function ContractAudit({
   const getTypeStyles = (type: string) => {
     switch (type) {
       case "spelling":
-        return "bg-red-50 border-l-4 border-red-400";
+        return "bg-red-50 border-l-4 border-red-500";
       case "rewording":
-        return "bg-blue-50 border-l-4 border-blue-400";
+        return "bg-purple-50 border-l-4 border-purple-500";
       case "upsell":
-        return "bg-green-50 border-l-4 border-green-400";
+        return "bg-green-50 border-l-4 border-green-500";
       default:
-        return "bg-gray-50 border-l-4 border-gray-400";
+        return "bg-amber-50 border-l-4 border-amber-500";
     }
   };
 
-  const handleIssueClick = (position: any) => {
-    console.log("Issue clicked:", position); // Debug log
+  const handleIssueClick = (issue: AuditIssue) => {
     if (typeof onIssueClick === "function") {
-      onIssueClick(position);
+      onIssueClick(issue.position, issue.type);
     }
   };
 
@@ -147,7 +151,7 @@ export function ContractAudit({
                 <span>{auditData?.summary.total || 0} suggestions found</span>
               </div>
               <div className="flex items-center gap-2">
-                <DocumentTextIcon className="w-5 h-5 text-blue-500" />
+                <DocumentTextIcon className="w-5 h-5 text-purple-500" />
                 <span>
                   {auditData?.summary.rewordings || 0} rewording recommended
                 </span>
@@ -182,31 +186,30 @@ export function ContractAudit({
       {!isLoading && auditData?.issues && auditData.issues.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <h2 className="text-gray-700 text-lg font-medium mb-4 flex items-center gap-2">
-            <LightBulbIcon className="w-5 h-5 text-yellow-500" />
+            <LightBulbIcon className="w-5 h-5 text-amber-500" />
             Suggestions
           </h2>
           <div className="space-y-4">
-            {auditData.issues.map((issue, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded-lg cursor-pointer hover:opacity-90 transition-colors ${getTypeStyles(
-                  issue.type
-                )}`}
-                onClick={() => {
-                  console.log("Clicking issue:", issue); // Debug log
-                  handleIssueClick(issue.position);
-                }}
-              >
-                <div className="text-sm font-medium text-gray-900 mb-1">
-                  {issue.text}
-                </div>
-                {issue.suggestion && (
-                  <div className="text-sm text-gray-600">
-                    Suggestion: {issue.suggestion}
+            {auditData.issues
+              .sort((a, b) => a.position.blockIndex - b.position.blockIndex)
+              .map((issue, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg cursor-pointer hover:opacity-90 transition-colors ${getTypeStyles(
+                    issue.type
+                  )}`}
+                  onClick={() => handleIssueClick(issue)}
+                >
+                  <div className="text-sm font-medium text-gray-900 mb-1">
+                    {issue.text}
                   </div>
-                )}
-              </div>
-            ))}
+                  {issue.suggestion && (
+                    <div className="text-sm text-gray-600">
+                      Suggestion: {issue.suggestion}
+                    </div>
+                  )}
+                </div>
+              ))}
           </div>
         </div>
       )}

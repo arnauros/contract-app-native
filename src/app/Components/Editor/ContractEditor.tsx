@@ -79,24 +79,30 @@ export function ContractEditor({
     }
   };
 
-  const highlightBlock = (position: any) => {
-    // Find all editor blocks
+  const highlightBlock = (position: any, type: string) => {
     const editorElement = containerRef.current;
     if (!editorElement) return;
 
     const blocks = editorElement.querySelectorAll(".ce-block");
     if (!blocks || !position) return;
 
-    // Remove focused class from all blocks
+    // Remove existing highlights from all blocks
     blocks.forEach((block) => {
-      block.classList.remove("focused");
+      block.classList.remove(
+        "audit-highlight",
+        "audit-highlight-general",
+        "audit-highlight-rewording",
+        "audit-highlight-spelling",
+        "audit-highlight-upsell"
+      );
     });
 
     const targetBlock = blocks[position.blockIndex];
     if (!targetBlock) return;
 
-    // Add focused class to the clicked suggestion's block
-    targetBlock.classList.add("focused");
+    // Add both the base highlight class and the type-specific class
+    targetBlock.classList.add("audit-highlight");
+    targetBlock.classList.add(`audit-highlight-${type}`);
 
     // Scroll into view
     targetBlock.scrollIntoView({
