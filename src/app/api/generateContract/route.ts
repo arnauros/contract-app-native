@@ -27,11 +27,11 @@ export async function POST(request: Request) {
             
             Imagine you are a lawyer and you are writing a contract for a client that specializes in ${
               data.techStack
-            }, and is in the Design/Development/NoCode Designer space. Always use best practices for the industry.
+            }, and is in the Design/Development/NoCode Designer space. Always use best practices for the industry. Make it as extensive as possible to protect the designer, without being too long.
 
             Make sure you include all the sections and information that are provided. Always make sure the title is something related to the inputs if there are any.
             
-            Make sure the format is as follows:
+            Make sure the format is as follows and uses headings for sections:
             1. Title
             2. Project Brief
             3. Tech Stack
@@ -40,7 +40,9 @@ export async function POST(request: Request) {
             6. Confidentiality
             7. Termination
             
-            Do not include signatures or dates.`,
+            Do not include signatures or dates.
+            
+            Never add in a line like this ---. Never end with a line after ---. Never use ALL CAPS.`,
         },
       ],
       temperature: 0.7,

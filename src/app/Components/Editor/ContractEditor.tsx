@@ -86,16 +86,17 @@ export function ContractEditor({
     const blocks = editorElement.querySelectorAll(".ce-block");
     if (!blocks || !position) return;
 
-    // Remove existing highlights from all blocks
-    blocks.forEach((block) => {
-      block.classList.remove(
+    // Find currently highlighted block and remove its highlight
+    const currentHighlight = editorElement.querySelector(".audit-highlight");
+    if (currentHighlight && currentHighlight !== blocks[position.blockIndex]) {
+      currentHighlight.classList.remove(
         "audit-highlight",
         "audit-highlight-general",
         "audit-highlight-rewording",
         "audit-highlight-spelling",
         "audit-highlight-upsell"
       );
-    });
+    }
 
     const targetBlock = blocks[position.blockIndex];
     if (!targetBlock) return;
