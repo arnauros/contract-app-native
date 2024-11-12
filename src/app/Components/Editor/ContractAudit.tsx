@@ -6,7 +6,7 @@ import {
   InformationCircleIcon,
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { debounce } from "lodash";
 
 interface AuditIssue {
@@ -48,12 +48,8 @@ export function ContractAudit({
   const [lastScannedContent, setLastScannedContent] = useState<string | null>(
     null
   );
-  const [completedSuggestions, setCompletedSuggestions] = useState<Set<string>>(
-    new Set()
-  );
-  const [highlightedBlocks, setHighlightedBlocks] = useState<Set<number>>(
-    new Set()
-  );
+  const scanInProgress = useRef(false);
+  const hasStoredSuggestions = useRef(false);
 
   const handleIssueClick = (issue: AuditIssue) => {
     console.log("🎯 Issue clicked:", issue);
@@ -80,24 +76,21 @@ export function ContractAudit({
   };
 
   const highlightBlock = (position: any, type: string) => {
-    if (!position?.blockIndex || position.blockIndex < 0) {
-      console.log("⚠️ Invalid block index:", position);
+    if (typeof position?.blockIndex !== "number" || position.blockIndex < 0) {
+      console.log("⚠️ Skipping invalid block index:", position);
       return;
     }
 
     console.log("🎨 Highlighting block:", { position, type });
 
     // Get the editor container
-    const editorElement = document.querySelector(".ce-block");
-    if (!editorElement) {
-      console.log("❌ Editor element not found");
+    const blocks = document.querySelectorAll(".ce-block");
+    if (!blocks?.length) {
+      console.log("❌ No editor blocks found");
       return;
     }
 
-    // Find all blocks
-    const blocks = document.querySelectorAll(".ce-block");
     const targetBlock = blocks[position.blockIndex];
-
     if (!targetBlock) {
       console.log("❌ Target block not found at index:", position.blockIndex);
       return;
@@ -105,15 +98,15 @@ export function ContractAudit({
 
     // Remove existing highlight classes
     targetBlock.classList.remove(
+      "audit-highlight",
       "audit-highlight-general",
       "audit-highlight-rewording",
       "audit-highlight-spelling",
       "audit-highlight-upsell"
     );
 
-    // Add new highlight class
-    targetBlock.classList.add("audit-highlight");
-    targetBlock.classList.add(`audit-highlight-${type}`);
+    // Add new highlight classes
+    targetBlock.classList.add("audit-highlight", `audit-highlight-${type}`);
 
     // Scroll block into view
     targetBlock.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -122,8 +115,15 @@ export function ContractAudit({
   };
 
   const highlightAllIssues = (issues: AuditIssue[]) => {
+    const blocks = document.querySelectorAll(".ce-block");
+    if (!blocks?.length) {
+      console.log("⏳ Editor not ready, skipping highlights");
+      return;
+    }
+
     console.log("🎨 Attempting to highlight all issues:", issues);
     issues.forEach((issue) => {
+      if (!issue?.position) return;
       console.log("📍 Highlighting block at index:", issue.position.blockIndex);
       highlightBlock(issue.position, issue.type);
     });
@@ -142,9 +142,46 @@ export function ContractAudit({
     }
   };
 
+  // Load stored suggestions once at mount
+  useEffect(() => {
+    const loadStoredSuggestions = async () => {
+      try {
+        const storedSuggestions = localStorage.getItem(
+          "contractAuditSuggestions"
+        );
+        if (!storedSuggestions) {
+          hasStoredSuggestions.current = false;
+          return;
+        }
+
+        const parsedSuggestions = JSON.parse(storedSuggestions);
+        console.log("📤 Loading stored suggestions:", parsedSuggestions);
+        hasStoredSuggestions.current = true;
+
+        // Wait for editor to be ready before highlighting
+        setTimeout(() => {
+          if (Array.isArray(parsedSuggestions)) {
+            highlightAllIssues(parsedSuggestions);
+          }
+        }, 500);
+      } catch (error) {
+        console.error("Error loading stored suggestions:", error);
+        hasStoredSuggestions.current = false;
+      }
+    };
+
+    loadStoredSuggestions();
+  }, []);
+
   const scanDocument = useCallback(
     async (content: any) => {
       if (!content?.blocks) return;
+
+      // Skip if we have stored suggestions and content hasn't changed
+      if (hasStoredSuggestions.current) {
+        console.log("📋 Using stored suggestions, skipping scan");
+        return;
+      }
 
       const contentString = JSON.stringify(content);
       if (contentString === lastScannedContent) {
@@ -152,7 +189,14 @@ export function ContractAudit({
         return;
       }
 
+      // Use ref to prevent concurrent scans
+      if (scanInProgress.current) {
+        console.log("🔄 Scan already in progress, skipping");
+        return;
+      }
+
       try {
+        scanInProgress.current = true;
         setIsLoading(true);
         console.log("🚀 Sending request to audit endpoint");
 
@@ -174,58 +218,53 @@ export function ContractAudit({
             "contractAuditSuggestions",
             JSON.stringify(data.issues)
           );
+          highlightAllIssues(data.issues);
         }
 
         setAuditData(data);
         setLastScannedContent(contentString);
-
-        if (data?.issues?.length > 0) {
-          highlightAllIssues(data.issues);
-        }
       } catch (error) {
         console.error("❌ Audit failed:", error);
       } finally {
         setIsLoading(false);
+        scanInProgress.current = false;
       }
     },
     [lastScannedContent]
   );
 
+  // Create stable debounced function
   const debouncedScanDocument = useMemo(
-    () => debounce(scanDocument, 1000),
+    () =>
+      debounce((content: any) => {
+        if (!scanInProgress.current) {
+          scanDocument(content);
+        }
+      }, 2000), // Increased to 2 seconds
     [scanDocument]
   );
 
-  useEffect(() => {
-    if (!editorContent || isLoading) return;
-
-    debouncedScanDocument(editorContent);
-
-    return () => {
-      debouncedScanDocument.cancel();
-    };
-  }, [editorContent, isLoading, debouncedScanDocument]);
-
-  useEffect(() => {
-    const loadStoredSuggestions = () => {
-      const storedSuggestions = localStorage.getItem(
-        "contractAuditSuggestions"
-      );
-      if (storedSuggestions) {
-        try {
-          const parsedSuggestions = JSON.parse(storedSuggestions);
-          console.log("📤 Loading stored suggestions:", parsedSuggestions);
-          // Optionally, you could set these to state if needed
-          // setInitialSuggestions(parsedSuggestions);
-        } catch (error) {
-          console.error("Error loading stored suggestions:", error);
-        }
+  // Clear stored suggestions when content changes significantly
+  const handleContentChange = useCallback(
+    (content: any) => {
+      const contentString = JSON.stringify(content);
+      if (contentString !== lastScannedContent) {
+        hasStoredSuggestions.current = false;
+        localStorage.removeItem("contractAuditSuggestions");
+        console.log("🔄 Content changed, cleared stored suggestions");
       }
-    };
+    },
+    [lastScannedContent]
+  );
 
-    // Run once on mount
-    loadStoredSuggestions();
-  }, []); // Empty dependency array ensures it only runs once
+  useEffect(() => {
+    if (!editorContent) return;
+    handleContentChange(editorContent);
+
+    if (!hasStoredSuggestions.current) {
+      debouncedScanDocument(editorContent);
+    }
+  }, [editorContent, debouncedScanDocument, handleContentChange]);
 
   return (
     <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">

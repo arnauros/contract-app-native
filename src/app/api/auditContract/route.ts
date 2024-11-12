@@ -36,7 +36,7 @@ const findBlockIndex = (
   section: string,
   targetText?: string
 ): number => {
-  console.log("Finding block for section:", section, "targetText:", targetText); // Debug log
+  if (!blocks?.length) return -1;
 
   // First try to find by exact text if provided
   if (targetText) {
@@ -45,27 +45,22 @@ const findBlockIndex = (
       const hasMatch = blockText
         .toLowerCase()
         .includes(targetText.toLowerCase());
-      console.log("Checking block:", blockText, "hasMatch:", hasMatch); // Debug log
-      return hasMatch;
+      return hasMatch && blockText.trim().length > 0;
     });
 
-    if (exactMatch !== -1) {
-      console.log("Found exact match at index:", exactMatch); // Debug log
-      return exactMatch;
-    }
+    if (exactMatch >= 0) return exactMatch;
   }
 
   // Then try to find by section header
   const sectionMatch = blocks.findIndex((block) => {
     const isHeader = block.type === "header";
     const text = (block.data?.text || "").toLowerCase();
-    const isMatch = isHeader && text.includes(section.toLowerCase());
-    console.log("Checking header:", text, "isMatch:", isMatch); // Debug log
-    return isMatch;
+    const sectionLower = section.toLowerCase();
+    return isHeader && text.includes(sectionLower);
   });
 
-  console.log("Final block index:", sectionMatch); // Debug log
-  return sectionMatch;
+  // Return the next block after the section header if found, or -1 if not found
+  return sectionMatch >= 0 ? sectionMatch + 1 : -1;
 };
 
 export async function POST(request: Request) {
