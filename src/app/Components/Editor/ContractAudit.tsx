@@ -6,7 +6,7 @@ import {
   InformationCircleIcon,
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { debounce } from "lodash";
 
 interface AuditIssue {
@@ -80,6 +80,11 @@ export function ContractAudit({
   };
 
   const highlightBlock = (position: any, type: string) => {
+    if (!position?.blockIndex || position.blockIndex < 0) {
+      console.log("⚠️ Invalid block index:", position);
+      return;
+    }
+
     console.log("🎨 Highlighting block:", { position, type });
 
     // Get the editor container
@@ -137,11 +142,11 @@ export function ContractAudit({
     }
   };
 
-  const debouncedScanDocument = useCallback(
-    debounce(async (content: any) => {
-      console.log("🔍 Scanning document with content:", content);
-      const contentString = JSON.stringify(content);
+  const scanDocument = useCallback(
+    async (content: any) => {
+      if (!content?.blocks) return;
 
+      const contentString = JSON.stringify(content);
       if (contentString === lastScannedContent) {
         console.log("📝 Content unchanged, skipping scan");
         return;
@@ -157,9 +162,8 @@ export function ContractAudit({
           body: JSON.stringify({ blocks: content.blocks }),
         });
 
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
-        }
 
         const data = await response.json();
         console.log("✅ Received audit data:", data);
@@ -176,39 +180,52 @@ export function ContractAudit({
         setLastScannedContent(contentString);
 
         if (data?.issues?.length > 0) {
-          console.log("🎯 Found issues, highlighting all:", data.issues);
           highlightAllIssues(data.issues);
         }
       } catch (error) {
         console.error("❌ Audit failed:", error);
-        setAuditData({
-          issues: [],
-          summary: { total: 0, rewordings: 0, spelling: 0, upsell: 0 },
-        });
       } finally {
         setIsLoading(false);
       }
-    }, 1000),
+    },
     [lastScannedContent]
   );
 
-  useEffect(() => {
-    console.log("📄 Editor content changed:", editorContent);
-    if (editorContent) {
-      console.log("🔄 Triggering scan with new content");
-      debouncedScanDocument(editorContent);
-    }
-  }, [editorContent, debouncedScanDocument]);
+  const debouncedScanDocument = useMemo(
+    () => debounce(scanDocument, 1000),
+    [scanDocument]
+  );
 
   useEffect(() => {
-    const storedSuggestions = localStorage.getItem("contractAuditSuggestions");
-    if (storedSuggestions) {
-      console.log(
-        "📤 Loading stored suggestions:",
-        JSON.parse(storedSuggestions)
+    if (!editorContent || isLoading) return;
+
+    debouncedScanDocument(editorContent);
+
+    return () => {
+      debouncedScanDocument.cancel();
+    };
+  }, [editorContent, isLoading, debouncedScanDocument]);
+
+  useEffect(() => {
+    const loadStoredSuggestions = () => {
+      const storedSuggestions = localStorage.getItem(
+        "contractAuditSuggestions"
       );
-    }
-  }, []);
+      if (storedSuggestions) {
+        try {
+          const parsedSuggestions = JSON.parse(storedSuggestions);
+          console.log("📤 Loading stored suggestions:", parsedSuggestions);
+          // Optionally, you could set these to state if needed
+          // setInitialSuggestions(parsedSuggestions);
+        } catch (error) {
+          console.error("Error loading stored suggestions:", error);
+        }
+      }
+    };
+
+    // Run once on mount
+    loadStoredSuggestions();
+  }, []); // Empty dependency array ensures it only runs once
 
   return (
     <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">
