@@ -86,30 +86,30 @@ export function ContractEditor({
     const blocks = editorElement.querySelectorAll(".ce-block");
     if (!blocks || !position) return;
 
-    // Find currently highlighted block and remove its highlight
-    const currentHighlight = editorElement.querySelector(".audit-highlight");
-    if (currentHighlight && currentHighlight !== blocks[position.blockIndex]) {
-      currentHighlight.classList.remove(
-        "audit-highlight",
-        "audit-highlight-general",
-        "audit-highlight-rewording",
-        "audit-highlight-spelling",
-        "audit-highlight-upsell"
-      );
-    }
-
     const targetBlock = blocks[position.blockIndex];
     if (!targetBlock) return;
 
-    // Add both the base highlight class and the type-specific class
-    targetBlock.classList.add("audit-highlight");
-    targetBlock.classList.add(`audit-highlight-${type}`);
+    if (!targetBlock.classList.contains("audit-highlight")) {
+      targetBlock.classList.add("audit-highlight");
+      targetBlock.classList.add(`audit-highlight-${type}`);
+    }
 
-    // Scroll into view
     targetBlock.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
+
+    const suggestionCard = document.querySelector(
+      `[data-issue-id="${position.id}"]`
+    );
+    if (suggestionCard) {
+      suggestionCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      suggestionCard.classList.add("suggestion-highlight");
+      setTimeout(
+        () => suggestionCard.classList.remove("suggestion-highlight"),
+        2000
+      );
+    }
   };
 
   return (

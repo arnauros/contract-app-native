@@ -287,3 +287,19 @@ body {
 .content-wrapper {
   padding: 1rem;
 }
+
+.suggestion-highlight {
+  animation: pulse 2s ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

@@ -44,91 +44,85 @@ export function ContractAudit({
 }: ContractAuditProps) {
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastScannedContent, setLastScannedContent] = useState<string>("");
+  const [lastScannedContent, setLastScannedContent] = useState<string | null>(
+    null
+  );
+  const [completedSuggestions, setCompletedSuggestions] = useState<Set<string>>(
+    new Set()
+  );
+  const [highlightedBlocks, setHighlightedBlocks] = useState<Set<number>>(
+    new Set()
+  );
 
-  // Function to highlight all issues simultaneously
-  const highlightAllIssues = (issues: AuditIssue[]) => {
-    // Remove any existing highlights first
-    document.querySelectorAll(".ce-block").forEach((el) => {
-      el.classList.remove(
-        "audit-highlight",
-        "audit-highlight-general",
-        "audit-highlight-rewording",
-        "audit-highlight-spelling",
-        "audit-highlight-upsell",
-        "focused"
+  const handleIssueClick = (issue: AuditIssue) => {
+    console.log("🎯 Issue clicked:", issue);
+
+    setHighlightedBlocks(
+      (prev) => new Set([...prev, issue.position.blockIndex])
+    );
+
+    if (onIssueClick) {
+      onIssueClick(issue.position, issue.type);
+    }
+
+    const suggestionCard = document.querySelector(
+      `[data-issue-id="${issue.id}"]`
+    );
+    if (suggestionCard) {
+      suggestionCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      suggestionCard.classList.add("suggestion-highlight");
+      setTimeout(
+        () => suggestionCard.classList.remove("suggestion-highlight"),
+        2000
       );
-    });
+    }
+  };
 
-    // Add highlights to all relevant blocks with their specific types
+  const highlightBlock = (position: any, type: string) => {
+    console.log("🎨 Highlighting block:", { position, type });
+
+    // Get the editor container
+    const editorElement = document.querySelector(".ce-block");
+    if (!editorElement) {
+      console.log("❌ Editor element not found");
+      return;
+    }
+
+    // Find all blocks
     const blocks = document.querySelectorAll(".ce-block");
+    const targetBlock = blocks[position.blockIndex];
+
+    if (!targetBlock) {
+      console.log("❌ Target block not found at index:", position.blockIndex);
+      return;
+    }
+
+    // Remove existing highlight classes
+    targetBlock.classList.remove(
+      "audit-highlight-general",
+      "audit-highlight-rewording",
+      "audit-highlight-spelling",
+      "audit-highlight-upsell"
+    );
+
+    // Add new highlight class
+    targetBlock.classList.add("audit-highlight");
+    targetBlock.classList.add(`audit-highlight-${type}`);
+
+    // Scroll block into view
+    targetBlock.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    console.log("✅ Successfully highlighted block:", targetBlock);
+  };
+
+  const highlightAllIssues = (issues: AuditIssue[]) => {
+    console.log("🎨 Attempting to highlight all issues:", issues);
     issues.forEach((issue) => {
-      const targetBlock = blocks[issue.position.blockIndex];
-      if (targetBlock) {
-        targetBlock.classList.add("audit-highlight");
-        targetBlock.classList.add(`audit-highlight-${issue.type}`);
-      }
+      console.log("📍 Highlighting block at index:", issue.position.blockIndex);
+      highlightBlock(issue.position, issue.type);
     });
   };
 
-  // Debounced scan function using useCallback
-  const debouncedScanDocument = useCallback(
-    async (content: any) => {
-      // Convert content to string for comparison
-      const contentString = JSON.stringify(content);
-
-      // Check if content has changed
-      if (contentString === lastScannedContent) {
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const response = await fetch("/api/auditContract", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ blocks: content.blocks }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setAuditData(data);
-        setLastScannedContent(contentString);
-
-        // Highlight all issues immediately when data loads
-        if (data?.issues?.length > 0) {
-          highlightAllIssues(data.issues);
-        }
-      } catch (error) {
-        console.error("Audit failed:", error);
-        setAuditData({
-          issues: [],
-          summary: { total: 0, rewordings: 0, spelling: 0, upsell: 0 },
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [lastScannedContent]
-  );
-
-  // Use effect with debounce
-  useEffect(() => {
-    if (editorContent?.blocks) {
-      const timeoutId = setTimeout(() => {
-        debouncedScanDocument(editorContent);
-      }, 1000); // 1 second debounce
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [editorContent, debouncedScanDocument]);
-
-  // Add this helper function to get colors based on type
   const getTypeStyles = (type: string) => {
     switch (type) {
       case "spelling":
@@ -142,15 +136,63 @@ export function ContractAudit({
     }
   };
 
-  const handleIssueClick = (issue: AuditIssue) => {
-    if (typeof onIssueClick === "function") {
-      onIssueClick(issue.position, issue.type);
+  const debouncedScanDocument = useCallback(
+    async (content: any) => {
+      console.log("🔍 Scanning document with content:", content);
+      const contentString = JSON.stringify(content);
+
+      if (contentString === lastScannedContent) {
+        console.log("📝 Content unchanged, skipping scan");
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        console.log("🚀 Sending request to audit endpoint");
+
+        const response = await fetch("/api/auditContract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blocks: content.blocks }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("✅ Received audit data:", data);
+
+        setAuditData(data);
+        setLastScannedContent(contentString);
+
+        if (data?.issues?.length > 0) {
+          console.log("🎯 Found issues, highlighting all:", data.issues);
+          highlightAllIssues(data.issues);
+        }
+      } catch (error) {
+        console.error("❌ Audit failed:", error);
+        setAuditData({
+          issues: [],
+          summary: { total: 0, rewordings: 0, spelling: 0, upsell: 0 },
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [lastScannedContent]
+  );
+
+  useEffect(() => {
+    console.log("📄 Editor content changed:", editorContent);
+    if (editorContent) {
+      console.log("🔄 Triggering scan with new content");
+      debouncedScanDocument(editorContent);
     }
-  };
+  }, [editorContent, debouncedScanDocument]);
 
   return (
     <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">
-      {/* Summary Card - Now outside of scroll container */}
       <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-200 p-6 flex-shrink-0">
         <h2 className="text-gray-900 text-xl font-semibold mb-4">
           Contract Audit
@@ -200,7 +242,6 @@ export function ContractAudit({
         </button>
       </div>
 
-      {/* Suggestions Card - Now in scrollable container */}
       {!isLoading && auditData?.issues && auditData.issues.length > 0 && (
         <div className="overflow-y-auto flex-grow">
           <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-200 p-6">
@@ -214,7 +255,8 @@ export function ContractAudit({
                 .map((issue, index) => (
                   <div
                     key={index}
-                    className={`p-3 rounded-lg cursor-pointer hover:opacity-00 transition-colors ${getTypeStyles(
+                    data-issue-id={issue.id}
+                    className={`p-3 rounded-lg cursor-pointer hover:opacity-90 transition-colors ${getTypeStyles(
                       issue.type
                     )}`}
                     onClick={() => handleIssueClick(issue)}
