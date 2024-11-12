@@ -7,6 +7,7 @@ import {
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, useCallback } from "react";
+import { debounce } from "lodash";
 
 interface AuditIssue {
   type: "spelling" | "rewording" | "upsell" | "general";
@@ -137,7 +138,7 @@ export function ContractAudit({
   };
 
   const debouncedScanDocument = useCallback(
-    async (content: any) => {
+    debounce(async (content: any) => {
       console.log("🔍 Scanning document with content:", content);
       const contentString = JSON.stringify(content);
 
@@ -163,6 +164,14 @@ export function ContractAudit({
         const data = await response.json();
         console.log("✅ Received audit data:", data);
 
+        if (data?.issues?.length > 0) {
+          console.log("💾 Storing suggestions:", data.issues);
+          localStorage.setItem(
+            "contractAuditSuggestions",
+            JSON.stringify(data.issues)
+          );
+        }
+
         setAuditData(data);
         setLastScannedContent(contentString);
 
@@ -179,7 +188,7 @@ export function ContractAudit({
       } finally {
         setIsLoading(false);
       }
-    },
+    }, 1000),
     [lastScannedContent]
   );
 
@@ -190,6 +199,16 @@ export function ContractAudit({
       debouncedScanDocument(editorContent);
     }
   }, [editorContent, debouncedScanDocument]);
+
+  useEffect(() => {
+    const storedSuggestions = localStorage.getItem("contractAuditSuggestions");
+    if (storedSuggestions) {
+      console.log(
+        "📤 Loading stored suggestions:",
+        JSON.parse(storedSuggestions)
+      );
+    }
+  }, []);
 
   return (
     <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">

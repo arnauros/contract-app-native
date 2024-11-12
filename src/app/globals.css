@@ -177,6 +177,7 @@ body {
   position: relative !important;
   display: inline-block !important;
   padding-left: 8px !important;
+  padding-right: 8px !important;
   margin-left: 80px !important;
   transition: background-color 0.3s ease !important;
   width: fit-content !important;
@@ -290,16 +291,4 @@ body {
 
 .suggestion-highlight {
   animation: pulse 2s ease-in-out;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
