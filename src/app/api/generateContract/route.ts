@@ -27,7 +27,15 @@ export async function POST(request: Request) {
             
             Imagine you are a lawyer and you are writing a contract for a client that specializes in ${
               data.techStack
-            }, and is in the Design/Development/NoCode Designer space. Always use best practices for the industry. Make it as extensive as possible to protect the designer, without being too long.
+            }, and is in the Design/Development/NoCode Designer space. 
+            
+            Use the details of the project and use online information to make it more accurate. 
+            
+            If the user does NOT provide pricing, use the average pricing for the industry as a fixed price, and if the user doesn't provide a timeline, use the average timeline for the industry, again with bolded text and in brackets with **(Suggested)**. If the user does provide pricing, use that instead.
+            
+            Always use best practices for the industry. Make it as extensive as possible to protect the designer, without being too long. 
+
+            Explain what the tech stack is used for, and what the project is about.
 
             Make sure you include all the sections and information that are provided. Always make sure the title is something related to the inputs if there are any.
             
@@ -39,6 +47,8 @@ export async function POST(request: Request) {
             5. Payment Terms
             6. Confidentiality
             7. Termination
+
+            Add any sections needed for the project that relate to the industry and stack. If its a design project, suggest a section for design assets. If its a development project, suggest a section for code, etc.
 
             Only use headings for section titles, usually one or two words unless its the title of the contract.
             

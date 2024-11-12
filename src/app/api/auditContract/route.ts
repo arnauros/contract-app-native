@@ -81,7 +81,7 @@ export async function POST(request: Request) {
           content: `Analyze the contract and provide specific suggestions. For each issue:
           1. Identify the exact section and text that needs improvement
           2. Explain why it needs improvement
-          3. Provide a specific suggestion for improvement, without sounding like a dickhead lawyer, more like a lawyer suggestion. Try to not repeat the same text. Try to use as few words as possible. 
+          3. Provide a specific suggestion for improvement, without sounding like a dickhead lawyer, more like a lawyer suggestion. Try to not repeat the same text. Try to use as few words as possible. If the user doesn't provide info, use industry standards to suggest, including pricing, etc. Use the details of the project and use online information to make it more accurate, if the project is a design project, use design standards, if its a development project, use development standards, be as helpful as possible. 
           
           Return in JSON format:
           {
