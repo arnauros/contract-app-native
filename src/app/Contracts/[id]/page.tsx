@@ -13,7 +13,6 @@ export default function ContractPage() {
   const hasInitialized = useRef(false);
 
   useEffect(() => {
-    // Prevent double initialization
     if (hasInitialized.current) {
       console.log("🚫 Preventing double initialization");
       return;
@@ -24,6 +23,16 @@ export default function ContractPage() {
         hasInitialized.current = true;
         console.log("🔄 Loading contract once:", id);
 
+        // First try to load the generated contract
+        const savedContract = localStorage.getItem(`contract-content-${id}`);
+        if (savedContract) {
+          console.log("📄 Found saved contract, loading...");
+          setGeneratedContent(JSON.parse(savedContract));
+          setIsLoading(false);
+          return;
+        }
+
+        // If no saved contract, load form data and generate new contract
         const savedData = localStorage.getItem(`contract-${id}`);
         if (!savedData) {
           setIsLoading(false);
@@ -33,11 +42,8 @@ export default function ContractPage() {
         const parsedData = JSON.parse(savedData);
         setFormData(parsedData);
 
-        // Only generate if we have data and haven't generated yet
-        if (
-          (parsedData.projectBrief || parsedData.techStack) &&
-          !generatedContent
-        ) {
+        // Only generate if we have data and no saved contract
+        if (parsedData.projectBrief || parsedData.techStack) {
           const response = await fetch("/api/generateContract", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -46,6 +52,11 @@ export default function ContractPage() {
 
           if (response.ok) {
             const generated = await response.json();
+            // Save the generated contract
+            localStorage.setItem(
+              `contract-content-${id}`,
+              JSON.stringify(generated)
+            );
             setGeneratedContent(generated);
           }
         }
@@ -57,7 +68,7 @@ export default function ContractPage() {
     };
 
     loadContract();
-  }, []); // Empty dependency array
+  }, [id]);
 
   if (isLoading) {
     return (

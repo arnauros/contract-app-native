@@ -13,6 +13,7 @@ interface AuditIssue {
   type: "spelling" | "rewording" | "upsell" | "general";
   text: string;
   suggestion?: string;
+  section?: string;
   position: {
     blockIndex: number;
     start: number;
@@ -38,6 +39,42 @@ interface ContractAuditProps {
   onIssueClick: (blockIndex: number, type: string) => void;
 }
 
+interface GroupedIssues {
+  [section: string]: AuditIssue[];
+}
+
+const groupIssuesBySection = (issues: AuditIssue[]): GroupedIssues => {
+  return issues.reduce((groups: GroupedIssues, issue) => {
+    const section = issue.section || "general";
+    if (!groups[section]) {
+      groups[section] = [];
+    }
+    groups[section].push(issue);
+    return groups;
+  }, {});
+};
+
+const calculateSummary = (issues: AuditIssue[]): AuditSummary => {
+  return issues.reduce(
+    (summary, issue) => {
+      summary.total++;
+      switch (issue.type) {
+        case "rewording":
+          summary.rewordings++;
+          break;
+        case "spelling":
+          summary.spelling++;
+          break;
+        case "upsell":
+          summary.upsell++;
+          break;
+      }
+      return summary;
+    },
+    { total: 0, rewordings: 0, spelling: 0, upsell: 0 }
+  );
+};
+
 export function ContractAudit({
   editorContent,
   onFixClick,
@@ -45,18 +82,21 @@ export function ContractAudit({
 }: ContractAuditProps) {
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastScannedContent, setLastScannedContent] = useState<string | null>(
-    null
-  );
+  const [lastScannedContent, setLastScannedContent] = useState<string>("");
   const scanInProgress = useRef(false);
   const hasStoredSuggestions = useRef(false);
+  const [highlightedBlocks, setHighlightedBlocks] = useState<Set<number>>(
+    new Set()
+  );
 
   const handleIssueClick = (issue: AuditIssue) => {
     console.log("🎯 Issue clicked:", issue);
 
-    setHighlightedBlocks(
-      (prev) => new Set([...prev, issue.position.blockIndex])
-    );
+    setHighlightedBlocks((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(issue.position.blockIndex);
+      return newSet;
+    });
 
     if (onIssueClick) {
       onIssueClick(issue.position, issue.type);
@@ -142,56 +182,66 @@ export function ContractAudit({
     }
   };
 
-  // Load stored suggestions once at mount
+  // Load stored suggestions on mount
   useEffect(() => {
-    const loadStoredSuggestions = async () => {
+    const storedSuggestions = localStorage.getItem("contractAuditSuggestions");
+    if (storedSuggestions) {
       try {
-        const storedSuggestions = localStorage.getItem(
-          "contractAuditSuggestions"
-        );
-        if (!storedSuggestions) {
-          hasStoredSuggestions.current = false;
-          return;
-        }
-
         const parsedSuggestions = JSON.parse(storedSuggestions);
         console.log("📤 Loading stored suggestions:", parsedSuggestions);
+        setAuditData({
+          issues: parsedSuggestions,
+          groupedIssues: groupIssuesBySection(parsedSuggestions),
+          summary: calculateSummary(parsedSuggestions),
+        });
         hasStoredSuggestions.current = true;
-
-        // Wait for editor to be ready before highlighting
-        setTimeout(() => {
-          if (Array.isArray(parsedSuggestions)) {
-            highlightAllIssues(parsedSuggestions);
-          }
-        }, 500);
+        highlightAllIssues(parsedSuggestions);
+        return;
       } catch (error) {
-        console.error("Error loading stored suggestions:", error);
-        hasStoredSuggestions.current = false;
+        console.error("❌ Error loading stored suggestions:", error);
       }
-    };
-
-    loadStoredSuggestions();
+    }
   }, []);
 
-  const scanDocument = useCallback(
-    async (content: any) => {
+  // Handle content changes
+  useEffect(() => {
+    const handleContentChange = async (content: any) => {
       if (!content?.blocks) return;
 
-      // Skip if we have stored suggestions and content hasn't changed
-      if (hasStoredSuggestions.current) {
-        console.log("📋 Using stored suggestions, skipping scan");
-        return;
-      }
-
       const contentString = JSON.stringify(content);
-      if (contentString === lastScannedContent) {
-        console.log("📝 Content unchanged, skipping scan");
-        return;
+
+      // Check if we have stored suggestions first
+      const storedSuggestions = localStorage.getItem(
+        "contractAuditSuggestions"
+      );
+      if (storedSuggestions) {
+        try {
+          const parsedSuggestions = JSON.parse(storedSuggestions);
+          console.log("📋 Using stored suggestions");
+          setAuditData({
+            issues: parsedSuggestions,
+            groupedIssues: groupIssuesBySection(parsedSuggestions),
+            summary: calculateSummary(parsedSuggestions),
+          });
+          // Wait for editor to be ready before highlighting
+          setTimeout(() => {
+            highlightAllIssues(parsedSuggestions);
+          }, 500);
+          return;
+        } catch (error) {
+          console.error("❌ Error loading stored suggestions:", error);
+        }
       }
 
-      // Use ref to prevent concurrent scans
+      // Only proceed with new audit if we don't have stored suggestions
       if (scanInProgress.current) {
         console.log("🔄 Scan already in progress, skipping");
+        return;
+      }
+
+      // Check if content has changed
+      if (contentString === lastScannedContent) {
+        console.log("📝 Content unchanged, skipping scan");
         return;
       }
 
@@ -218,7 +268,9 @@ export function ContractAudit({
             "contractAuditSuggestions",
             JSON.stringify(data.issues)
           );
-          highlightAllIssues(data.issues);
+          setTimeout(() => {
+            highlightAllIssues(data.issues);
+          }, 500);
         }
 
         setAuditData(data);
@@ -229,42 +281,12 @@ export function ContractAudit({
         setIsLoading(false);
         scanInProgress.current = false;
       }
-    },
-    [lastScannedContent]
-  );
+    };
 
-  // Create stable debounced function
-  const debouncedScanDocument = useMemo(
-    () =>
-      debounce((content: any) => {
-        if (!scanInProgress.current) {
-          scanDocument(content);
-        }
-      }, 2000), // Increased to 2 seconds
-    [scanDocument]
-  );
-
-  // Clear stored suggestions when content changes significantly
-  const handleContentChange = useCallback(
-    (content: any) => {
-      const contentString = JSON.stringify(content);
-      if (contentString !== lastScannedContent) {
-        hasStoredSuggestions.current = false;
-        localStorage.removeItem("contractAuditSuggestions");
-        console.log("🔄 Content changed, cleared stored suggestions");
-      }
-    },
-    [lastScannedContent]
-  );
-
-  useEffect(() => {
-    if (!editorContent) return;
-    handleContentChange(editorContent);
-
-    if (!hasStoredSuggestions.current) {
-      debouncedScanDocument(editorContent);
+    if (editorContent) {
+      handleContentChange(editorContent);
     }
-  }, [editorContent, debouncedScanDocument, handleContentChange]);
+  }, [editorContent]);
 
   return (
     <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">

@@ -26,6 +26,14 @@ export function ContractEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editorContent, setEditorContent] = useState(initialContent);
 
+  // Add effect to store initial content
+  useEffect(() => {
+    // Only store if initialContent exists and localStorage doesn't have the content
+    if (initialContent && !localStorage.getItem("contractContent")) {
+      localStorage.setItem("contractContent", JSON.stringify(initialContent));
+    }
+  }, [initialContent]);
+
   // Initialize editor with change handler
   useEffect(() => {
     if (editorRef.current || !containerRef.current) return;
@@ -47,8 +55,14 @@ export function ContractEditor({
       },
       data: initialContent,
       onReady: () => {
-        // Start audit immediately when editor is ready
+        // Store initial content when editor is ready
         setEditorContent(initialContent);
+        if (!localStorage.getItem("contractContent")) {
+          localStorage.setItem(
+            "contractContent",
+            JSON.stringify(initialContent)
+          );
+        }
       },
       onChange: async (api) => {
         const content = await api.saver.save();
