@@ -188,10 +188,14 @@ export function ContractEditor({
     clientName: string,
     clientEmail: string
   ) => {
-    console.log("📨 Sending contract to:", { clientName, clientEmail });
-    // Here you would implement the actual email sending logic
+    console.log("📨 Preparing to send contract:", {
+      clientName,
+      clientEmail,
+      hasContent: !!editorContent,
+      hasSignature: !!localStorage.getItem("contract-signature"),
+    });
+
     try {
-      // Example API call
       const response = await fetch("/api/sendContract", {
         method: "POST",
         headers: {
@@ -206,13 +210,17 @@ export function ContractEditor({
         }),
       });
 
-      if (response.ok) {
-        console.log("✅ Contract sent successfully");
-        // Handle success (maybe show a success message)
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("❌ API response error:", data);
+        throw new Error(data.error || "Failed to send contract");
       }
+
+      console.log("✅ Contract sent successfully:", data);
     } catch (error) {
-      console.error("Failed to send contract:", error);
-      // Handle error (show error message)
+      console.error("❌ Send contract error:", error);
+      throw error;
     }
   };
 
