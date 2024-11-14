@@ -6,15 +6,17 @@ import List from "@editorjs/list";
 import Paragraph from "@editorjs/paragraph";
 import Image from "@editorjs/image";
 import { useEffect, useRef, useState } from "react";
-import { PhotoIcon } from "@heroicons/react/24/outline";
+import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { ContractAudit } from "./ContractAudit";
 import { SigningStage } from "./SigningStage";
+import { SendStage } from "./SendStage";
 
 interface ContractEditorProps {
   formData: any;
   initialContent: any;
   onAuditFix?: () => void;
   stage?: "edit" | "sign" | "send";
+  onStageChange?: (stage: "edit" | "sign" | "send") => void;
 }
 
 export function ContractEditor({
@@ -22,20 +24,57 @@ export function ContractEditor({
   initialContent,
   onAuditFix,
   stage = "edit",
+  onStageChange,
 }: ContractEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorJS | null>(null);
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.png");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editorContent, setEditorContent] = useState(initialContent);
+  const [isLocked, setIsLocked] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Add effect to store initial content
+  // Check for existing signature on mount only
   useEffect(() => {
-    // Only store if initialContent exists and localStorage doesn't have the content
-    if (initialContent && !localStorage.getItem("contractContent")) {
-      localStorage.setItem("contractContent", JSON.stringify(initialContent));
+    if (!initialLoadDone.current) {
+      const savedSignature = localStorage.getItem("contract-signature");
+      if (savedSignature) {
+        console.log("📝 Found existing signature");
+        setHasSignature(true);
+        setIsLocked(true);
+      }
+      initialLoadDone.current = true;
     }
-  }, [initialContent]);
+  }, []);
+
+  // Handle stage changes and locking
+  useEffect(() => {
+    // Only show warning if actively changing from sign to edit
+    if (stage === "edit" && hasSignature && initialLoadDone.current) {
+      const confirmEdit = window.confirm(
+        "Editing the contract will invalidate the current signature. You will need to sign the contract again. Do you want to continue?"
+      );
+
+      if (confirmEdit) {
+        console.log("🔓 Unlocking contract for editing...");
+        setIsLocked(false);
+        setHasSignature(false);
+        localStorage.removeItem("contract-signature");
+      } else {
+        console.log("↩️ Reverting back to sign stage...");
+        onStageChange?.("sign");
+        return;
+      }
+    }
+
+    // Prevent going to send stage without signature
+    if (stage === "send" && !hasSignature) {
+      console.log("⚠️ Cannot proceed to send - contract not signed");
+      onStageChange?.("sign");
+      return;
+    }
+  }, [stage, hasSignature, onStageChange]);
 
   // Initialize editor with change handler
   useEffect(() => {
@@ -83,6 +122,22 @@ export function ContractEditor({
     };
   }, [initialContent]);
 
+  const handleSignatureComplete = (signature: string, name: string) => {
+    console.log("✍️ Contract signed:", { signature, name });
+    setHasSignature(true);
+    setIsLocked(true);
+
+    try {
+      localStorage.setItem(
+        `contract-final-${window.location.pathname.split("/").pop()}`,
+        JSON.stringify(editorContent)
+      );
+      console.log("💾 Final contract version saved");
+    } catch (error) {
+      console.error("Failed to save final version:", error);
+    }
+  };
+
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
@@ -129,6 +184,38 @@ export function ContractEditor({
     }
   };
 
+  const handleSendContract = async (
+    clientName: string,
+    clientEmail: string
+  ) => {
+    console.log("📨 Sending contract to:", { clientName, clientEmail });
+    // Here you would implement the actual email sending logic
+    try {
+      // Example API call
+      const response = await fetch("/api/sendContract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientName,
+          clientEmail,
+          contractId: window.location.pathname.split("/").pop(),
+          content: editorContent,
+          signature: localStorage.getItem("contract-signature"),
+        }),
+      });
+
+      if (response.ok) {
+        console.log("✅ Contract sent successfully");
+        // Handle success (maybe show a success message)
+      }
+    } catch (error) {
+      console.error("Failed to send contract:", error);
+      // Handle error (show error message)
+    }
+  };
+
   return (
     <div className="content-wrapper">
       <div className="max-w-4xl mx-auto relative">
@@ -161,11 +248,28 @@ export function ContractEditor({
             </div>
           </div>
 
-          {/* Rest of the editor */}
-          <div ref={containerRef} className="prose max-w-none" />
+          {/* Editor section with lock overlay */}
+          <div className="relative">
+            {isLocked && (
+              <div className="absolute inset-0 bg-gray-50 bg-opacity-50 pointer-events-none z-10 flex items-center justify-center">
+                <div className="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
+                  <LockClosedIcon className="h-5 w-5 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    Contract locked - signed version
+                  </span>
+                </div>
+              </div>
+            )}
+            <div
+              ref={containerRef}
+              className={`prose max-w-none ${
+                isLocked ? "pointer-events-none" : ""
+              }`}
+            />
+          </div>
         </div>
 
-        {/* Contract Audit Panel - Fixed position */}
+        {/* Side panel */}
         <div className="fixed right-8 top-32 w-80">
           {stage === "edit" && (
             <ContractAudit
@@ -177,10 +281,12 @@ export function ContractEditor({
           {stage === "sign" && (
             <SigningStage
               onSign={(signature, name) => {
-                console.log("Contract signed:", { signature, name });
+                handleSignatureComplete(signature, name);
               }}
+              existingSignature={hasSignature}
             />
           )}
+          {stage === "send" && <SendStage onSend={handleSendContract} />}
         </div>
       </div>
     </div>

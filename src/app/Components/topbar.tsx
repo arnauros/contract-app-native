@@ -10,30 +10,13 @@ interface TopbarProps {
   onStageChange?: (stage: string) => void;
 }
 
-export default function Topbar({ pathname, onStageChange }: TopbarProps) {
+export default function Topbar({ pathname }: TopbarProps) {
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
   const params = useParams();
 
-  const handleNext = () => {
-    const nextStage = currentStage === "edit" ? "sign" : "send";
-    console.log("🔼 Topbar Next clicked:", currentStage, "→", nextStage);
-
-    // Dispatch the event
-    const event = new CustomEvent("stageChange", { detail: nextStage });
-    console.log("📣 Dispatching stageChange event:", nextStage);
-    window.dispatchEvent(event);
-
-    setCurrentStage(nextStage);
-    onStageChange?.(nextStage);
-  };
-
-  // Log when Topbar's internal stage changes
-  useEffect(() => {
-    console.log("🎯 Topbar stage updated to:", currentStage);
-  }, [currentStage]);
-
+  // Add getBreadcrumb function
   const getBreadcrumb = () => {
     if (pathname.startsWith("/Contracts/") && params.id) {
       return `Dashboard / Contracts / #${params.id}`;
@@ -44,44 +27,44 @@ export default function Topbar({ pathname, onStageChange }: TopbarProps) {
     return "Dashboard / Contracts";
   };
 
-  const renderContent = () => {
-    if (pathname.startsWith("/Contracts/")) {
-      return (
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="flex items-center h-10 justify-center gap-2 px-1 bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="flex items-center gap-3 h-8 bg-[#E5FFE7] border border-gray-100 rounded-md px-1">
-              <span className="flex items-center justify-center w-6 h-6 bg-white rounded-md text-sm font-medium shadow-sm">
-                1
-              </span>
-              <span className="text-sm font-medium pr-2">Draft & Edit</span>
-            </div>
-            <div className="flex items-center gap-3 h-8 px-1">
-              <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
-                2
-              </span>
-              <span className="text-sm font-medium">Sign</span>
-            </div>
-            <div className="flex items-center gap-3 h-8 px-1">
-              <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
-                3
-              </span>
-              <span className="text-sm font-medium">Send</span>
-            </div>
-          </div>
-        </div>
+  useEffect(() => {
+    const handleStageChange = (e: CustomEvent) => {
+      console.log("🎧 Topbar received stage change:", e.detail);
+      setCurrentStage(e.detail);
+    };
+
+    window.addEventListener("stageChange", handleStageChange as EventListener);
+    return () =>
+      window.removeEventListener(
+        "stageChange",
+        handleStageChange as EventListener
       );
+  }, []);
+
+  const handleNext = () => {
+    if (currentStage === "sign") {
+      const savedSignature = localStorage.getItem("contract-signature");
+      if (!savedSignature) {
+        alert("Please sign the contract before proceeding");
+        return;
+      }
     }
-    return (
-      <div className="flex items-center justify-center w-[464px] h-[40px] px-3 py-2 gap-3 border border-gray-200 rounded-lg bg-white">
-        <MagnifyingGlassIcon className="h-5 w-5 text-gray-500" />
-        <input
-          type="text"
-          placeholder="Search"
-          className="flex-1 bg-transparent border-0 focus:outline-none"
-        />
-        <span className="bg-gray-100 px-2 py-1 rounded">⌘ K</span>
-      </div>
-    );
+
+    const nextStage = currentStage === "edit" ? "sign" : "send";
+    console.log("🔼 Topbar Next clicked:", currentStage, "→", nextStage);
+
+    const event = new CustomEvent("stageChange", { detail: nextStage });
+    window.dispatchEvent(event);
+    setCurrentStage(nextStage);
+  };
+
+  const handleBack = () => {
+    const previousStage = currentStage === "send" ? "sign" : "edit";
+    console.log("⬅️ Topbar Back clicked:", currentStage, "→", previousStage);
+
+    const event = new CustomEvent("stageChange", { detail: previousStage });
+    window.dispatchEvent(event);
+    setCurrentStage(previousStage);
   };
 
   return (
@@ -95,11 +78,69 @@ export default function Topbar({ pathname, onStageChange }: TopbarProps) {
         {pathname.startsWith("/Contracts/") && (
           <span className="text-gray-500 text-sm mx-4">{getBreadcrumb()}</span>
         )}
-        <div className="flex-1 flex justify-center">{renderContent()}</div>
-        {pathname.startsWith("/Contracts/") && currentStage !== "send" && (
-          <Button onClick={handleNext} className="ml-4">
-            Next
-          </Button>
+        <div className="flex-1 flex justify-center">
+          {pathname.startsWith("/Contracts/") && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <div className="flex items-center h-10 justify-center gap-2 px-1 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div
+                  className={`flex items-center gap-3 h-8 px-1 ${
+                    currentStage === "edit"
+                      ? "bg-[#E5FFE7] border border-gray-100 rounded-md"
+                      : ""
+                  }`}
+                >
+                  <span className="flex items-center justify-center w-6 h-6 bg-white rounded-md text-sm font-medium shadow-sm">
+                    1
+                  </span>
+                  <span className="text-sm font-medium pr-2">Draft & Edit</span>
+                </div>
+                <div
+                  className={`flex items-center gap-3 h-8 px-1 ${
+                    currentStage === "sign"
+                      ? "bg-[#E5FFE7] border border-gray-100 rounded-md"
+                      : ""
+                  }`}
+                >
+                  <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+                    2
+                  </span>
+                  <span className="text-sm font-medium">Sign</span>
+                </div>
+                <div
+                  className={`flex items-center gap-3 h-8 px-1 ${
+                    currentStage === "send"
+                      ? "bg-[#E5FFE7] border border-gray-100 rounded-md"
+                      : ""
+                  }`}
+                >
+                  <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+                    3
+                  </span>
+                  <span className="text-sm font-medium">Send</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        {pathname.startsWith("/Contracts/") && (
+          <div className="flex gap-2">
+            {currentStage !== "edit" && (
+              <button
+                onClick={handleBack}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Back
+              </button>
+            )}
+            {currentStage !== "send" && (
+              <button
+                onClick={handleNext}
+                className="px-4 py-2 bg-black text-white rounded-md"
+              >
+                Next
+              </button>
+            )}
+          </div>
         )}
       </div>
     </header>

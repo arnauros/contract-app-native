@@ -1,20 +1,55 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import SignaturePad from "react-signature-canvas";
+import { CheckIcon } from "@heroicons/react/20/solid";
 
 interface SigningStageProps {
   onSign: (signature: string, name: string) => void;
+  existingSignature?: boolean;
 }
 
-export function SigningStage({ onSign }: SigningStageProps) {
+export function SigningStage({ onSign, existingSignature }: SigningStageProps) {
   const [name, setName] = useState("");
   const [isValid, setIsValid] = useState(false);
+  const [isSigned, setIsSigned] = useState(existingSignature || false);
   const signaturePadRef = useRef<any>(null);
 
+  // Add validation function
   const validateForm = () => {
-    const hasSignature = !signaturePadRef.current?.isEmpty();
-    const hasName = name.trim().length > 0;
-    setIsValid(hasSignature && hasName);
+    const isNameValid = name.trim().length > 0;
+    const isSignatureValid =
+      signaturePadRef.current && !signaturePadRef.current.isEmpty();
+
+    setIsValid(isNameValid && isSignatureValid);
   };
+
+  // Validate on name change
+  useEffect(() => {
+    validateForm();
+  }, [name]);
+
+  if (isSigned) {
+    const savedData = JSON.parse(
+      localStorage.getItem("contract-signature") || "{}"
+    );
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 bg-green-100 rounded-full mx-auto flex items-center justify-center">
+            <CheckIcon className="h-6 w-6 text-green-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">
+            Contract Signed!
+          </h2>
+          <p className="text-gray-600">
+            Thank you, {savedData.name}. Your signature has been recorded.
+          </p>
+          <p className="text-sm text-gray-500">
+            Click Next to proceed to the send stage
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -28,10 +63,7 @@ export function SigningStage({ onSign }: SigningStageProps) {
           <input
             type="text"
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              validateForm();
-            }}
+            onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
             placeholder="Type your full name"
           />
@@ -41,15 +73,13 @@ export function SigningStage({ onSign }: SigningStageProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Signature
           </label>
-          <div className="border border-gray-300 rounded-md">
-            <SignaturePad
-              ref={signaturePadRef}
-              onEnd={validateForm}
-              canvasProps={{
-                className: "w-full h-40",
-              }}
-            />
-          </div>
+          <SignaturePad
+            ref={signaturePadRef}
+            onEnd={validateForm}
+            canvasProps={{
+              className: "w-full h-40",
+            }}
+          />
         </div>
 
         <div className="flex gap-2">
@@ -62,7 +92,14 @@ export function SigningStage({ onSign }: SigningStageProps) {
           <button
             onClick={() => {
               if (isValid && signaturePadRef.current) {
-                onSign(signaturePadRef.current.toDataURL(), name);
+                const signature = signaturePadRef.current.toDataURL();
+                const data = { signature, name };
+                localStorage.setItem(
+                  "contract-signature",
+                  JSON.stringify(data)
+                );
+                setIsSigned(true);
+                onSign(signature, name);
               }
             }}
             disabled={!isValid}
