@@ -11,6 +11,33 @@ export default function ContractPage() {
   const [formData, setFormData] = useState(null);
   const [generatedContent, setGeneratedContent] = useState(null);
   const hasInitialized = useRef(false);
+  const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
+    "edit"
+  );
+
+  // Add debug logs for stage changes
+  useEffect(() => {
+    const handleStageChange = (e: CustomEvent) => {
+      console.log("🎭 Stage change event received:", e.detail);
+      setCurrentStage(e.detail);
+    };
+
+    console.log("🎬 Setting up stage change listener");
+    window.addEventListener("stageChange", handleStageChange as EventListener);
+
+    return () => {
+      console.log("🧹 Cleaning up stage change listener");
+      window.removeEventListener(
+        "stageChange",
+        handleStageChange as EventListener
+      );
+    };
+  }, []);
+
+  // Log whenever currentStage changes
+  useEffect(() => {
+    console.log("📍 Current stage updated to:", currentStage);
+  }, [currentStage]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -80,7 +107,18 @@ export default function ContractPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <ContractEditor formData={formData} initialContent={generatedContent} />
+      <ContractEditor
+        formData={formData}
+        initialContent={generatedContent}
+        stage={currentStage}
+        onStageChange={(newStage) => {
+          console.log(
+            "🔄 ContractEditor requesting stage change to:",
+            newStage
+          );
+          setCurrentStage(newStage);
+        }}
+      />
     </div>
   );
 }

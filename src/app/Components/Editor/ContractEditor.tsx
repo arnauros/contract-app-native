@@ -8,17 +8,20 @@ import Image from "@editorjs/image";
 import { useEffect, useRef, useState } from "react";
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import { ContractAudit } from "./ContractAudit";
+import { SigningStage } from "./SigningStage";
 
 interface ContractEditorProps {
   formData: any;
   initialContent: any;
   onAuditFix?: () => void;
+  stage?: "edit" | "sign" | "send";
 }
 
 export function ContractEditor({
   formData,
   initialContent,
   onAuditFix,
+  stage = "edit",
 }: ContractEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorJS | null>(null);
@@ -164,11 +167,20 @@ export function ContractEditor({
 
         {/* Contract Audit Panel - Fixed position */}
         <div className="fixed right-8 top-32 w-80">
-          <ContractAudit
-            editorContent={editorContent}
-            onFixClick={() => onAuditFix?.()}
-            onIssueClick={highlightBlock}
-          />
+          {stage === "edit" && (
+            <ContractAudit
+              editorContent={editorContent}
+              onFixClick={() => onAuditFix?.()}
+              onIssueClick={highlightBlock}
+            />
+          )}
+          {stage === "sign" && (
+            <SigningStage
+              onSign={(signature, name) => {
+                console.log("Contract signed:", { signature, name });
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

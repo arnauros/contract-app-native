@@ -3,13 +3,36 @@
 import Button from "./button";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
 
 interface TopbarProps {
   pathname: string;
+  onStageChange?: (stage: string) => void;
 }
 
-export default function Topbar({ pathname }: TopbarProps) {
+export default function Topbar({ pathname, onStageChange }: TopbarProps) {
+  const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
+    "edit"
+  );
   const params = useParams();
+
+  const handleNext = () => {
+    const nextStage = currentStage === "edit" ? "sign" : "send";
+    console.log("🔼 Topbar Next clicked:", currentStage, "→", nextStage);
+
+    // Dispatch the event
+    const event = new CustomEvent("stageChange", { detail: nextStage });
+    console.log("📣 Dispatching stageChange event:", nextStage);
+    window.dispatchEvent(event);
+
+    setCurrentStage(nextStage);
+    onStageChange?.(nextStage);
+  };
+
+  // Log when Topbar's internal stage changes
+  useEffect(() => {
+    console.log("🎯 Topbar stage updated to:", currentStage);
+  }, [currentStage]);
 
   const getBreadcrumb = () => {
     if (pathname.startsWith("/Contracts/") && params.id) {
@@ -73,8 +96,10 @@ export default function Topbar({ pathname }: TopbarProps) {
           <span className="text-gray-500 text-sm mx-4">{getBreadcrumb()}</span>
         )}
         <div className="flex-1 flex justify-center">{renderContent()}</div>
-        {pathname.startsWith("/Contracts/") && (
-          <Button className="ml-4">Next</Button>
+        {pathname.startsWith("/Contracts/") && currentStage !== "send" && (
+          <Button onClick={handleNext} className="ml-4">
+            Next
+          </Button>
         )}
       </div>
     </header>
