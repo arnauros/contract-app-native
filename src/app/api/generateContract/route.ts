@@ -48,6 +48,8 @@ export async function POST(request: Request) {
             6. Confidentiality
             7. Termination
 
+            For the timeline, create a timeline for the project that is related to the industry and stack.
+
             Add any sections needed for the project that relate to the industry and stack. If its a design project, suggest a section for design assets. If its a development project, suggest a section for code, etc.
 
             Only use headings for section titles, usually one or two words unless its the title of the contract.

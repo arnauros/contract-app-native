@@ -219,7 +219,8 @@ export function ContractAudit({
             {auditData.issues.map((issue, index) => (
               <div
                 key={index}
-                className={`p-3 rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${getIssueTypeStyles(
+                data-issue-id={issue.position.id}
+                className={`p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${getIssueTypeStyles(
                   issue.type
                 )}`}
                 onClick={() =>
@@ -229,7 +230,9 @@ export function ContractAudit({
                 <div className="flex items-start gap-3">
                   {getIssueIcon(issue.type)}
                   <div>
-                    <div className="font-medium mb-1">{issue.text}</div>
+                    <div className="font-medium text-gray-900 mb-1">
+                      {issue.text}
+                    </div>
                     {issue.suggestion && (
                       <div className="text-sm text-gray-600">
                         Suggestion: {issue.suggestion}
