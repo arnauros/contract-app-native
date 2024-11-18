@@ -153,10 +153,17 @@ export function ContractEditor({
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setLogoUrl(url);
-      const contractId = window.location.pathname.split("/").pop();
-      localStorage.setItem(`contract-logo-${contractId}`, url);
+      // Convert file to Base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setLogoUrl(base64String);
+
+        // Save to localStorage with contract ID
+        const contractId = window.location.pathname.split("/").pop();
+        localStorage.setItem(`contract-logo-${contractId}`, base64String);
+      };
+      reader.readAsDataURL(file);
     }
   };
 

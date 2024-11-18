@@ -87,14 +87,30 @@ export function ContractAudit({
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
   const initialAuditDone = useRef(false);
 
-  // Run initial audit only once when content is available
+  // Get contract ID
+  const contractId = window.location.pathname.split("/").pop();
+
+  // Run audit only when content changes or no cached audit exists
   useEffect(() => {
-    const runInitialAudit = async () => {
-      if (!editorContent?.blocks || initialAuditDone.current) return;
+    const runAudit = async () => {
+      if (!editorContent?.blocks) return;
 
-      console.log("📄 New contract detected, running initial audit");
-      initialAuditDone.current = true;
+      // Try to get cached audit results first
+      const cachedAudit = localStorage.getItem(`contract-audit-${contractId}`);
+      const cachedContent = localStorage.getItem(
+        `contract-content-${contractId}`
+      );
 
+      // If we have cached results and content hasn't changed, use cached audit
+      if (cachedAudit && cachedContent === JSON.stringify(editorContent)) {
+        console.log("📄 Using cached audit results");
+        setAuditData(JSON.parse(cachedAudit));
+        setHasRunAudit(true);
+        return;
+      }
+
+      // Otherwise run new audit
+      console.log("📄 Content changed, running new audit");
       try {
         setIsLoading(true);
         const response = await fetch("/api/auditContract", {
@@ -107,18 +123,29 @@ export function ContractAudit({
           throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        console.log("✅ Initial audit completed successfully");
+        console.log("✅ Audit completed successfully");
+
+        // Cache the new audit results and content hash
+        localStorage.setItem(
+          `contract-audit-${contractId}`,
+          JSON.stringify(data)
+        );
+        localStorage.setItem(
+          `contract-content-${contractId}`,
+          JSON.stringify(editorContent)
+        );
+
         setAuditData(data);
         setHasRunAudit(true);
       } catch (error) {
-        console.error("❌ Initial audit failed:", error);
+        console.error("❌ Audit failed:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    runInitialAudit();
-  }, [editorContent]);
+    runAudit();
+  }, [editorContent, contractId]);
 
   const runAudit = async () => {
     if (!editorContent?.blocks) return;
