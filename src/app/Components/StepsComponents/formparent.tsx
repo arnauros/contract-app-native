@@ -27,7 +27,7 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
   };
 
   const handleSubmit = async () => {
-    const mockContractId = Math.random().toString(36).substr(2, 9);
+    const contractId = Math.random().toString(36).substr(2, 9);
 
     // Format the data properly before saving
     const contractData = {
@@ -40,16 +40,22 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
         type: att.type || "brief",
       })),
       status: "draft",
-      id: mockContractId,
+      id: contractId,
+      createdAt: new Date().toISOString(),
     };
 
-    // Save with proper formatting
+    // Clear any existing content for this new contract
+    localStorage.removeItem(`contract-content-${contractId}`);
+    localStorage.removeItem(`contract-logo-${contractId}`);
+    localStorage.removeItem(`contract-signature-${contractId}`);
+
+    // Save the new contract data
     localStorage.setItem(
-      `contract-${mockContractId}`,
+      `contract-${contractId}`,
       JSON.stringify(contractData)
     );
 
-    router.push(`/Contracts/${mockContractId}`);
+    router.push(`/Contracts/${contractId}`);
   };
 
   const handleFileUpload = (files: FileList | null) => {

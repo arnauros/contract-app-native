@@ -5,6 +5,7 @@ import Header from "@editorjs/header";
 import List from "@editorjs/list";
 import Paragraph from "@editorjs/paragraph";
 import Image from "@editorjs/image";
+import DragDrop from "editorjs-drag-drop";
 import { useEffect, useRef, useState } from "react";
 import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { ContractAudit } from "./ContractAudit";
@@ -28,9 +29,17 @@ export function ContractEditor({
 }: ContractEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorJS | null>(null);
-  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.png");
+  const [logoUrl, setLogoUrl] = useState(() => {
+    const contractId = window.location.pathname.split("/").pop();
+    const savedLogo = localStorage.getItem(`contract-logo-${contractId}`);
+    return savedLogo || "/placeholder-logo.png";
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editorContent, setEditorContent] = useState(initialContent);
+  const [editorContent, setEditorContent] = useState(() => {
+    const contractId = window.location.pathname.split("/").pop();
+    const savedContent = localStorage.getItem(`contract-content-${contractId}`);
+    return savedContent ? JSON.parse(savedContent) : initialContent;
+  });
   const [isLocked, setIsLocked] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const initialLoadDone = useRef(false);
@@ -95,20 +104,19 @@ export function ContractEditor({
           },
         },
       },
-      data: initialContent,
+      data: editorContent,
       onReady: () => {
-        // Store initial content when editor is ready
-        setEditorContent(initialContent);
-        if (!localStorage.getItem("contractContent")) {
-          localStorage.setItem(
-            "contractContent",
-            JSON.stringify(initialContent)
-          );
-        }
+        // Initialize drag-drop functionality
+        new DragDrop(editor);
       },
       onChange: async (api) => {
         const content = await api.saver.save();
         setEditorContent(content);
+        const contractId = window.location.pathname.split("/").pop();
+        localStorage.setItem(
+          `contract-content-${contractId}`,
+          JSON.stringify(content)
+        );
       },
     });
 
@@ -120,7 +128,7 @@ export function ContractEditor({
         editorRef.current = null;
       }
     };
-  }, [initialContent]);
+  }, []);
 
   const handleSignatureComplete = (signature: string, name: string) => {
     console.log("✍️ Contract signed:", { signature, name });
@@ -145,9 +153,10 @@ export function ContractEditor({
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // For now, just create a local URL for preview
       const url = URL.createObjectURL(file);
       setLogoUrl(url);
+      const contractId = window.location.pathname.split("/").pop();
+      localStorage.setItem(`contract-logo-${contractId}`, url);
     }
   };
 
