@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { CheckCircleIcon } from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/24/outline";
 
 interface SendStageProps {
   onSend: (clientName: string, clientEmail: string) => Promise<void>;
@@ -14,25 +17,74 @@ export function SendStage({ onSend }: SendStageProps) {
 
   const validateForm = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return clientName.trim().length > 0 && emailRegex.test(clientEmail);
+    return (
+      clientName.trim().length > 0 &&
+      clientEmail.trim().length > 0 &&
+      emailRegex.test(clientEmail)
+    );
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    setIsSending(true);
-    setError(null);
-
     try {
-      await onSend(clientName, clientEmail);
+      setIsSending(true);
+      setError(null);
+
+      const contractId = window.location.pathname.split("/").pop();
+      if (!contractId) throw new Error("Contract ID not found");
+
+      // Generate a unique view token
+      const viewToken = Math.random().toString(36).substr(2, 9);
+      const viewUrl = `${window.location.origin}/view/${contractId}?token=${viewToken}`;
+
+      // Save contract data first
+      const contractData = {
+        ...JSON.parse(localStorage.getItem(`contract-${contractId}`) || "{}"),
+        viewToken,
+        clientName,
+        clientEmail,
+        status: "sent",
+        sentAt: new Date().toISOString(),
+      };
+      localStorage.setItem(
+        `contract-${contractId}`,
+        JSON.stringify(contractData)
+      );
+
+      // Send email
+      const response = await fetch("/api/sendContract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: clientEmail,
+          clientName,
+          contractId,
+          viewUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to send contract");
+      }
+
       setIsSuccess(true);
-    } catch (err) {
-      console.error("Send error:", err);
-      setError("Failed to send contract. Please try again.");
-      setIsSuccess(false);
+    } catch (error) {
+      console.error("Failed to send contract:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to send contract. Please try again."
+      );
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handlePreview = () => {
+    // Get contract ID from URL
+    const contractId = window.location.pathname.split("/").pop();
+    // Open preview in new tab
+    window.open(`/view/${contractId}`, "_blank");
   };
 
   if (error) {
@@ -79,6 +131,13 @@ export function SendStage({ onSend }: SendStageProps) {
       <h2 className="text-2xl font-semibold text-gray-900 mb-6">
         Send Contract
       </h2>
+
+      <button
+        onClick={handlePreview}
+        className="mb-6 w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+      >
+        Preview Client View
+      </button>
 
       <div className="space-y-6">
         <div>
