@@ -7,13 +7,6 @@ const client = createClient({
   throttle: 16, // Optional: Controls sync frequency
 });
 
-type Comment = {
-  id: string;
-  text: string;
-  position: { x: number; y: number };
-  createdAt: string;
-};
-
 type Storage = {
   comments: LiveList<{
     id: string;
