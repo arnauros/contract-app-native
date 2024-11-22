@@ -4,9 +4,15 @@ import { usePathname } from "next/navigation";
 import Topbar from "@/app/Components/topbar";
 import Sidebar from "@/app/Components/sidebar";
 import "@/app/globals.css";
+import { Toaster } from "react-hot-toast";
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
+  const isViewRoute = pathname?.startsWith("/view/");
 
   return (
     <html lang="en">
@@ -16,15 +22,20 @@ export default function RootLayout({ children }) {
         <title>My App</title>
       </head>
       <body className="bg-gray-100 text-gray-900">
-        <div className="fixed-layout">
-          <Topbar pathname={pathname} />
-          <div className="fixed-content">
-            <div className="fixed-sidebar">
+        <div className="flex h-screen">
+          {!isViewRoute && (
+            <div className="w-[72px] border-r border-gray-200 bg-white">
               <Sidebar />
             </div>
-            <main className="scrollable-content">{children}</main>
+          )}
+          <div className="flex-1">
+            <Topbar pathname={pathname} />
+            <div className="fixed-content">
+              <main className="scrollable-content">{children}</main>
+            </div>
           </div>
         </div>
+        <Toaster />
       </body>
     </html>
   );

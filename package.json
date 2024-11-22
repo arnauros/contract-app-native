@@ -39,6 +39,7 @@
     "pdf-parse": "^1.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
     "react-signature-canvas": "^1.0.6",
     "resend": "^4.0.1-alpha.0",
     "styled-jsx": "^5.1.6",

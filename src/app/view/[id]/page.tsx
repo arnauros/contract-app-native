@@ -5,6 +5,13 @@ import { useParams } from "next/navigation";
 import { Comments } from "@/app/test/Comments";
 import Skeleton from "@/app/Components/Editor/skeleton";
 import { CommentsSidebar } from "@/app/Components/CommentsSidebar";
+import Button from "@/app/Components/button";
+import {
+  CheckIcon,
+  PencilSquareIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { toast } from "react-hot-toast";
 
 interface Comment {
   blockId: string;
@@ -269,27 +276,68 @@ export default function ViewPage() {
 
   return (
     <div className="relative min-h-screen bg-gray-50">
-      <div className={`flex ${showComments ? "mr-80" : ""}`}>
-        <div className="flex-1 max-w-4xl mx-auto py-8 px-4">
-          {/* Topbar */}
-          <div className="flex justify-end gap-4 mb-8">
-            <button
-              onClick={() => setShowComments(!showComments)}
-              className={`
-                px-6 py-2 text-lg rounded-full transition-colors
-                ${showComments ? "bg-blue-600" : "bg-blue-500"} 
-                text-white hover:bg-blue-700
-              `}
+      {/* Fixed Topbar */}
+      <div className="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200">
+        <div className="h-14 flex items-center justify-end px-4">
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                setShowComments(!showComments);
+                if (showComments && comments.length > 0) {
+                  toast.success(
+                    "The Designer will be notified of your review",
+                    {
+                      duration: 4000,
+                      position: "bottom-center",
+                      className: "bg-gray-900 text-white",
+                    }
+                  );
+                }
+              }}
+              variant="secondary"
+              className="inline-flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800"
             >
-              Request Changes
-            </button>
-            <button className="px-6 py-2 text-lg bg-blue-500 hover:bg-blue-700 text-white rounded-full transition-colors">
-              Sign Contract
-            </button>
-          </div>
+              {showComments ? (
+                <>
+                  <CheckIcon className="w-5 h-5" />
+                  Done Reviewing
+                </>
+              ) : (
+                <>
+                  <PencilSquareIcon className="w-5 h-5" />
+                  Request Changes
+                </>
+              )}
+            </Button>
 
-          {/* Document content */}
-          <div className="bg-white rounded-lg shadow-sm p-8 max-w-3xl mx-auto">
+            <Button
+              variant="primary"
+              className="inline-flex items-center gap-2"
+              disabled={showComments || comments.length > 0}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+              Sign Contract
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Now full width */}
+      <div className="pt-14">
+        <div className="max-w-[1200px] mx-auto px-8 py-8">
+          <div className="bg-white rounded-lg shadow-sm p-8">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -310,20 +358,24 @@ export default function ViewPage() {
             )}
           </div>
         </div>
-
-        {/* Comments sidebar */}
-        {showComments && (
-          <CommentsSidebar
-            comments={comments}
-            onAddComment={handleAddComment}
-            onSubmitComment={handleSubmitComment}
-            onEditComment={handleEditComment}
-            onAddReply={handleAddReply}
-            onDismissComment={handleDismissComment}
-            onRestoreComment={handleRestoreComment}
-          />
-        )}
       </div>
+
+      {/* Comments Sidebar */}
+      {showComments && (
+        <div className="fixed top-0 right-0 bottom-0 w-[320px] bg-white border-l border-gray-200 shadow-lg z-10">
+          <div className="absolute top-14 left-0 right-0 bottom-0">
+            <CommentsSidebar
+              comments={comments}
+              onAddComment={handleAddComment}
+              onSubmitComment={handleSubmitComment}
+              onEditComment={handleEditComment}
+              onAddReply={handleAddReply}
+              onDismissComment={handleDismissComment}
+              onRestoreComment={handleRestoreComment}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
