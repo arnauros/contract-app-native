@@ -121,13 +121,15 @@ export default function ViewPage() {
   const [designerName, setDesignerName] = useState("");
   const [designerSignedAt, setDesignerSignedAt] = useState<Date | null>(null);
   const [existingSignature, setExistingSignature] = useState(false);
+  const [contractStatus, setContractStatus] = useState<"draft" | "signed">(
+    "draft"
+  );
+  const [isEditing, setIsEditing] = useState(false);
 
   // Load contract and comments
   useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-
-      const loadContractAndComments = async () => {
+    if (id) {
+      const loadContractAndComments = () => {
         try {
           // Load contract
           const savedContract = localStorage.getItem(`contract-content-${id}`);
@@ -160,29 +162,49 @@ export default function ViewPage() {
   }, [comments, id]);
 
   useEffect(() => {
-    // Load existing signature data if any
-    const savedClientSignature = localStorage.getItem(
-      `contract-client-signature-${id}`
-    );
-    if (savedClientSignature) {
-      const data = JSON.parse(savedClientSignature);
-      setClientName(data.name);
-      setClientSignature(data.signature);
-      setClientSignedAt(new Date(data.signedAt));
-      setIsClientSigned(true);
-    }
+    const loadSignatures = async () => {
+      console.log("🔄 Loading signatures for contract:", id);
 
-    // Load designer signature
-    const savedDesignerSignature = localStorage.getItem(
-      `contract-signature-${id}`
-    );
-    if (savedDesignerSignature) {
-      const data = JSON.parse(savedDesignerSignature);
-      setDesignerName(data.name);
-      setDesignerSignature(data.signature);
-      setDesignerSignedAt(new Date(data.signedAt));
-      setExistingSignature(true);
-    }
+      try {
+        // Load contract status first
+        const contractState = localStorage.getItem(`contract-status-${id}`);
+        console.log("📄 Contract status:", contractState);
+
+        // Load designer signature
+        const savedDesignerSignature = localStorage.getItem(
+          `contract-designer-signature-${id}`
+        );
+        if (savedDesignerSignature) {
+          const data = JSON.parse(savedDesignerSignature);
+          console.log("👨‍🎨 Designer signature found:", data);
+          setDesignerName(data.name);
+          setDesignerSignature(data.signature);
+          setDesignerSignedAt(new Date(data.signedAt));
+          setExistingSignature(true);
+        }
+
+        // Load client signature
+        const savedClientSignature = localStorage.getItem(
+          `contract-client-signature-${id}`
+        );
+        if (savedClientSignature) {
+          const data = JSON.parse(savedClientSignature);
+          console.log("👤 Client signature found:", data);
+          setClientName(data.name);
+          setClientSignature(data.signature);
+          setClientSignedAt(new Date(data.signedAt));
+          setIsClientSigned(true);
+        }
+
+        setContractStatus(contractState === "signed" ? "signed" : "draft");
+        setIsLoading(false);
+      } catch (error) {
+        console.error("❌ Error loading signatures:", error);
+        setIsLoading(false);
+      }
+    };
+
+    loadSignatures();
   }, [id]);
 
   const handleAddReply = (commentId: string, replyText: string) => {
@@ -361,238 +383,318 @@ export default function ViewPage() {
     }
   };
 
+  const handleFinalSign = async () => {
+    console.log("✅ handleFinalSign called");
+    try {
+      const signatureData = {
+        signature: designerSignature,
+        name: designerName,
+        signedAt: new Date().toISOString(),
+      };
+
+      console.log("📝 Saving designer signature:", signatureData);
+
+      await Promise.all([
+        // Save designer signature
+        localStorage.setItem(
+          `contract-designer-signature-${id}`,
+          JSON.stringify(signatureData)
+        ),
+        // Update contract status
+        localStorage.setItem(`contract-status-${id}`, "signed"),
+      ]);
+
+      setContractStatus("signed");
+      setExistingSignature(true);
+      setIsEditing(false);
+
+      console.log("✨ Contract signed successfully");
+      toast.success("Contract signed successfully!");
+    } catch (error) {
+      console.error("❌ Error signing contract:", error);
+      toast.error("Failed to sign contract");
+    }
+  };
+
+  const handleDesignerSign = (signature: string, name: string) => {
+    setDesignerSignature(signature);
+    setDesignerName(name);
+    handleFinalSign();
+  };
+
+  const handleEditMode = () => {
+    if (isClientSigned || existingSignature) {
+      const confirmEdit = window.confirm(
+        "Editing the contract will invalidate the current signatures. You will need to sign the contract again. Do you want to continue?"
+      );
+
+      if (confirmEdit) {
+        // Clear signatures and status
+        localStorage.removeItem(`contract-client-signature-${id}`);
+        localStorage.removeItem(`contract-designer-signature-${id}`);
+        localStorage.removeItem(`contract-status-${id}`);
+
+        // Reset states
+        setIsClientSigned(false);
+        setExistingSignature(false);
+        setContractStatus("draft");
+        setClientName("");
+        setClientSignature("");
+        setClientSignedAt(null);
+        setDesignerName("");
+        setDesignerSignature("");
+        setDesignerSignedAt(null);
+
+        setIsEditing(true);
+      }
+    } else {
+      setIsEditing(true);
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-white">
-      {/* Fixed Topbar */}
-      <div className="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200">
-        <div className="h-14 flex items-center justify-end px-4">
-          <div className="flex gap-2">
-            {!isClientSigned && (
-              <Button
-                onClick={() => setShowComments(!showComments)}
-                variant="secondary"
-                className="inline-flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800"
-              >
-                {showComments ? (
-                  <>
-                    <CheckIcon className="w-5 h-5" />
-                    Done Reviewing
-                  </>
-                ) : (
-                  <>
-                    <PencilSquareIcon className="w-5 h-5" />
-                    Request Changes
-                  </>
-                )}
-              </Button>
-            )}
-
-            {!isClientSigned ? (
-              <Button
-                variant="primary"
-                className="inline-flex items-center gap-2"
-                disabled={showComments || comments.length > 0}
-                onClick={handleSignContract}
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                  />
-                </svg>
-                Sign Contract
-              </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                className="inline-flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                onClick={handleUnsignContract}
-              >
-                <XMarkIcon className="w-5 h-5" />
-                Unsign Contract
-              </Button>
-            )}
-          </div>
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Fixed Topbar */}
+          <div className="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200">
+            <div className="h-14 flex items-center justify-end px-4">
+              <div className="flex gap-2">
+                {!isClientSigned && (
+                  <Button
+                    onClick={() => setShowComments(!showComments)}
+                    variant="secondary"
+                    className="inline-flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800"
+                  >
+                    {showComments ? (
+                      <>
+                        <CheckIcon className="w-5 h-5" />
+                        Done Reviewing
+                      </>
+                    ) : (
+                      <>
+                        <PencilSquareIcon className="w-5 h-5" />
+                        Request Changes
+                      </>
+                    )}
+                  </Button>
+                )}
 
-      {/* Signatures Display */}
-      {(isClientSigned || existingSignature) && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-8">
-              {/* Client Signature */}
-              {isClientSigned && (
-                <div className="flex items-center gap-4">
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-900">
-                      Client Signature
-                    </p>
-                    <p className="text-gray-500">{clientName}</p>
-                    <p className="text-gray-400 text-xs">
-                      {clientSignedAt?.toLocaleDateString()} at{" "}
-                      {clientSignedAt?.toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <img
-                    src={clientSignature}
-                    alt="Client Signature"
-                    className="h-16 border-b border-gray-300"
-                  />
-                </div>
-              )}
-
-              {/* User/Designer Signature */}
-              {existingSignature && (
-                <div className="flex items-center gap-4 border-l border-gray-200 pl-8">
-                  <div className="text-sm">
-                    <p className="font-medium text-gray-900">
-                      Designer Signature
-                    </p>
-                    <p className="text-gray-500">{designerName}</p>
-                    <p className="text-gray-400 text-xs">
-                      {designerSignedAt?.toLocaleDateString()} at{" "}
-                      {designerSignedAt?.toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <img
-                    src={designerSignature}
-                    alt="Designer Signature"
-                    className="h-16 border-b border-gray-300"
-                  />
-                </div>
-              )}
+                {!isClientSigned ? (
+                  <Button
+                    variant="primary"
+                    className="inline-flex items-center gap-2"
+                    disabled={showComments || comments.length > 0}
+                    onClick={handleSignContract}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
+                    </svg>
+                    Sign Contract
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    className="inline-flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={handleUnsignContract}
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                    Unsign Contract
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Main Content - Now full width */}
-      <div className="pt-14">
-        <div className="max-w-[900px] mx-auto pt-[100px]">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-12">
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          {/* Signatures Display */}
+          {(isClientSigned || existingSignature) && !isEditing && (
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
+              <div className="max-w-7xl mx-auto flex justify-between items-center">
+                <div className="flex items-center gap-8">
+                  {/* Client Signature */}
+                  {isClientSigned && (
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-900">
+                          Client Signature
+                        </p>
+                        <p className="text-gray-500">{clientName}</p>
+                        <p className="text-gray-400 text-xs">
+                          {clientSignedAt?.toLocaleDateString()} at{" "}
+                          {clientSignedAt?.toLocaleTimeString()}
+                        </p>
+                      </div>
+                      <img
+                        src={clientSignature}
+                        alt="Client Signature"
+                        className="h-16 border-b border-gray-300"
+                      />
+                    </div>
+                  )}
+
+                  {/* Designer Signature */}
+                  {existingSignature && (
+                    <div className="flex items-center gap-4 border-l border-gray-200 pl-8">
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-900">
+                          Designer Signature
+                        </p>
+                        <p className="text-gray-500">{designerName}</p>
+                        <p className="text-gray-400 text-xs">
+                          {designerSignedAt?.toLocaleDateString()} at{" "}
+                          {designerSignedAt?.toLocaleTimeString()}
+                        </p>
+                      </div>
+                      <img
+                        src={designerSignature}
+                        alt="Designer Signature"
+                        className="h-16 border-b border-gray-300"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : generatedContent?.blocks ? (
-              generatedContent.blocks.map((block: any) => (
-                <ContractBlock
-                  key={block.id}
-                  block={block}
-                  showComments={showComments}
-                  onClick={() => handleBlockClick(block)}
+            </div>
+          )}
+
+          {/* Main Content - Now full width */}
+          <div className="pt-14">
+            <div className="max-w-[900px] mx-auto pt-[100px]">
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-12">
+                {isLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : generatedContent?.blocks ? (
+                  generatedContent.blocks.map((block: any) => (
+                    <ContractBlock
+                      key={block.id}
+                      block={block}
+                      showComments={showComments}
+                      onClick={() => handleBlockClick(block)}
+                    />
+                  ))
+                ) : (
+                  <div className="text-red-500 p-4 text-center">
+                    No contract content found
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Comments Sidebar */}
+          {showComments && (
+            <div className="fixed top-0 right-0 bottom-0 w-[320px] bg-white border-l border-gray-200 shadow-lg z-10">
+              <div className="absolute top-14 left-0 right-0 bottom-0">
+                <CommentsSidebar
+                  comments={comments}
+                  onAddComment={handleAddComment}
+                  onSubmitComment={handleSubmitComment}
+                  onEditComment={handleEditComment}
+                  onAddReply={handleAddReply}
+                  onDismissComment={handleDismissComment}
+                  onRestoreComment={handleRestoreComment}
                 />
-              ))
-            ) : (
-              <div className="text-red-500 p-4 text-center">
-                No contract content found
               </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </div>
+          )}
 
-      {/* Comments Sidebar */}
-      {showComments && (
-        <div className="fixed top-0 right-0 bottom-0 w-[320px] bg-white border-l border-gray-200 shadow-lg z-10">
-          <div className="absolute top-14 left-0 right-0 bottom-0">
-            <CommentsSidebar
-              comments={comments}
-              onAddComment={handleAddComment}
-              onSubmitComment={handleSubmitComment}
-              onEditComment={handleEditComment}
-              onAddReply={handleAddReply}
-              onDismissComment={handleDismissComment}
-              onRestoreComment={handleRestoreComment}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Client signing modal */}
-      {showSignatureModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-[400px]">
-            {isClientSigned ? (
-              <div className="text-center space-y-4">
-                <div className="w-12 h-12 bg-green-100 rounded-full mx-auto flex items-center justify-center">
-                  <CheckIconSolid className="h-6 w-6 text-green-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Contract Signed!
-                </h2>
-                <p className="text-gray-600">
-                  Thank you, {clientName}. Your signature has been recorded.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Redirecting to confirmation page...
-                </p>
-              </div>
-            ) : (
-              <>
-                <h2 className="text-xl font-semibold mb-4">Sign Contract</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="Type your full name"
-                    />
+          {/* Client signing modal */}
+          {showSignatureModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-[400px]">
+                {isClientSigned ? (
+                  <div className="text-center space-y-4">
+                    <div className="w-12 h-12 bg-green-100 rounded-full mx-auto flex items-center justify-center">
+                      <CheckIconSolid className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Contract Signed!
+                    </h2>
+                    <p className="text-gray-600">
+                      Thank you, {clientName}. Your signature has been recorded.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Redirecting to confirmation page...
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Signature
-                    </label>
-                    <SignaturePad
-                      ref={signaturePadRef}
-                      canvasProps={{
-                        className:
-                          "w-full h-40 border border-gray-300 rounded-md",
-                      }}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => signaturePadRef.current?.clear()}
-                      className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (clientName.trim() && signaturePadRef.current) {
-                          const signature = signaturePadRef.current.toDataURL();
-                          handleSignComplete(signature, clientName);
-                        }
-                      }}
-                      disabled={!clientName.trim()}
-                      className={`flex-1 px-4 py-2 text-sm text-white rounded-md ${
-                        clientName.trim()
-                          ? "bg-blue-600 hover:bg-blue-700"
-                          : "bg-blue-300 cursor-not-allowed"
-                      }`}
-                    >
+                ) : (
+                  <>
+                    <h2 className="text-xl font-semibold mb-4">
                       Sign Contract
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+                    </h2>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          placeholder="Type your full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Signature
+                        </label>
+                        <SignaturePad
+                          ref={signaturePadRef}
+                          canvasProps={{
+                            className:
+                              "w-full h-40 border border-gray-300 rounded-md",
+                          }}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => signaturePadRef.current?.clear()}
+                          className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (clientName.trim() && signaturePadRef.current) {
+                              const signature =
+                                signaturePadRef.current.toDataURL();
+                              handleSignComplete(signature, clientName);
+                            }
+                          }}
+                          disabled={!clientName.trim()}
+                          className={`flex-1 px-4 py-2 text-sm text-white rounded-md ${
+                            clientName.trim()
+                              ? "bg-blue-600 hover:bg-blue-700"
+                              : "bg-blue-300 cursor-not-allowed"
+                          }`}
+                        >
+                          Sign Contract
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
