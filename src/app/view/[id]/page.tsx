@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Comments } from "@/app/test/Comments";
 import Skeleton from "@/app/Components/Editor/skeleton";
 import { CommentsSidebar } from "@/app/Components/CommentsSidebar";
@@ -12,6 +12,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";
+import { SigningStage } from "@/app/Components/Editor/SigningStage";
 
 interface Comment {
   blockId: string;
@@ -104,6 +105,9 @@ export default function ViewPage() {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const hasInitialized = useRef(false);
+  const router = useRouter();
+  const [isSigning, setIsSigning] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
 
   // Load contract and comments
   useEffect(() => {
@@ -274,8 +278,29 @@ export default function ViewPage() {
     );
   };
 
+  const handleSignContract = () => {
+    setShowSignatureModal(true);
+  };
+
+  const handleSignComplete = async (signature: string, name: string) => {
+    try {
+      // Save signature data
+      localStorage.setItem(
+        `contract-signature-${id}`,
+        JSON.stringify({ signature, name })
+      );
+
+      toast.success("Contract signed successfully!");
+      setShowSignatureModal(false);
+      router.push(`/contract/signed/${id}`);
+    } catch (error) {
+      console.error("Error signing contract:", error);
+      toast.error("Failed to sign contract. Please try again.");
+    }
+  };
+
   return (
-    <div className="relative min-h-screen bg-gray-50">
+    <div className="relative min-h-screen bg-white">
       {/* Fixed Topbar */}
       <div className="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200">
         <div className="h-14 flex items-center justify-end px-4">
@@ -313,22 +338,27 @@ export default function ViewPage() {
             <Button
               variant="primary"
               className="inline-flex items-center gap-2"
-              disabled={showComments || comments.length > 0}
+              disabled={showComments || comments.length > 0 || isSigning}
+              onClick={handleSignContract}
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                />
-              </svg>
-              Sign Contract
+              {isSigning ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              )}
+              {isSigning ? "Signing..." : "Sign Contract"}
             </Button>
           </div>
         </div>
@@ -336,7 +366,7 @@ export default function ViewPage() {
 
       {/* Main Content - Now full width */}
       <div className="pt-14">
-        <div className="max-w-[1200px] mx-auto px-8 py-8">
+        <div className="max-w-[640px] mx-auto pt-[100px]">
           <div className="bg-white rounded-lg shadow-sm p-8">
             {isLoading ? (
               <div className="flex justify-center py-8">
@@ -376,6 +406,12 @@ export default function ViewPage() {
           </div>
         </div>
       )}
+
+      <SigningStage
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        onSign={handleSignComplete}
+      />
     </div>
   );
 }

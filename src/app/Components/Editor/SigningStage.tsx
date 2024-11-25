@@ -77,7 +77,8 @@ export function SigningStage({ onSign, existingSignature }: SigningStageProps) {
             ref={signaturePadRef}
             onEnd={validateForm}
             canvasProps={{
-              className: "w-full h-40",
+              className:
+                "w-full h-40 bg-white border border-gray-200 rounded-md",
             }}
           />
         </div>

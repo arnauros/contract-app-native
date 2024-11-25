@@ -24,13 +24,13 @@ export default function RootLayout({
       <body className="bg-gray-100 text-gray-900">
         <div className="flex h-screen">
           {!isViewRoute && (
-            <div className="w-[72px] border-r border-gray-200 bg-white">
+            <div className="  ">
               <Sidebar />
             </div>
           )}
           <div className="flex-1">
             <Topbar pathname={pathname} />
-            <div className="fixed-content">
+            <div className="">
               <main className="scrollable-content">{children}</main>
             </div>
           </div>
