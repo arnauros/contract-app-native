@@ -3,14 +3,15 @@ import SignaturePad from "react-signature-canvas";
 import { CheckIcon } from "@heroicons/react/20/solid";
 
 interface SigningStageProps {
+  isOpen: boolean;
+  onClose: () => void;
   onSign: (signature: string, name: string) => void;
-  existingSignature?: boolean;
 }
 
-export function SigningStage({ onSign, existingSignature }: SigningStageProps) {
+export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
   const [name, setName] = useState("");
   const [isValid, setIsValid] = useState(false);
-  const [isSigned, setIsSigned] = useState(existingSignature || false);
+  const [isSigned, setIsSigned] = useState(false);
   const signaturePadRef = useRef<any>(null);
 
   // Add validation function
