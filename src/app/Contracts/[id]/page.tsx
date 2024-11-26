@@ -15,29 +15,82 @@ export default function ContractPage() {
     "edit"
   );
 
-  // Add debug logs for stage changes
+  // Handle stage changes
+  const handleStageChange = (newStage: "edit" | "sign" | "send") => {
+    console.log("🔄 Stage change requested:", newStage);
+    console.log("📍 Current stage:", currentStage);
+
+    // Get current signature status
+    const clientSig = localStorage.getItem(`contract-client-signature-${id}`);
+    const designerSig = localStorage.getItem(
+      `contract-designer-signature-${id}`
+    );
+    const hasSignatures = !!(clientSig || designerSig);
+    console.log("📝 Current signatures:", {
+      hasSignatures,
+      clientSig,
+      designerSig,
+    });
+
+    // Set new stage
+    console.log("✅ Setting stage to:", newStage);
+    setCurrentStage(newStage);
+    localStorage.setItem(`contract-stage-${id}`, newStage);
+  };
+
+  // Stage change event listener
   useEffect(() => {
-    const handleStageChange = (e: CustomEvent) => {
+    const handleStageChangeEvent = (e: CustomEvent) => {
       console.log("🎭 Stage change event received:", e.detail);
-      setCurrentStage(e.detail);
+
+      // Handle confirmed edit case
+      if (e.detail?.stage === "edit" && e.detail?.confirmed) {
+        console.log("✅ Processing confirmed edit");
+        // Clear signatures
+        localStorage.removeItem(`contract-client-signature-${id}`);
+        localStorage.removeItem(`contract-designer-signature-${id}`);
+        // Update stage
+        setCurrentStage("edit");
+        localStorage.setItem(`contract-stage-${id}`, "edit");
+        return;
+      }
+
+      // Handle normal stage changes
+      if (typeof e.detail === "string") {
+        handleStageChange(e.detail);
+      }
     };
 
-    console.log("🎬 Setting up stage change listener");
-    window.addEventListener("stageChange", handleStageChange as EventListener);
-
+    window.addEventListener(
+      "stageChange",
+      handleStageChangeEvent as EventListener
+    );
     return () => {
-      console.log("🧹 Cleaning up stage change listener");
       window.removeEventListener(
         "stageChange",
-        handleStageChange as EventListener
+        handleStageChangeEvent as EventListener
       );
     };
-  }, []);
+  }, [currentStage, id]);
 
-  // Log whenever currentStage changes
+  // Safety check for signatures
   useEffect(() => {
-    console.log("📍 Current stage updated to:", currentStage);
-  }, [currentStage]);
+    const checkSignatures = () => {
+      const clientSig = localStorage.getItem(`contract-client-signature-${id}`);
+      const designerSig = localStorage.getItem(
+        `contract-designer-signature-${id}`
+      );
+      const hasSignatures = !!(clientSig || designerSig);
+
+      if (hasSignatures && currentStage === "edit") {
+        console.log("🔒 Found signatures - enforcing sign stage");
+        setCurrentStage("sign");
+        localStorage.setItem(`contract-stage-${id}`, "sign");
+      }
+    };
+
+    checkSignatures();
+  }, [currentStage, id]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -50,7 +103,30 @@ export default function ContractPage() {
         hasInitialized.current = true;
         console.log("🔄 Loading contract once:", id);
 
-        // First try to load the generated contract
+        // Check for existing signatures first
+        const clientSig = localStorage.getItem(
+          `contract-client-signature-${id}`
+        );
+        const designerSig = localStorage.getItem(
+          `contract-designer-signature-${id}`
+        );
+        const hasSignatures = !!(clientSig || designerSig);
+        console.log("📝 Signature status:", { hasSignatures });
+
+        // Load saved stage
+        const savedStage = localStorage.getItem(`contract-stage-${id}`);
+        console.log("💾 Saved stage:", savedStage);
+
+        // Determine correct initial stage
+        if (hasSignatures) {
+          console.log("🔒 Contract has signatures - enforcing sign/send stage");
+          setCurrentStage(savedStage === "send" ? "send" : "sign");
+        } else {
+          console.log("✏️ No signatures - starting in edit stage");
+          setCurrentStage("edit");
+        }
+
+        // Load contract content (your existing loading logic)
         const savedContract = localStorage.getItem(`contract-content-${id}`);
         if (savedContract) {
           console.log("📄 Found saved contract, loading...");
@@ -111,13 +187,7 @@ export default function ContractPage() {
         formData={formData}
         initialContent={generatedContent}
         stage={currentStage}
-        onStageChange={(newStage) => {
-          console.log(
-            "🔄 ContractEditor requesting stage change to:",
-            newStage
-          );
-          setCurrentStage(newStage);
-        }}
+        onStageChange={handleStageChange}
       />
     </div>
   );

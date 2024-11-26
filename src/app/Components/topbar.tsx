@@ -27,10 +27,45 @@ export default function Topbar({ pathname }: TopbarProps) {
     return "Dashboard / Contracts";
   };
 
+  // Single source of truth for back button handling
+  const handleBackClick = () => {
+    console.log("⬅️ Back button clicked");
+
+    // Only show prompt when in sign stage
+    if (currentStage === "sign") {
+      const confirmEdit = window.confirm(
+        "Editing the contract will invalidate the current signature. You will need to sign the contract again. Do you want to continue?"
+      );
+
+      if (confirmEdit) {
+        console.log("✅ Edit confirmed - dispatching confirmed edit event");
+        const event = new CustomEvent("stageChange", {
+          detail: {
+            stage: "edit",
+            confirmed: true,
+          },
+        });
+        window.dispatchEvent(event);
+        setCurrentStage("edit");
+      } else {
+        console.log("🚫 Edit cancelled - maintaining sign stage");
+      }
+      return; // Exit early after handling confirmation
+    }
+  };
+
+  // Remove any other back button handlers
   useEffect(() => {
     const handleStageChange = (e: CustomEvent) => {
       console.log("🎧 Topbar received stage change:", e.detail);
-      setCurrentStage(e.detail);
+
+      // Only update state for non-edit changes or confirmed edits
+      if (
+        typeof e.detail === "string" ||
+        (e.detail?.stage === "edit" && e.detail?.confirmed)
+      ) {
+        setCurrentStage(e.detail.stage || e.detail);
+      }
     };
 
     window.addEventListener("stageChange", handleStageChange as EventListener);
@@ -56,15 +91,6 @@ export default function Topbar({ pathname }: TopbarProps) {
     const event = new CustomEvent("stageChange", { detail: nextStage });
     window.dispatchEvent(event);
     setCurrentStage(nextStage);
-  };
-
-  const handleBack = () => {
-    const previousStage = currentStage === "send" ? "sign" : "edit";
-    console.log("⬅️ Topbar Back clicked:", currentStage, "→", previousStage);
-
-    const event = new CustomEvent("stageChange", { detail: previousStage });
-    window.dispatchEvent(event);
-    setCurrentStage(previousStage);
   };
 
   return (
@@ -126,7 +152,7 @@ export default function Topbar({ pathname }: TopbarProps) {
           <div className="flex gap-2">
             {currentStage !== "edit" && (
               <button
-                onClick={handleBack}
+                onClick={handleBackClick}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Back
