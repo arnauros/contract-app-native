@@ -11,11 +11,18 @@ export default function ContractPage() {
   const [formData, setFormData] = useState(null);
   const [generatedContent, setGeneratedContent] = useState(null);
   const hasInitialized = useRef(false);
+
+  // Initialize stage from localStorage if it exists
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
-    "edit"
+    () => {
+      const savedStage = localStorage.getItem(`contract-stage-${id}`);
+      return (savedStage as "edit" | "sign" | "send") || "edit";
+    }
   );
 
-  // Handle stage changes
+  // Keep all your existing useEffects and handlers the same
+  // Just add stage persistence in handleStageChange
+
   const handleStageChange = (newStage: "edit" | "sign" | "send") => {
     console.log("🔄 Stage change requested:", newStage);
     console.log("📍 Current stage:", currentStage);

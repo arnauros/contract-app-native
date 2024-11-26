@@ -31,14 +31,13 @@ export default function Topbar({ pathname }: TopbarProps) {
   const handleBackClick = () => {
     console.log("⬅️ Back button clicked");
 
-    // Only show prompt when in sign stage
     if (currentStage === "sign") {
       const confirmEdit = window.confirm(
         "Editing the contract will invalidate the current signature. You will need to sign the contract again. Do you want to continue?"
       );
 
       if (confirmEdit) {
-        console.log("✅ Edit confirmed - dispatching confirmed edit event");
+        console.log("✅ Edit confirmed - dispatching stage change");
         const event = new CustomEvent("stageChange", {
           detail: {
             stage: "edit",
@@ -46,11 +45,14 @@ export default function Topbar({ pathname }: TopbarProps) {
           },
         });
         window.dispatchEvent(event);
-        setCurrentStage("edit");
       } else {
         console.log("🚫 Edit cancelled - maintaining sign stage");
       }
-      return; // Exit early after handling confirmation
+    } else if (currentStage === "send") {
+      // Handle back from send to sign stage
+      console.log("⬅️ Moving back to sign stage");
+      const event = new CustomEvent("stageChange", { detail: "sign" });
+      window.dispatchEvent(event);
     }
   };
 

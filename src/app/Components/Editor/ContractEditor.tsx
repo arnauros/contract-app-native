@@ -130,19 +130,37 @@ export function ContractEditor({
     };
   }, []);
 
-  const handleSignatureComplete = (signature: string, name: string) => {
+  const handleSignatureComplete = async (signature: string, name: string) => {
     console.log("✍️ Contract signed:", { signature, name });
-    setHasSignature(true);
-    setIsLocked(true);
 
     try {
+      const contractId = window.location.pathname.split("/").pop();
+      const signatureData = {
+        signature,
+        name,
+        signedAt: new Date().toISOString(),
+      };
+
+      // Save designer signature with contract ID
+      const storageKey = `contract-designer-signature-${contractId}`;
+      localStorage.setItem(storageKey, JSON.stringify(signatureData));
+
+      console.log("💾 Saved signature data:", {
+        key: storageKey,
+        data: signatureData,
+      });
+
+      // Update states after saving
+      setHasSignature(true);
+      setIsLocked(true);
+
+      // Save final contract version
       localStorage.setItem(
-        `contract-final-${window.location.pathname.split("/").pop()}`,
+        `contract-final-${contractId}`,
         JSON.stringify(editorContent)
       );
-      console.log("💾 Final contract version saved");
     } catch (error) {
-      console.error("Failed to save final version:", error);
+      console.error("Failed to save signature:", error);
     }
   };
 
@@ -237,6 +255,46 @@ export function ContractEditor({
     } catch (error) {
       console.error("❌ Send contract error:", error);
       throw error;
+    }
+  };
+
+  const handleFinalSign = async () => {
+    console.log("✅ handleFinalSign called");
+    try {
+      // Get the contract ID from the URL
+      const contractId = window.location.pathname.split("/").pop();
+      console.log("📝 Signing contract:", contractId);
+
+      const signatureData = {
+        signature: contractState.designerSignature,
+        name: contractState.designerName,
+        signedAt: new Date().toISOString(),
+      };
+
+      console.log("💾 Saving signature data:", {
+        key: `contract-designer-signature-${contractId}`,
+        data: signatureData,
+      });
+
+      // Save designer signature
+      localStorage.setItem(
+        `contract-designer-signature-${contractId}`,
+        JSON.stringify(signatureData)
+      );
+
+      // Update contract status
+      localStorage.setItem(`contract-status-${contractId}`, "signed");
+
+      console.log("✨ Signature saved successfully");
+
+      // Verify the save
+      const savedData = localStorage.getItem(
+        `contract-designer-signature-${contractId}`
+      );
+      console.log("🔍 Verification - saved data:", savedData);
+    } catch (error) {
+      console.error("❌ Error signing contract:", error);
+      console.error("Error details:", error);
     }
   };
 
