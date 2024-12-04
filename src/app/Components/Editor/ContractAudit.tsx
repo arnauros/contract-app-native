@@ -289,19 +289,20 @@ export function ContractAudit({
                     // Add highlight effect
                     targetBlock.classList.add(
                       `audit-highlight`,
-                      `audit-highlight-${issue.type}`,
-                      `pulse-animation`
+                      `audit-highlight-${issue.type}`
                     );
+                    // Start fading out the background after 2 seconds
                     setTimeout(() => {
-                      targetBlock.classList.remove(`pulse-animation`);
-                      // Allow the transition to complete before removing the highlight
+                      targetBlock.classList.add("fade-background");
+                      // Remove all classes after the fade is complete
                       setTimeout(() => {
                         targetBlock.classList.remove(
+                          "fade-background",
                           `audit-highlight`,
                           `audit-highlight-${issue.type}`
                         );
-                      }, 300); // Match this with the transition duration
-                    }, 3000); // Duration of the pulse effect
+                      }, 1500); // Wait for fade to complete
+                    }, 2000);
                   } else {
                     console.log(
                       "❌ Block not found at index:",

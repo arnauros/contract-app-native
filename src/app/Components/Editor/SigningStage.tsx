@@ -14,12 +14,25 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
   const [isSigned, setIsSigned] = useState(false);
   const signaturePadRef = useRef<any>(null);
 
-  // Add validation function
+  // Check for existing signature
+  useEffect(() => {
+    const contractId = window.location.pathname.split("/").pop();
+    const savedSignature = localStorage.getItem(
+      `contract-designer-signature-${contractId}`
+    );
+
+    if (savedSignature) {
+      const signatureData = JSON.parse(savedSignature);
+      setName(signatureData.name);
+      setIsSigned(true);
+    }
+  }, []);
+
+  // Validation function
   const validateForm = () => {
     const isNameValid = name.trim().length > 0;
     const isSignatureValid =
       signaturePadRef.current && !signaturePadRef.current.isEmpty();
-
     setIsValid(isNameValid && isSignatureValid);
   };
 
@@ -28,10 +41,8 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
     validateForm();
   }, [name]);
 
+  // Render signed state
   if (isSigned) {
-    const savedData = JSON.parse(
-      localStorage.getItem("contract-signature") || "{}"
-    );
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="text-center space-y-4">
@@ -39,19 +50,20 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
             <CheckIcon className="h-6 w-6 text-green-600" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900">
-            Contract Signed!
+            Contract Already Signed
           </h2>
           <p className="text-gray-600">
-            Thank you, {savedData.name}. Your signature has been recorded.
+            This contract has already been signed by {name}.
           </p>
           <p className="text-sm text-gray-500">
-            Click Next to proceed to the send stage
+            You can proceed to send the contract
           </p>
         </div>
       </div>
     );
   }
 
+  // Render signing interface
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h2 className="text-xl font-semibold mb-4">Sign Contract</h2>

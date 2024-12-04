@@ -174,55 +174,35 @@ body {
 
 /* Audit highlight styles */
 .audit-highlight {
-  position: relative !important;
   border-radius: 4px !important;
-  border: 1px solid #e5e7eb !important;
-  display: inline-block !important;
-  padding-left: 10px !important;
-  padding-right: 8px !important;
+  border: inside 1px solid #0050ef !important;
+  padding-left: 11px !important;
+  padding-right: 10px !important;
   margin-left: 80px !important;
-  transition: background-color 0.3s ease !important;
   width: fit-content !important;
   max-width: fit-content !important;
   z-index: 1;
-  animation: subtlePulse 2s ease-in-out 1;
+}
+
+.fade-background {
+  background-color: transparent !important;
+  border-color: transparent !important;
 }
 
 /* Audit highlight variants */
 .audit-highlight-general {
-  background-color: rgba(132, 132, 132, 0.05) !important;
+  background-color: rgba(132, 132, 132, 0.1) !important;
 }
 
 .audit-highlight-rewording {
-  background-color: rgba(168, 85, 247, 0.05) !important;
-}
-
-.audit-highlight-spelling {
-  background-color: rgba(239, 68, 68, 0.05) !important;
-}
-
-.audit-highlight-upsell {
-  background-color: rgba(34, 197, 94, 0.05) !important;
-}
-
-/* Audit highlight hover states */
-.audit-highlight-general:hover,
-.audit-highlight-general.focused {
-  background-color: rgba(245, 158, 11, 0.1) !important;
-}
-
-.audit-highlight-rewording:hover,
-.audit-highlight-rewording.focused {
   background-color: rgba(168, 85, 247, 0.1) !important;
 }
 
-.audit-highlight-spelling:hover,
-.audit-highlight-spelling.focused {
+.audit-highlight-spelling {
   background-color: rgba(239, 68, 68, 0.1) !important;
 }
 
-.audit-highlight-upsell:hover,
-.audit-highlight-upsell.focused {
+.audit-highlight-upsell {
   background-color: rgba(34, 197, 94, 0.1) !important;
 }
 
@@ -293,19 +273,25 @@ body {
 
 .pulse-animation {
   animation: pulse 1s infinite;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-@keyframes pulse {
-  0% {
-    transform: opacity(1);
-    opacity: 1;
-  }
-  50% {
-    transform: opacity(1.05);
-    opacity: 0.7;
-  }
-  100% {
-    transform: opacity(1);
-    opacity: 1;
-  }
+/* Add these color variables for different types */
+.audit-highlight-rewording {
+  --highlight-color: rgba(168, 85, 247, 0.1);
+}
+.audit-highlight-spelling {
+  --highlight-color: rgba(239, 68, 68, 0.1);
+}
+.audit-highlight-upsell {
+  --highlight-color: rgba(34, 197, 94, 0.1);
+}
+.audit-highlight-general {
+  --highlight-color: rgba(132, 132, 132, 0.1);
+}
+
+/* Add fade-out class */
+.fade-out {
+  opacity: 0 !important;
+  transition: opacity 0.5s ease-out !important;
 }
