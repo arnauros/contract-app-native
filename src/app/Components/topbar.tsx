@@ -31,8 +31,14 @@ export default function Topbar({ pathname }: TopbarProps) {
 
   // Single source of truth for back button handling
   const handleBackClick = () => {
-    console.log("⬅️ Back button clicked");
-    setIsEditConfirmModalOpen(true);
+    console.log("⬅️ Topbar: Back button clicked");
+    if (currentStage === "sign") {
+      console.log(" Topbar: Opening edit confirm modal");
+      setIsEditConfirmModalOpen(true);
+    } else if (currentStage === "send") {
+      console.log("⬅️ Moving back to sign stage");
+      onStageChange?.("sign");
+    }
   };
 
   // Remove any other back button handlers
@@ -75,7 +81,7 @@ export default function Topbar({ pathname }: TopbarProps) {
   };
 
   const confirmEdit = () => {
-    console.log("✅ Edit confirmed - dispatching stage change");
+    console.log("✅ Topbar: Confirming edit");
     const event = new CustomEvent("stageChange", {
       detail: {
         stage: "edit",
