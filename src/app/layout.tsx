@@ -36,6 +36,7 @@ export default function RootLayout({
           </div>
         </div>
         <Toaster />
+        <div id="modal-root" />
       </body>
     </html>
   );

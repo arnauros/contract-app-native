@@ -4,6 +4,7 @@ import Button from "./button";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import Modal from "@/app/Components/Modal";
 
 interface TopbarProps {
   pathname: string;
@@ -15,6 +16,7 @@ export default function Topbar({ pathname }: TopbarProps) {
     "edit"
   );
   const params = useParams();
+  const [isEditConfirmModalOpen, setIsEditConfirmModalOpen] = useState(false);
 
   // Add getBreadcrumb function
   const getBreadcrumb = () => {
@@ -30,30 +32,7 @@ export default function Topbar({ pathname }: TopbarProps) {
   // Single source of truth for back button handling
   const handleBackClick = () => {
     console.log("⬅️ Back button clicked");
-
-    if (currentStage === "sign") {
-      const confirmEdit = window.confirm(
-        "Editing the contract will invalidate the current signature. You will need to sign the contract again. Do you want to continue?"
-      );
-
-      if (confirmEdit) {
-        console.log("✅ Edit confirmed - dispatching stage change");
-        const event = new CustomEvent("stageChange", {
-          detail: {
-            stage: "edit",
-            confirmed: true,
-          },
-        });
-        window.dispatchEvent(event);
-      } else {
-        console.log("🚫 Edit cancelled - maintaining sign stage");
-      }
-    } else if (currentStage === "send") {
-      // Handle back from send to sign stage
-      console.log("⬅️ Moving back to sign stage");
-      const event = new CustomEvent("stageChange", { detail: "sign" });
-      window.dispatchEvent(event);
-    }
+    setIsEditConfirmModalOpen(true);
   };
 
   // Remove any other back button handlers
@@ -93,6 +72,18 @@ export default function Topbar({ pathname }: TopbarProps) {
     const event = new CustomEvent("stageChange", { detail: nextStage });
     window.dispatchEvent(event);
     setCurrentStage(nextStage);
+  };
+
+  const confirmEdit = () => {
+    console.log("✅ Edit confirmed - dispatching stage change");
+    const event = new CustomEvent("stageChange", {
+      detail: {
+        stage: "edit",
+        confirmed: true,
+      },
+    });
+    window.dispatchEvent(event);
+    setIsEditConfirmModalOpen(false);
   };
 
   return (
@@ -171,6 +162,18 @@ export default function Topbar({ pathname }: TopbarProps) {
           </div>
         )}
       </div>
+      <Modal
+        isOpen={isEditConfirmModalOpen}
+        onClose={() => setIsEditConfirmModalOpen(false)}
+        title="Edit Contract"
+        onConfirm={confirmEdit}
+        confirmText="Continue"
+      >
+        <p>
+          Editing the contract will invalidate the current signature. You will
+          need to sign the contract again. Do you want to continue?
+        </p>
+      </Modal>
     </header>
   );
 }

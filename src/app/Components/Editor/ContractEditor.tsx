@@ -11,6 +11,7 @@ import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { ContractAudit } from "./ContractAudit";
 import { SigningStage } from "./SigningStage";
 import { SendStage } from "./SendStage";
+import Modal from "@/app/Components/Modal";
 
 interface ContractEditorProps {
   formData: any;
@@ -43,6 +44,7 @@ export function ContractEditor({
   const [isLocked, setIsLocked] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const initialLoadDone = useRef(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Check for existing signature on mount only
   useEffect(() => {
@@ -61,20 +63,8 @@ export function ContractEditor({
   useEffect(() => {
     // Only show warning if actively changing from sign to edit
     if (stage === "edit" && hasSignature && initialLoadDone.current) {
-      const confirmEdit = window.confirm(
-        "Editing the contract will invalidate the current signature. You will need to sign the contract again. Do you want to continue?"
-      );
-
-      if (confirmEdit) {
-        console.log("🔓 Unlocking contract for editing...");
-        setIsLocked(false);
-        setHasSignature(false);
-        localStorage.removeItem("contract-signature");
-      } else {
-        console.log("↩️ Reverting back to sign stage...");
-        onStageChange?.("sign");
-        return;
-      }
+      setIsEditModalOpen(true);
+      return;
     }
 
     // Prevent going to send stage without signature
@@ -298,6 +288,20 @@ export function ContractEditor({
     }
   };
 
+  const handleConfirmEdit = () => {
+    console.log("🔓 Unlocking contract for editing...");
+    setIsLocked(false);
+    setHasSignature(false);
+    localStorage.removeItem("contract-signature");
+    setIsEditModalOpen(false);
+  };
+
+  const handleCancelEdit = () => {
+    console.log("↩️ Reverting back to sign stage...");
+    onStageChange?.("sign");
+    setIsEditModalOpen(false);
+  };
+
   return (
     <div className="content-wrapper">
       <div className="max-w-4xl mx-auto relative">
@@ -333,7 +337,7 @@ export function ContractEditor({
           {/* Editor section with lock overlay */}
           <div className="relative">
             {isLocked && (
-              <div className="absolute inset-0 bg-gray-50 bg-opacity-50 pointer-events-none z-10 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gray-50 bg-opacity-50 pointer-events-none z-[1] flex items-center justify-center">
                 <div className="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
                   <LockClosedIcon className="h-5 w-5 text-gray-500" />
                   <span className="text-sm text-gray-600">
@@ -371,6 +375,20 @@ export function ContractEditor({
           {stage === "send" && <SendStage onSend={handleSendContract} />}
         </div>
       </div>
+
+      {/* Add Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={handleCancelEdit}
+        title="Edit Contract"
+        onConfirm={handleConfirmEdit}
+        confirmText="Continue"
+      >
+        <p>
+          Editing the contract will invalidate the current signature. You will
+          need to sign the contract again. Do you want to continue?
+        </p>
+      </Modal>
     </div>
   );
 }

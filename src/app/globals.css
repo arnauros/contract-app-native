@@ -295,3 +295,23 @@ body {
   opacity: 0 !important;
   transition: opacity 0.5s ease-out !important;
 }
+
+/* Add these styles for modal handling */
+#modal-root {
+  position: relative;
+  z-index: 9999;
+}
+
+/* Ensure other fixed elements don't overlap */
+.fixed {
+  z-index: 1;
+}
+
+/* Higher z-index for modals */
+.modal-backdrop {
+  z-index: 99999;
+}
+
+.modal-content {
+  z-index: 100000;
+}

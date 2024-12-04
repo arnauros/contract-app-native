@@ -15,6 +15,7 @@ import { toast } from "react-hot-toast";
 import { SigningStage } from "@/app/Components/Editor/SigningStage";
 import { CheckIcon as CheckIconSolid } from "@heroicons/react/20/solid";
 import SignaturePad from "react-signature-canvas";
+import Modal from "@/app/Components/Modal";
 
 interface Comment {
   blockId: string;
@@ -129,6 +130,8 @@ export default function ViewPage() {
   });
   const signaturePadRef = useRef<any>(null);
   const [isClientSigned, setIsClientSigned] = useState(false);
+  const [isUnsignModalOpen, setIsUnsignModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Load contract and comments
   useEffect(() => {
@@ -388,33 +391,33 @@ export default function ViewPage() {
   };
 
   const handleUnsignContract = () => {
-    console.log("🗑️ Unsign Contract clicked");
-    if (
-      window.confirm(
-        "Are you sure you want to remove your signature from this contract?"
-      )
-    ) {
-      try {
-        const contractId = window.location.pathname.split("/").pop();
+    setIsUnsignModalOpen(true);
+  };
 
-        // Remove signature from localStorage
-        localStorage.removeItem(`contract-client-signature-${contractId}`);
+  const confirmUnsignContract = () => {
+    console.log("🗑️ Unsign Contract confirmed");
+    try {
+      const contractId = window.location.pathname.split("/").pop();
 
-        // Reset contract state
-        setContractState((prev) => ({
-          ...prev,
-          clientSignature: "",
-          clientName: "",
-          clientSignedAt: null,
-          isClientSigned: false,
-        }));
-        setIsClientSigned(false);
+      // Remove signature from localStorage
+      localStorage.removeItem(`contract-client-signature-${contractId}`);
 
-        toast.success("Signature removed successfully");
-      } catch (error) {
-        console.error("❌ Error removing signature:", error);
-        toast.error("Failed to remove signature. Please try again.");
-      }
+      // Reset contract state
+      setContractState((prev) => ({
+        ...prev,
+        clientSignature: "",
+        clientName: "",
+        clientSignedAt: null,
+        isClientSigned: false,
+      }));
+      setIsClientSigned(false);
+
+      toast.success("Signature removed successfully");
+    } catch (error) {
+      console.error("❌ Error removing signature:", error);
+      toast.error("Failed to remove signature. Please try again.");
+    } finally {
+      setIsUnsignModalOpen(false);
     }
   };
 
@@ -464,33 +467,32 @@ export default function ViewPage() {
 
   const handleEditMode = () => {
     if (contractState.isClientSigned || contractState.existingSignature) {
-      const confirmEdit = window.confirm(
-        "Editing the contract will invalidate the current signatures. You will need to sign the contract again. Do you want to continue?"
-      );
-
-      if (confirmEdit) {
-        // Clear signatures and status
-        localStorage.removeItem(`contract-client-signature-${id}`);
-        localStorage.removeItem(`contract-designer-signature-${id}`);
-        localStorage.removeItem(`contract-status-${id}`);
-
-        // Reset states
-        setContractState({
-          isClientSigned: false,
-          existingSignature: false,
-          clientName: "",
-          clientSignature: "",
-          clientSignedAt: null,
-          designerName: "",
-          designerSignature: "",
-          designerSignedAt: null,
-        });
-
-        setIsEditing(true);
-      }
+      setIsEditModalOpen(true);
     } else {
       setIsEditing(true);
     }
+  };
+
+  const confirmEdit = () => {
+    // Clear signatures and status
+    localStorage.removeItem(`contract-client-signature-${id}`);
+    localStorage.removeItem(`contract-designer-signature-${id}`);
+    localStorage.removeItem(`contract-status-${id}`);
+
+    // Reset states
+    setContractState({
+      isClientSigned: false,
+      existingSignature: false,
+      clientName: "",
+      clientSignature: "",
+      clientSignedAt: null,
+      designerName: "",
+      designerSignature: "",
+      designerSignedAt: null,
+    });
+
+    setIsEditing(true);
+    setIsEditModalOpen(false);
   };
 
   const SignatureDisplay = () => {
@@ -842,6 +844,30 @@ export default function ViewPage() {
           )}
 
           <SignatureDisplay />
+
+          <Modal
+            isOpen={isUnsignModalOpen}
+            onClose={() => setIsUnsignModalOpen(false)}
+            title="Unsign Contract"
+            onConfirm={confirmUnsignContract}
+          >
+            <p>
+              Are you sure you want to remove your signature from this contract?
+            </p>
+          </Modal>
+
+          <Modal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            title="Edit Signed Contract"
+            onConfirm={confirmEdit}
+            confirmText="Continue"
+          >
+            <p>
+              Editing the contract will invalidate the current signatures. You
+              will need to sign the contract again. Do you want to continue?
+            </p>
+          </Modal>
         </>
       )}
     </div>
