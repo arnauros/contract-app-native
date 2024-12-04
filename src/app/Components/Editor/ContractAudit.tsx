@@ -204,22 +204,36 @@ export function ContractAudit({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <InformationCircleIcon className="w-5 h-5 text-gray-500" />
-                <span>{auditData?.summary?.total ?? 0} suggestions found</span>
+                <div className="p-1.5 rounded-full bg-gray-100">
+                  <InformationCircleIcon className="w-5 h-5 text-gray-600" />
+                </div>
+                <span className="text-gray-700">
+                  {auditData?.summary?.total ?? 0} suggestions found
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <DocumentTextIcon className="w-5 h-5 text-purple-500" />
-                <span>
+                <div className="p-1.5 rounded-full bg-purple-100">
+                  <DocumentTextIcon className="w-5 h-5 text-purple-600" />
+                </div>
+                <span className="text-gray-700">
                   {auditData?.summary?.rewordings ?? 0} rewording recommended
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <ExclamationCircleIcon className="w-5 h-5 text-red-500" />
-                <span>{auditData?.summary?.spelling ?? 0} Spelling errors</span>
+                <div className="p-1.5 rounded-full bg-red-100">
+                  <ExclamationCircleIcon className="w-5 h-5 text-red-600" />
+                </div>
+                <span className="text-gray-700">
+                  {auditData?.summary?.spelling ?? 0} Spelling errors
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <CurrencyDollarIcon className="w-5 h-5 text-green-500" />
-                <span>{auditData?.summary?.upsell ?? 0} Upsell potentials</span>
+                <div className="p-1.5 rounded-full bg-green-100">
+                  <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-gray-700">
+                  {auditData?.summary?.upsell ?? 0} Upsell potentials
+                </span>
               </div>
             </>
           )}
@@ -240,7 +254,7 @@ export function ContractAudit({
       </div>
 
       {showSuggestions && auditData?.issues && auditData.issues.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 overflow-y-auto flex-grow">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 overflow-y-auto flex flex-col">
           <h3 className="text-lg font-semibold mb-4">Suggestions</h3>
           <div className="space-y-4">
             {auditData.issues.map((issue, index) => (
@@ -254,8 +268,19 @@ export function ContractAudit({
                   onIssueClick(issue.position.blockIndex, issue.type)
                 }
               >
-                <div className="flex items-start gap-3">
-                  {getIssueIcon(issue.type)}
+                <div className="flex flex-col items-start gap-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`p-1.5 rounded-full ${getIssueBackgroundStyle(
+                        issue.type
+                      )}`}
+                    >
+                      {getIssueIcon(issue.type)}
+                    </div>
+                    <span className="text-sm font-medium capitalize">
+                      {issue.type}
+                    </span>
+                  </div>
                   <div>
                     <div className="font-medium text-gray-900 mb-1">
                       {issue.text}
@@ -265,6 +290,9 @@ export function ContractAudit({
                         Suggestion: {issue.suggestion}
                       </div>
                     )}
+                    <div className="text-sm text-gray-500">
+                      Name: {issue.section || "Unnamed"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -280,25 +308,43 @@ export function ContractAudit({
 const getIssueTypeStyles = (type: string) => {
   switch (type) {
     case "rewording":
-      return "bg-purple-50 border border-purple-100";
+      return "bg-purple-50/50 border border-purple-100";
     case "spelling":
-      return "bg-red-50 border border-red-100";
+      return "bg-red-50/50 border border-red-100";
     case "upsell":
-      return "bg-green-50 border border-green-100";
+      return "bg-green-50/50 border border-green-100";
     default:
-      return "bg-gray-50 border border-gray-100";
+      return "bg-gray-50/50 border border-gray-100";
+  }
+};
+
+const getIssueBackgroundStyle = (type: string) => {
+  switch (type) {
+    case "rewording":
+      return "bg-purple-100";
+    case "spelling":
+      return "bg-red-100";
+    case "upsell":
+      return "bg-green-100";
+    default:
+      return "bg-gray-100";
   }
 };
 
 const getIssueIcon = (type: string) => {
+  const iconClasses = "w-5 h-5";
   switch (type) {
     case "rewording":
-      return <DocumentTextIcon className="w-5 h-5 text-purple-500" />;
+      return <DocumentTextIcon className={`${iconClasses} text-purple-600`} />;
     case "spelling":
-      return <ExclamationCircleIcon className="w-5 h-5 text-red-500" />;
+      return (
+        <ExclamationCircleIcon className={`${iconClasses} text-red-600`} />
+      );
     case "upsell":
-      return <CurrencyDollarIcon className="w-5 h-5 text-green-500" />;
+      return <CurrencyDollarIcon className={`${iconClasses} text-green-600`} />;
     default:
-      return <InformationCircleIcon className="w-5 h-5 text-gray-500" />;
+      return (
+        <InformationCircleIcon className={`${iconClasses} text-gray-600`} />
+      );
   }
 };

@@ -13,7 +13,7 @@ import { usePathname } from "next/navigation";
 const navigation = [
   {
     name: "Create",
-    href: "/Contracts/New/",
+    href: "/New/",
     icon: PlusIcon,
   },
   { name: "Contracts", href: "/Contracts", icon: ClipboardIcon },
@@ -30,7 +30,10 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col items-center gap-y-5 overflow-y-visible border-r border-gray-200 bg-gray-100 px-2 pt-[5rem] w-16 relative">
+    <div
+      className="h-full fixed top-0 left-0 flex flex-col items-center gap-y-5 overflow-hidden border-r border-gray-200 bg-gray-100 px-2 pt-[5rem] w-16
+    "
+    >
       <nav className="flex flex-1 flex-col items-center space-y-4">
         {/* Navigation section */}
         <ul role="list" className="flex flex-col space-y-4">
