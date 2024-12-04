@@ -96,7 +96,7 @@ export default function Topbar({ pathname }: TopbarProps) {
   };
 
   return (
-    <header className="z-50 fixed top-0 left-0 right-0 bg-gray-100 border-b border-gray-300">
+    <header className="fixed top-0 left-0 right-0 bg-gray-100 border-b border-gray-300">
       <div className="flex items-center justify-between h-14 px-4">
         <img
           alt="Your Company"

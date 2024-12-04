@@ -127,6 +127,8 @@ export default function ViewPage() {
     designerSignedAt: null,
     isLoading: true,
   });
+  const signaturePadRef = useRef<any>(null);
+  const [isClientSigned, setIsClientSigned] = useState(false);
 
   // Load contract and comments
   useEffect(() => {
@@ -193,6 +195,27 @@ export default function ViewPage() {
 
     loadSignatures();
   }, [id]);
+
+  // Check for existing signatures on load
+  useEffect(() => {
+    const contractId = window.location.pathname.split("/").pop();
+    const clientSignature = localStorage.getItem(
+      `contract-client-signature-${contractId}`
+    );
+    console.log("🔍 Checking for client signature:", clientSignature);
+
+    if (clientSignature) {
+      const signatureData = JSON.parse(clientSignature);
+      setContractState((prev) => ({
+        ...prev,
+        clientSignature: signatureData.signature,
+        clientName: signatureData.name,
+        clientSignedAt: new Date(signatureData.signedAt),
+        isClientSigned: true,
+      }));
+      setIsClientSigned(true);
+    }
+  }, []);
 
   const handleAddReply = (commentId: string, replyText: string) => {
     setComments((prev) =>
@@ -334,6 +357,7 @@ export default function ViewPage() {
   const handleSignComplete = async (signature: string, name: string) => {
     console.log("✅ handleSignComplete called with:", { signature, name });
     try {
+      const contractId = window.location.pathname.split("/").pop();
       const signatureData = {
         signature,
         name,
@@ -342,16 +366,18 @@ export default function ViewPage() {
 
       // Save signature data
       localStorage.setItem(
-        `contract-client-signature-${id}`,
+        `contract-client-signature-${contractId}`,
         JSON.stringify(signatureData)
       );
 
       setContractState((prev) => ({
         ...prev,
-        clientName: name,
         clientSignature: signature,
+        clientName: name,
         clientSignedAt: new Date(),
+        isClientSigned: true,
       }));
+      setIsClientSigned(true);
       setShowSignatureModal(false);
 
       toast.success("Contract signed successfully!");
@@ -362,16 +388,33 @@ export default function ViewPage() {
   };
 
   const handleUnsignContract = () => {
-    if (window.confirm("Are you sure you want to unsign the contract?")) {
-      localStorage.removeItem(`contract-client-signature-${id}`);
-      setContractState((prev) => ({
-        ...prev,
-        isClientSigned: false,
-        clientName: "",
-        clientSignature: "",
-        clientSignedAt: null,
-      }));
-      toast.success("Contract unsigned successfully");
+    console.log("🗑️ Unsign Contract clicked");
+    if (
+      window.confirm(
+        "Are you sure you want to remove your signature from this contract?"
+      )
+    ) {
+      try {
+        const contractId = window.location.pathname.split("/").pop();
+
+        // Remove signature from localStorage
+        localStorage.removeItem(`contract-client-signature-${contractId}`);
+
+        // Reset contract state
+        setContractState((prev) => ({
+          ...prev,
+          clientSignature: "",
+          clientName: "",
+          clientSignedAt: null,
+          isClientSigned: false,
+        }));
+        setIsClientSigned(false);
+
+        toast.success("Signature removed successfully");
+      } catch (error) {
+        console.error("❌ Error removing signature:", error);
+        toast.error("Failed to remove signature. Please try again.");
+      }
     }
   };
 
@@ -453,28 +496,55 @@ export default function ViewPage() {
   const SignatureDisplay = () => {
     if (signatureState.isLoading) return null;
 
-    return signatureState.designerSignature ? (
+    return (
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              <p className="font-medium text-gray-900">Designer Signature</p>
-              <p className="text-gray-500">{signatureState.designerName}</p>
-              {signatureState.designerSignedAt && (
-                <p className="text-gray-400 text-xs">
-                  {signatureState.designerSignedAt.toLocaleDateString()}
-                </p>
-              )}
-            </div>
-            <img
-              src={signatureState.designerSignature}
-              alt="Designer Signature"
-              className="h-16 border-b border-gray-300"
-            />
+          <div className="flex items-center gap-8">
+            {/* Designer Signature */}
+            {signatureState.designerSignature && (
+              <div className="flex items-center gap-4">
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">
+                    Designer Signature
+                  </p>
+                  <p className="text-gray-500">{signatureState.designerName}</p>
+                  {signatureState.designerSignedAt && (
+                    <p className="text-gray-400 text-xs">
+                      {signatureState.designerSignedAt.toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <img
+                  src={signatureState.designerSignature}
+                  alt="Designer Signature"
+                  className="h-16 border-b border-gray-300"
+                />
+              </div>
+            )}
+
+            {/* Client Signature */}
+            {contractState.clientSignature && (
+              <div className="flex items-center gap-4">
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">Client Signature</p>
+                  <p className="text-gray-500">{contractState.clientName}</p>
+                  {contractState.clientSignedAt && (
+                    <p className="text-gray-400 text-xs">
+                      {contractState.clientSignedAt.toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <img
+                  src={contractState.clientSignature}
+                  alt="Client Signature"
+                  className="h-16 border-b border-gray-300"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
-    ) : null;
+    );
   };
 
   return (
@@ -489,7 +559,7 @@ export default function ViewPage() {
           <div className="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200">
             <div className="h-14 flex items-center justify-end px-4">
               <div className="flex gap-2">
-                {!contractState.isClientSigned && (
+                {false && (
                   <Button
                     onClick={() => setShowComments(!showComments)}
                     variant="secondary"
@@ -509,7 +579,7 @@ export default function ViewPage() {
                   </Button>
                 )}
 
-                {!contractState.isClientSigned ? (
+                {!isClientSigned ? (
                   <Button
                     variant="primary"
                     className="inline-flex items-center gap-2"
