@@ -264,9 +264,53 @@ export function ContractAudit({
                 className={`p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${getIssueTypeStyles(
                   issue.type
                 )}`}
-                onClick={() =>
-                  onIssueClick(issue.position.blockIndex, issue.type)
-                }
+                onClick={() => {
+                  console.log(" Suggestion clicked:", {
+                    blockIndex: issue.position.blockIndex,
+                    type: issue.type,
+                    section: issue.section,
+                  });
+
+                  // Get all EditorJS blocks
+                  const blocks = document.querySelectorAll(".ce-block");
+                  console.log(`📑 Found ${blocks.length} editor blocks`);
+
+                  // Get the target block by index
+                  const targetBlock = blocks[issue.position.blockIndex];
+                  console.log("🎯 Target block:", targetBlock);
+
+                  if (targetBlock) {
+                    console.log("✅ Found block, scrolling into view");
+                    targetBlock.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+
+                    // Add highlight effect
+                    targetBlock.classList.add(
+                      `audit-highlight`,
+                      `audit-highlight-${issue.type}`,
+                      `pulse-animation`
+                    );
+                    setTimeout(() => {
+                      targetBlock.classList.remove(`pulse-animation`);
+                      // Allow the transition to complete before removing the highlight
+                      setTimeout(() => {
+                        targetBlock.classList.remove(
+                          `audit-highlight`,
+                          `audit-highlight-${issue.type}`
+                        );
+                      }, 300); // Match this with the transition duration
+                    }, 3000); // Duration of the pulse effect
+                  } else {
+                    console.log(
+                      "❌ Block not found at index:",
+                      issue.position.blockIndex
+                    );
+                  }
+
+                  onIssueClick(issue.position.blockIndex, issue.type);
+                }}
               >
                 <div className="flex flex-col items-start gap-3">
                   <div className="flex items-center gap-2">
