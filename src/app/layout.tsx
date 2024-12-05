@@ -5,6 +5,7 @@ import Topbar from "@/app/Components/topbar";
 import Sidebar from "@/app/Components/sidebar";
 import "@/app/globals.css";
 import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "@/lib/context/AuthContext";
 
 export default function RootLayout({
   children,
@@ -22,21 +23,23 @@ export default function RootLayout({
         <title>My App</title>
       </head>
       <body className="bg-gray-100 text-gray-900">
-        <div className="flex h-screen">
-          {!isViewRoute && (
-            <div className="  ">
-              <Sidebar />
-            </div>
-          )}
-          <div className="flex-1">
-            <Topbar pathname={pathname} />
-            <div className="">
-              <main className="scrollable-content">{children}</main>
+        <AuthProvider>
+          <div className="flex h-screen">
+            {!isViewRoute && (
+              <div className="  ">
+                <Sidebar />
+              </div>
+            )}
+            <div className="flex-1">
+              <Topbar pathname={pathname} />
+              <div className="">
+                <main className="scrollable-content">{children}</main>
+              </div>
             </div>
           </div>
-        </div>
-        <Toaster />
-        <div id="modal-root" />
+          <Toaster />
+          <div id="modal-root" />
+        </AuthProvider>
       </body>
     </html>
   );
