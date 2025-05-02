@@ -1,55 +1,76 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Hero } from "../components/solar/Hero";
+import ProblemSolution from "../components/solar/ProblemSolution";
+import HowItWorks from "../components/solar/HowItWorks";
+import WhoItsFor from "../components/solar/WhoItsFor";
+import FeatureDivider from "../components/solar/FeatureDivider";
+import { SocialProof } from "../components/solar/SocialProof";
+import { CallToAction } from "../components/solar/CallToAction";
+import VerticalLines from "../components/solar/VerticalLines";
+import GameOfLife from "../components/solar/HeroBackground";
 
 export default function LandingPage() {
-  const router = useRouter();
-  // Check if we're in development mode
-  const isDev = process.env.NODE_ENV === "development";
-  // Construct the appropriate URL based on environment
-  const dashboardUrl = isDev
-    ? "http://app.localhost:3001/dashboard"
-    : "/dashboard"; // In production, middleware will handle the redirect
+  const [debugInfo, setDebugInfo] = useState({
+    hostname: "",
+    pathname: "",
+    fullUrl: "",
+  });
 
   useEffect(() => {
-    // Log current URL for debugging
-    console.log("Landing page mounted, current URL:", window.location.href);
+    // Enhanced logging for debugging
+    console.log("🚀 LANDING PAGE DEBUG INFO 🚀");
+    console.log("Landing page mounted at time:", new Date().toISOString());
+    console.log("Current URL:", window.location.href);
     console.log("Current hostname:", window.location.hostname);
 
-    // Completely disable all redirects for testing
-    /*
-    // Check if we're on app.local or app.localhost
-    const hostname = window.location.hostname;
-
-    // ONLY redirect if on app subdomain, NEVER redirect main domain
-    if (hostname.includes("app.local") || hostname.includes("app.localhost")) {
-      console.log("Detected app subdomain, redirecting to dashboard");
-      router.push("/dashboard");
-    }
-
-    // For main domain, ensure we stay on the landing page
-    if (hostname === "localhost" || hostname === "local") {
-      console.log("On main domain landing page, staying here");
-      // Do nothing - this is the landing page
-    }
-    */
-  }, [router]);
+    // Set debug info for display
+    setDebugInfo({
+      hostname: window.location.hostname,
+      pathname: window.location.pathname,
+      fullUrl: window.location.href,
+    });
+  }, []);
 
   return (
-    <div className="flex h-screen items-center justify-center flex-col">
-      <div className="text-3xl font-bold mb-6">Welcome to our Landing Page</div>
-      <div className="text-lg mb-8">
-        This is the public-facing landing page on the main domain.
+    <main className="relative mx-auto flex flex-col overflow-x-hidden">
+      <div className="pt-56 relative">
+        <div className="absolute inset-0 -z-10">
+          <GameOfLife />
+        </div>
+        <VerticalLines />
+        <Hero />
       </div>
-      <div className="mt-4">
-        <a
-          href={dashboardUrl}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
-        >
-          Go to Application Dashboard
-        </a>
+      <div className="mt-56 px-6 xl:px-0">
+        <ProblemSolution />
       </div>
-    </div>
+      <FeatureDivider className="my-24 max-w-6xl" />
+      <div className="mt-24 px-6 xl:px-0">
+        <HowItWorks />
+      </div>
+      <FeatureDivider className="my-24 max-w-6xl" />
+      <div className="mt-24 px-6 xl:px-0">
+        <WhoItsFor />
+      </div>
+      <FeatureDivider className="my-24 max-w-6xl" />
+      <div className="mt-24 mb-32 px-6 xl:px-0">
+        <SocialProof />
+      </div>
+      <div className="mt-16 mb-48 px-6 xl:px-0">
+        <CallToAction />
+      </div>
+
+      {/* Debug info (only shown in development) */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="fixed bottom-4 right-4 p-4 bg-gray-100 rounded text-xs max-w-lg opacity-70 hover:opacity-100 transition-opacity">
+          <h3 className="font-bold">Debug Information:</h3>
+          <pre className="overflow-auto max-h-32">
+            {JSON.stringify(debugInfo, null, 2)}
+          </pre>
+        </div>
+      )}
+    </main>
   );
 }

@@ -5,9 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:main": "HOST=localhost next dev --turbopack",
+    "dev:alt-port": "next dev --port 3005 --turbopack",
+    "alt-port": "node scripts/alt-port.js",
+    "open-localhost": "node scripts/open-localhost.js",
+    "open-ip": "node scripts/open-ip.js",
+    "direct-open": "node scripts/direct-open.js",
+    "local-redirect": "node scripts/local-redirect.js",
+    "clear-cache": "node scripts/clear-browser-cache.js",
+    "fix-hosts": "node scripts/fix-hosts-node.js",
+    "fix-all": "node scripts/fix-all.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
+    "preview": "next build && next start",
+    "test": "jest",
     "test:firebase": "node -r dotenv/config --experimental-specifier-resolution=node --loader ts-node/esm src/lib/firebase/test.ts"
   },
   "dependencies": {

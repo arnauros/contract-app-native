@@ -14,6 +14,7 @@ export default function ClientLayout({
   const pathname = usePathname();
   const isViewRoute = pathname?.startsWith("/view/");
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
+  const isLandingPage = pathname === "/";
 
   // Add global error handling
   useEffect(() => {
@@ -53,7 +54,8 @@ export default function ClientLayout({
     };
   }, []);
 
-  if (isViewRoute) {
+  // For view routes and landing page, return children directly without layout
+  if (isViewRoute || isLandingPage) {
     return children;
   }
 

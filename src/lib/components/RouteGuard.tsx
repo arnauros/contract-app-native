@@ -14,59 +14,66 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const [isRouteAuthorized, setIsRouteAuthorized] = useState(false);
 
   useEffect(() => {
-    // Log for debugging
-    console.log("RouteGuard running for pathname:", pathname);
-    console.log("RouteGuard state:", {
-      user: user ? "authenticated" : "unauthenticated",
-      loading,
-      isDevelopment,
-      pathname,
-      error: error ? error.message : null,
-    });
+    if (typeof window !== "undefined") {
+      // Debug logging
+      console.log("⚡ ROUTE GUARD DEBUG ⚡");
+      console.log("Current URL:", window.location.href);
+      console.log("Current hostname:", window.location.hostname);
+      console.log("Current pathname:", pathname);
+      console.log("User authenticated:", !!user);
+    }
 
     if (loading) return;
 
-    // In development mode, always allow access
-    if (isDevelopment) {
-      console.log("Development mode - bypassing route guard");
+    // In development mode for localhost/127.0.0.1, allow all access
+    if (
+      isDevelopment &&
+      (window.location.hostname.includes("localhost") ||
+        window.location.hostname.includes("127.0.0.1"))
+    ) {
+      console.log("Development mode on localhost - bypassing route guard");
       setIsRouteAuthorized(true);
       return;
     }
 
-    // ALWAYS allow access to root path, regardless of domain or auth status
+    // ALWAYS allow access to root path
     if (pathname === "/") {
       console.log("ROOT PATH - always allowing access without redirect");
       setIsRouteAuthorized(true);
       return;
     }
 
-    // Check if on landing page (/) on main domain, and never redirect from there
-    if (pathname === "/" && typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      console.log("Hostname in RouteGuard:", hostname);
+    const isPublicRoute = publicRoutes.includes(pathname || "");
+    const isAppLocalDomain = window.location.hostname.includes("app.local");
 
-      if (hostname === "localhost" || hostname === "local") {
-        console.log("On main domain landing page - allowing access");
-        setIsRouteAuthorized(true);
+    // Special handling for app.local domain
+    if (isAppLocalDomain) {
+      console.log("app.local domain detected");
+
+      if (!user && !isPublicRoute) {
+        console.log("Unauthorized access on app.local - redirecting to signup");
+        router.push("/signup");
+        return;
+      }
+    }
+    // Regular authentication logic for other domains
+    else {
+      if (!user && !isPublicRoute) {
+        console.log("Unauthorized access - redirecting to login");
+        router.push("/login");
+        return;
+      } else if (user && isPublicRoute && pathname !== "/") {
+        // Don't redirect from landing page even if authenticated
+        console.log(
+          "Authenticated user on public route - redirecting to dashboard"
+        );
+        router.push("/dashboard");
         return;
       }
     }
 
-    const isPublicRoute = publicRoutes.includes(pathname || "");
-
-    if (!user && !isPublicRoute) {
-      console.log("Unauthorized access - redirecting to login");
-      router.push("/login");
-    } else if (user && isPublicRoute && pathname !== "/") {
-      // Don't redirect from landing page even if authenticated
-      console.log(
-        "Authenticated user on public route - redirecting to dashboard"
-      );
-      router.push("/dashboard");
-    } else {
-      console.log("Route authorized");
-      setIsRouteAuthorized(true);
-    }
+    console.log("Route authorized");
+    setIsRouteAuthorized(true);
   }, [user, loading, pathname, router, isDevelopment, error]);
 
   // Show loading state
@@ -96,8 +103,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // In development or if the route is valid for the user's auth state, render children
-  if (isDevelopment || isRouteAuthorized) {
+  // If the route is valid for the user's auth state, render children
+  if (isRouteAuthorized) {
     return <>{children}</>;
   }
 

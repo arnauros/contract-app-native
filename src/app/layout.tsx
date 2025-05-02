@@ -3,7 +3,7 @@ import "@/app/globals.css";
 import { ErrorBoundary } from "react-error-boundary";
 import ClientWrapper from "./Components/ClientWrapper";
 import ErrorFallbackComponent from "./Components/ErrorFallback";
-// import RedirectToDashboard from "./Components/RedirectToDashboard";
+import RedirectToDashboard from "./Components/RedirectToDashboard";
 
 export const metadata: Metadata = {
   title: "Next.js App",
@@ -24,7 +24,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning={true}>
         <ErrorBoundary FallbackComponent={ErrorFallbackComponent}>
-          {/* <RedirectToDashboard /> */}
+          <RedirectToDashboard />
           <ClientWrapper>{children}</ClientWrapper>
         </ErrorBoundary>
       </body>
