@@ -8,7 +8,7 @@ interface FirstStageProps {
   projectBrief: string;
   onProjectBriefChange: (value: string) => void;
   onNext: () => void;
-  onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileUpload: (files: Array<{ file: File; summary?: string }>) => void;
   attachments: File[];
   onDeleteFile: (index: number) => void;
 }

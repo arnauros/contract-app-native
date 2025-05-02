@@ -6,7 +6,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
 }
@@ -29,20 +29,22 @@ const Modal: React.FC<ModalProps> = ({
         <div className="bg-white rounded-lg p-6 w-[400px] shadow-xl">
           <h2 className="text-xl font-semibold mb-4">{title}</h2>
           <div className="mb-4">{children}</div>
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={onConfirm}
-              className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              {confirmText}
-            </button>
-          </div>
+          {onConfirm && (
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                {cancelText}
+              </button>
+              <button
+                onClick={onConfirm}
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                {confirmText}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>,

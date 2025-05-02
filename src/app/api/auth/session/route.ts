@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/firebase/admin";
+import { adminAuth } from "@/lib/firebase/admin";
 
 export async function POST(request: Request) {
   try {
     const { token } = await request.json();
 
+    if (!token) {
+      console.error("No token provided");
+      return NextResponse.json({ error: "No token provided" }, { status: 400 });
+    }
+
     // Verify the ID token
-    const decodedToken = await auth.verifyIdToken(token);
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    console.log("Token verified:", decodedToken.uid);
 
     // Create session cookie
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await auth.createSessionCookie(token, { expiresIn });
+    const sessionCookie = await adminAuth.createSessionCookie(token, {
+      expiresIn,
+    });
 
     // Set cookie
     cookies().set("session", sessionCookie, {
@@ -19,11 +27,16 @@ export async function POST(request: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: "/",
+      sameSite: "lax",
     });
 
     return NextResponse.json({ status: "success" });
   } catch (error) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    console.error("Session creation error:", error);
+    return NextResponse.json(
+      { error: "Failed to create session", details: error.message },
+      { status: 401 }
+    );
   }
 }
 

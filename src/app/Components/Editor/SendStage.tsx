@@ -3,17 +3,36 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
+import { toast } from "react-hot-toast";
+import {
+  getFunctions,
+  httpsCallable,
+  connectFunctionsEmulator,
+} from "firebase/functions";
+import { getAuth } from "firebase/auth";
+import { useAuth } from "@/lib/context/AuthContext";
+import { v4 as uuidv4 } from "uuid";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase/index";
+import { generatePreviewToken } from "@/lib/firebase/token";
+import { useRouter } from "next/navigation";
+
+// Add this for debugging - set to false to hide debug buttons
+const SHOW_DEBUG_BUTTONS = false;
 
 interface SendStageProps {
-  onSend: (clientName: string, clientEmail: string) => Promise<void>;
+  onSend?: () => void;
+  title: string;
 }
 
-export function SendStage({ onSend }: SendStageProps) {
+export function SendStage({ onSend, title }: SendStageProps) {
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
 
   const validateForm = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,67 +43,111 @@ export function SendStage({ onSend }: SendStageProps) {
     );
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSending(true);
+    setError(null);
+
     try {
-      setIsSending(true);
-      setError(null);
+      if (!user) {
+        throw new Error("You must be logged in to send contracts");
+      }
 
       const contractId = window.location.pathname.split("/").pop();
       if (!contractId) throw new Error("Contract ID not found");
 
       // Generate a unique view token
-      const viewToken = Math.random().toString(36).substr(2, 9);
+      const viewToken = uuidv4();
+
+      // Construct the view URL with the token
       const viewUrl = `${window.location.origin}/view/${contractId}?token=${viewToken}`;
 
-      // Save contract data first
-      const contractData = {
-        ...JSON.parse(localStorage.getItem(`contract-${contractId}`) || "{}"),
-        viewToken,
-        clientName,
-        clientEmail,
-        status: "sent",
-        sentAt: new Date().toISOString(),
-      };
-      localStorage.setItem(
-        `contract-${contractId}`,
-        JSON.stringify(contractData)
-      );
-
-      // Send email
-      const response = await fetch("/api/sendContract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: clientEmail,
-          clientName,
-          contractId,
-          viewUrl,
-        }),
+      // First update contract status in Firestore to ensure token is saved
+      await updateDoc(doc(db, "contracts", contractId), {
+        status: "pending",
+        recipientEmail: clientEmail,
+        recipientName: clientName,
+        viewToken: viewToken,
+        sentAt: serverTimestamp(),
       });
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Failed to send contract");
-      }
+      // Send the email using Firebase function
+      const functions = getFunctions(undefined, "us-central1");
+      const sendContractEmail = httpsCallable(functions, "sendContractEmail");
+      await sendContractEmail({
+        to: clientEmail,
+        clientName: clientName,
+        contractId: contractId,
+        viewUrl: viewUrl,
+        contractTitle: title,
+      });
 
       setIsSuccess(true);
-    } catch (error) {
-      console.error("Failed to send contract:", error);
+      toast.success("Contract sent successfully!");
+
+      if (onSend) {
+        onSend();
+      }
+    } catch (err) {
+      console.error("Error sending contract:", err);
       setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to send contract. Please try again."
+        err instanceof Error
+          ? err.message
+          : "An error occurred while sending the contract"
       );
+      toast.error(error || "Failed to send contract. Please try again.");
     } finally {
       setIsSending(false);
     }
   };
 
-  const handlePreview = () => {
-    // Get contract ID from URL
+  const handleTestEmail = async () => {
+    try {
+      setIsSending(true);
+
+      // Check if user is authenticated
+      if (!user) {
+        throw new Error("You must be logged in to send test emails");
+      }
+
+      const functions = getFunctions(undefined, "us-central1");
+      const sendTestEmail = httpsCallable(functions, "sendTestEmail");
+
+      console.log("Sending test email...");
+
+      const result = await sendTestEmail({}); // No need to pass data for test email
+
+      console.log("Test email result:", result);
+      toast.success("Test email sent successfully!");
+    } catch (error: any) {
+      console.error("Test email failed:", error);
+      const errorMessage = error.message || "Failed to send test email";
+      toast.error(errorMessage);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handlePreview = async () => {
     const contractId = window.location.pathname.split("/").pop();
-    // Open preview in new tab
-    window.open(`/view/${contractId}`, "_blank");
+    if (!contractId) {
+      toast.error("Contract ID not found");
+      return;
+    }
+
+    try {
+      // Generate a preview token with 24 hour expiration
+      const previewToken = await generatePreviewToken(contractId, 1);
+
+      // Store it temporarily in localStorage for preview purposes
+      localStorage.setItem(`preview-token-${contractId}`, previewToken);
+
+      // Open in new tab with the token
+      window.open(`/view/${contractId}?token=${previewToken}`, "_blank");
+    } catch (error) {
+      console.error("Error generating preview:", error);
+      toast.error("Failed to generate preview. Please try again.");
+    }
   };
 
   if (error) {
@@ -179,6 +242,17 @@ export function SendStage({ onSend }: SendStageProps) {
         >
           {isSending ? "Sending..." : "Send Agreement"}
         </button>
+
+        {/* Test button - only visible in development */}
+        {process.env.NODE_ENV === "development" && SHOW_DEBUG_BUTTONS && (
+          <button
+            onClick={handleTestEmail}
+            disabled={isSending}
+            className="mt-4 w-full py-2 px-4 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50"
+          >
+            Send Test Email
+          </button>
+        )}
       </div>
     </div>
   );

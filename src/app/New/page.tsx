@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/lib/context/AuthContext";
+import { saveContract } from "@/lib/firebase/firestore";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import FormParent from "@/app/Components/StepsComponents/formparent";
-import { usePathname } from "next/navigation";
 
 export default function NewContractPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     projectBrief: "",
@@ -17,20 +22,58 @@ export default function NewContractPage() {
     }>,
   });
 
-  const pathname = usePathname();
+  const handleSaveContract = async (contractData) => {
+    const { user } = useAuth();
+    if (!user) {
+      toast.error("You must be logged in to save a contract.");
+      return;
+    }
 
-  const handleSubmit = async (formData: ContractData) => {
+    const result = await saveContract({
+      userId: user.uid,
+      title: "New Contract",
+      content: contractData,
+      status: "draft",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Contract saved successfully!");
+      router.push(`/Contracts/${result.contractId}`);
+    }
+  };
+
+  const handleSubmit = async (formData: any) => {
     try {
-      // Generate a unique ID for the contract
-      const contractId = window.location.pathname.split("/").pop();
+      console.log("Form submitted with data:", formData); // Debug log
 
-      // Save to localStorage
-      localStorage.setItem(`contract-${contractId}`, JSON.stringify(formData));
+      const result = await saveContract({
+        userId: user?.uid,
+        title: formData.projectBrief
+          ? formData.projectBrief.split("\n")[0].substring(0, 50) +
+            (formData.projectBrief.length > 50 ? "..." : "")
+          : "Untitled Contract",
+        content: formData,
+        status: "draft",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        version: 1,
+      });
 
-      // Navigate to the contract page
-      router.push(`/Contracts/${contractId}`);
+      console.log("Save result:", result); // Debug log
+
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Contract saved!");
+        router.push(`/Contracts/${result.contractId}`);
+      }
     } catch (error) {
-      console.error("Failed to save contract:", error);
+      console.error("Submit error:", error);
+      toast.error("Failed to save contract");
     }
   };
 
@@ -48,7 +91,7 @@ export default function NewContractPage() {
                 onStageChange={setCurrentStep}
                 formData={formData}
                 setFormData={setFormData}
-                onSubmit={handleSubmit}
+                onSubmit={handleSaveContract}
               />
 
               <div className="flex justify-center">
@@ -70,24 +113,7 @@ export default function NewContractPage() {
               </div>
             </div>
           </div>
-
-          {/* Right Column - Console Log */}
-          <div className="absolute right-0 top-0 mt-20 mr-8 bg-gray-800 text-white p-4 rounded-lg shadow-lg w-80">
-            <h2 className="text-lg font-bold mb-2">Console Log</h2>
-            <pre className="text-sm whitespace-pre-wrap break-words">
-              {JSON.stringify(
-                {
-                  ...formData,
-                  attachments: formData.attachments.map((att) => ({
-                    name: att?.file?.name || "Unknown file",
-                    summary: att?.summary || "Generating summary...",
-                  })),
-                },
-                null,
-                2
-              )}
-            </pre>
-          </div>
+          {/* Add any additional UI components here */}
         </div>
       </div>
     </main>

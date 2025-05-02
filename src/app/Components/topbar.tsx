@@ -1,26 +1,139 @@
 "use client";
 
-import Button from "./button";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import Modal from "@/app/Components/Modal";
+import { toast } from "react-hot-toast";
+import { FiMenu } from "react-icons/fi";
+import { useSidebar } from "@/lib/context/SidebarContext";
+import { getSignatures } from "@/lib/firebase/firestore";
+import UsersDisplay from "./UsersDisplay";
+import useActiveUsers from "@/lib/hooks/useActiveUsers";
 
 interface TopbarProps {
   pathname: string;
-  onStageChange?: (stage: string) => void;
 }
 
 export default function Topbar({ pathname }: TopbarProps) {
+  const { toggleSidebar } = useSidebar();
+  const params = useParams();
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
-  const params = useParams();
-  const [isEditConfirmModalOpen, setIsEditConfirmModalOpen] = useState(false);
 
-  // Add getBreadcrumb function
+  // Get active users for current contract
+  const contractId = params?.id as string;
+  const { activeUsers } = useActiveUsers(contractId);
+
+  // Simple stage management with debounce and content check
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const handleStageChange = (e: CustomEvent) => {
+      const newStage = e.detail;
+      const contractId = window.location.pathname.split("/").pop();
+
+      // Clear any pending stage changes
+      clearTimeout(timeoutId);
+
+      // Debounce stage changes to prevent rapid transitions
+      timeoutId = setTimeout(() => {
+        if (contractId) {
+          // Check for contract content
+          const savedContent = localStorage.getItem(
+            `contract-content-${contractId}`
+          );
+          const hasContent =
+            savedContent && JSON.parse(savedContent).blocks?.length > 0;
+
+          // Only allow non-edit stages if we have content
+          if (!hasContent && newStage !== "edit") {
+            toast.error("Please create your contract before proceeding");
+            const event = new CustomEvent("stageChange", { detail: "edit" });
+            window.dispatchEvent(event);
+            return;
+          }
+        }
+
+        console.log("🎭 Stage change:", newStage);
+        setCurrentStage(newStage);
+      }, 100);
+    };
+
+    window.addEventListener("stageChange", handleStageChange as EventListener);
+    return () => {
+      window.removeEventListener(
+        "stageChange",
+        handleStageChange as EventListener
+      );
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Simple navigation rules with debounce
+  const handleBackClick = () => {
+    const contractId = window.location.pathname.split("/").pop();
+    if (!contractId) return;
+
+    // Prevent rapid clicks
+    if (currentStage === "send") {
+      // Going from send to sign is always allowed
+      const event = new CustomEvent("stageChange", { detail: "sign" });
+      window.dispatchEvent(event);
+    } else if (currentStage === "sign") {
+      // Going from sign to edit - let the ContractEditor handle this
+      const event = new CustomEvent("stageChange", { detail: "edit" });
+      window.dispatchEvent(event);
+    }
+  };
+
+  const handleNext = async () => {
+    const contractId = window.location.pathname.split("/").pop();
+    if (!contractId) return;
+
+    // Check for contract content first
+    const savedContent = localStorage.getItem(`contract-content-${contractId}`);
+    const hasContent =
+      savedContent && JSON.parse(savedContent).blocks?.length > 0;
+
+    if (!hasContent) {
+      toast.error("Please create your contract before proceeding");
+      return;
+    }
+
+    if (currentStage === "sign") {
+      try {
+        // Check both localStorage and Firestore for signatures
+        const localSignature = localStorage.getItem(
+          `contract-designer-signature-${contractId}`
+        );
+        const firestoreSignatures = await getSignatures(contractId);
+
+        const hasSignature =
+          localSignature ||
+          (firestoreSignatures.success &&
+            firestoreSignatures.signatures.designer);
+
+        if (!hasSignature) {
+          toast.error("Please sign the contract before proceeding");
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking signatures:", error);
+        toast.error("Error verifying signature status");
+        return;
+      }
+    }
+
+    // Simple forward progression
+    const nextStage = currentStage === "edit" ? "sign" : "send";
+    const event = new CustomEvent("stageChange", { detail: nextStage });
+    window.dispatchEvent(event);
+  };
+
+  // Get breadcrumb text
   const getBreadcrumb = () => {
-    if (pathname.startsWith("/Contracts/") && params.id) {
+    if (pathname.startsWith("/Contracts/") && params?.id) {
       return `Dashboard / Contracts / #${params.id}`;
     }
     if (pathname === "/New") {
@@ -29,82 +142,18 @@ export default function Topbar({ pathname }: TopbarProps) {
     return "Dashboard / Contracts";
   };
 
-  // Single source of truth for back button handling
-  const handleBackClick = () => {
-    console.log("⬅️ Topbar: Back button clicked");
-    if (currentStage === "sign") {
-      console.log(" Topbar: Opening edit confirm modal");
-      setIsEditConfirmModalOpen(true);
-    } else if (currentStage === "send") {
-      console.log("⬅️ Moving back to sign stage");
-      onStageChange?.("sign");
-    }
-  };
-
-  // Remove any other back button handlers
-  useEffect(() => {
-    const handleStageChange = (e: CustomEvent) => {
-      console.log("🎧 Topbar received stage change:", e.detail);
-
-      // Only update state for non-edit changes or confirmed edits
-      if (
-        typeof e.detail === "string" ||
-        (e.detail?.stage === "edit" && e.detail?.confirmed)
-      ) {
-        setCurrentStage(e.detail.stage || e.detail);
-      }
-    };
-
-    window.addEventListener("stageChange", handleStageChange as EventListener);
-    return () =>
-      window.removeEventListener(
-        "stageChange",
-        handleStageChange as EventListener
-      );
-  }, []);
-
-  const handleNext = () => {
-    if (currentStage === "sign") {
-      const savedSignature = localStorage.getItem("contract-signature");
-      if (!savedSignature) {
-        alert("Please sign the contract before proceeding");
-        return;
-      }
-    }
-
-    const nextStage = currentStage === "edit" ? "sign" : "send";
-    console.log("🔼 Topbar Next clicked:", currentStage, "→", nextStage);
-
-    const event = new CustomEvent("stageChange", { detail: nextStage });
-    window.dispatchEvent(event);
-    setCurrentStage(nextStage);
-  };
-
-  const confirmEdit = () => {
-    console.log("✅ Topbar: Confirming edit");
-    const event = new CustomEvent("stageChange", {
-      detail: {
-        stage: "edit",
-        confirmed: true,
-      },
-    });
-    window.dispatchEvent(event);
-    setIsEditConfirmModalOpen(false);
-  };
+  const isContractPage = pathname.startsWith("/Contracts/") && params?.id;
 
   return (
-    <header className="fixed top-0 left-0 right-0 bg-gray-100 border-b border-gray-300">
+    <header className="sticky top-0 bg-white border-b border-gray-200 z-10">
       <div className="flex items-center justify-between h-14 px-4">
-        <img
-          alt="Your Company"
-          src="https://tailwindui.com/plus/img/logos/mark.svg?color=blue&shade=600"
-          className="h-8 w-auto"
-        />
-        {pathname.startsWith("/Contracts/") && (
-          <span className="text-gray-500 text-sm mx-4">{getBreadcrumb()}</span>
-        )}
+        <div className="flex items-center gap-4">
+          {isContractPage && (
+            <span className="text-gray-500 text-sm">{getBreadcrumb()}</span>
+          )}
+        </div>
         <div className="flex-1 flex justify-center">
-          {pathname.startsWith("/Contracts/") && (
+          {isContractPage && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="flex items-center h-10 justify-center gap-2 px-1 bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div
@@ -147,39 +196,37 @@ export default function Topbar({ pathname }: TopbarProps) {
             </div>
           )}
         </div>
-        {pathname.startsWith("/Contracts/") && (
-          <div className="flex gap-2">
-            {currentStage !== "edit" && (
-              <button
-                onClick={handleBackClick}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Back
-              </button>
-            )}
-            {currentStage !== "send" && (
-              <button
-                onClick={handleNext}
-                className="px-4 py-2 bg-black text-white rounded-md"
-              >
-                Next
-              </button>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {/* Active Users Display */}
+          {isContractPage && activeUsers.length > 0 && (
+            <div className="mr-2">
+              <UsersDisplay users={activeUsers} />
+            </div>
+          )}
+
+          {/* Navigation Controls */}
+          {isContractPage && (
+            <div className="flex gap-2">
+              {currentStage !== "edit" && (
+                <button
+                  onClick={handleBackClick}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Back
+                </button>
+              )}
+              {currentStage !== "send" && (
+                <button
+                  onClick={handleNext}
+                  className="px-4 py-2 bg-black text-white rounded-md"
+                >
+                  Next
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <Modal
-        isOpen={isEditConfirmModalOpen}
-        onClose={() => setIsEditConfirmModalOpen(false)}
-        title="Edit Contract"
-        onConfirm={confirmEdit}
-        confirmText="Continue"
-      >
-        <p>
-          Editing the contract will invalidate the current signature. You will
-          need to sign the contract again. Do you want to continue?
-        </p>
-      </Modal>
     </header>
   );
 }

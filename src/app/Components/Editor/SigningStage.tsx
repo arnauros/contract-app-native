@@ -2,13 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import SignaturePad from "react-signature-canvas";
 import { CheckIcon } from "@heroicons/react/20/solid";
 
-interface SigningStageProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface SigningStageProps {
   onSign: (signature: string, name: string) => void;
 }
 
-export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
+export function SigningStage({ onSign }: SigningStageProps) {
   const [name, setName] = useState("");
   const [isValid, setIsValid] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
@@ -17,6 +15,8 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
   // Check for existing signature
   useEffect(() => {
     const contractId = window.location.pathname.split("/").pop();
+    if (!contractId) return;
+
     const savedSignature = localStorage.getItem(
       `contract-designer-signature-${contractId}`
     );
@@ -36,10 +36,13 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
     setIsValid(isNameValid && isSignatureValid);
   };
 
-  // Validate on name change
-  useEffect(() => {
-    validateForm();
-  }, [name]);
+  // Handle sign click
+  const handleSign = () => {
+    if (!isValid || !signaturePadRef.current) return;
+
+    const signature = signaturePadRef.current.toDataURL();
+    onSign(signature, name);
+  };
 
   // Render signed state
   if (isSigned) {
@@ -53,7 +56,7 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
             Contract Already Signed
           </h2>
           <p className="text-gray-600">
-            This contract has already been signed by {name}.
+            This contract has been signed by {name}.
           </p>
           <p className="text-sm text-gray-500">
             You can proceed to send the contract
@@ -96,36 +99,17 @@ export function SigningStage({ isOpen, onClose, onSign }: SigningStageProps) {
           />
         </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => signaturePadRef.current?.clear()}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => {
-              if (isValid && signaturePadRef.current) {
-                const signature = signaturePadRef.current.toDataURL();
-                const data = { signature, name };
-                localStorage.setItem(
-                  "contract-signature",
-                  JSON.stringify(data)
-                );
-                setIsSigned(true);
-                onSign(signature, name);
-              }
-            }}
-            disabled={!isValid}
-            className={`flex-1 px-4 py-2 text-sm text-white rounded-md ${
-              isValid
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-blue-300 cursor-not-allowed"
-            }`}
-          >
-            Sign Contract
-          </button>
-        </div>
+        <button
+          onClick={handleSign}
+          disabled={!isValid}
+          className={`w-full py-3 px-4 rounded-lg text-white text-center font-medium ${
+            isValid
+              ? "bg-gray-900 hover:bg-gray-800"
+              : "bg-gray-300 cursor-not-allowed"
+          }`}
+        >
+          Sign Contract
+        </button>
       </div>
     </div>
   );

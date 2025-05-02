@@ -1,21 +1,35 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import { FirebaseApp } from "firebase/app";
+import { initFirebase } from "./init";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAGsX271CpZB1V4mMpCjE2R4QUfuIGwLuQ",
-  authDomain: "freelance-project-3d0b5.firebaseapp.com",
-  projectId: "freelance-project-3d0b5",
-  storageBucket: "freelance-project-3d0b5.firebasestorage.app",
-  messagingSenderId: "77895574827",
-  appId: "1:77895574827:web:01d90c400022c4b6e0dca6",
-  measurementId: "G-V595VGP5DM",
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let app: FirebaseApp | null = null;
+
+// Initialize Firebase and get instances
+const initializeFirebase = () => {
+  if (!app) {
+    try {
+      app = initFirebase() as FirebaseApp;
+      if (app) {
+        auth = getAuth(app);
+        db = getFirestore(app);
+        getStorage(app); // Initialize Storage
+        console.log("✅ Firebase initialized successfully");
+      }
+    } catch (error) {
+      console.error("❌ Error initializing Firebase:", error);
+      throw error;
+    }
+  }
+  return { app, auth, db };
 };
 
-// Initialize Firebase
-const app =
-  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Initialize on import
+initializeFirebase();
 
 export { app, auth, db };
+export type { Firestore };
+export { initializeFirebase };

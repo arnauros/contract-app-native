@@ -5,12 +5,27 @@ import {
   LightBulbIcon,
   InformationCircleIcon,
   DocumentTextIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ShieldCheckIcon,
+  BriefcaseIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { debounce } from "lodash";
+import { saveContractAudit, getContractAudit } from "@/lib/firebase/firestore";
+import { useAuth } from "@/lib/context/AuthContext";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  getFirestore,
+  writeBatch,
+} from "firebase/firestore";
+import { toast } from "react-hot-toast";
+import { initializeFirebase } from "@/lib/firebase/config";
 
 interface AuditIssue {
-  type: "spelling" | "rewording" | "upsell" | "general";
+  type: "Enhancement" | "Protection" | "Clarity" | "Communication";
   text: string;
   suggestion?: string;
   section?: string;
@@ -18,19 +33,26 @@ interface AuditIssue {
     blockIndex: number;
     start: number;
     end: number;
+    id?: string;
   };
 }
 
 interface AuditSummary {
   total: number;
-  rewordings: number;
-  spelling: number;
-  upsell: number;
+  enhancements: number;
+  protections: number;
+  clarities: number;
+  communications: number;
 }
 
 interface AuditResponse {
   issues: AuditIssue[];
   summary: AuditSummary;
+  content?: string;
+}
+
+interface UserDocument {
+  auditsRemaining: number;
 }
 
 interface ContractAuditProps {
@@ -59,19 +81,28 @@ const calculateSummary = (issues: AuditIssue[]): AuditSummary => {
     (summary, issue) => {
       summary.total++;
       switch (issue.type) {
-        case "rewording":
-          summary.rewordings++;
+        case "Enhancement":
+          summary.enhancements++;
           break;
-        case "spelling":
-          summary.spelling++;
+        case "Protection":
+          summary.protections++;
           break;
-        case "upsell":
-          summary.upsell++;
+        case "Clarity":
+          summary.clarities++;
+          break;
+        case "Communication":
+          summary.communications++;
           break;
       }
       return summary;
     },
-    { total: 0, rewordings: 0, spelling: 0, upsell: 0 }
+    {
+      total: 0,
+      enhancements: 0,
+      protections: 0,
+      clarities: 0,
+      communications: 0,
+    }
   );
 };
 
@@ -81,119 +112,130 @@ export function ContractAudit({
   onIssueClick,
 }: ContractAuditProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [hasRunAudit, setHasRunAudit] = useState(false);
   const [suggestionsShown, setSuggestionsShown] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [auditData, setAuditData] = useState<AuditResponse | null>(null);
-  const initialAuditDone = useRef(false);
+  const { user, loading } = useAuth();
 
-  // Get contract ID
-  const contractId = window.location.pathname.split("/").pop();
+  // Get contract ID from URL and validate it
+  const contractId = useMemo(() => {
+    const id = window.location.pathname.split("/").pop();
+    if (!id) {
+      console.error("No contract ID found in URL");
+      return null;
+    }
+    return id;
+  }, []);
 
-  // Run audit only when content changes or no cached audit exists
+  // Check if an audit exists for this contract
   useEffect(() => {
-    const runAudit = async () => {
-      if (!editorContent?.blocks) return;
-
-      // Try to get cached audit results first
-      const cachedAudit = localStorage.getItem(`contract-audit-${contractId}`);
-      const cachedContent = localStorage.getItem(
-        `contract-content-${contractId}`
-      );
-
-      // If we have cached results and content hasn't changed, use cached audit
-      if (cachedAudit && cachedContent === JSON.stringify(editorContent)) {
-        console.log("📄 Using cached audit results");
-        setAuditData(JSON.parse(cachedAudit));
-        setHasRunAudit(true);
+    const checkExistingAudit = async () => {
+      if (!contractId || !user) {
+        setIsInitializing(false);
         return;
       }
 
-      // Otherwise run new audit
-      console.log("📄 Content changed, running new audit");
       try {
-        setIsLoading(true);
-        const response = await fetch("/api/auditContract", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ blocks: editorContent.blocks }),
-        });
-
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-
-        const data = await response.json();
-        console.log("✅ Audit completed successfully");
-
-        // Cache the new audit results and content hash
-        localStorage.setItem(
-          `contract-audit-${contractId}`,
-          JSON.stringify(data)
-        );
-        localStorage.setItem(
-          `contract-content-${contractId}`,
-          JSON.stringify(editorContent)
-        );
-
-        setAuditData(data);
-        setHasRunAudit(true);
+        const { audit } = await getContractAudit(contractId);
+        // If we have any audit record, this contract has been audited before
+        if (audit) {
+          setHasRunAudit(true);
+          // Only set the audit data if the content matches
+          if (audit.content === JSON.stringify(editorContent)) {
+            console.log("📄 Loading cached audit results");
+            setAuditData(audit as unknown as AuditResponse);
+            setShowSuggestions(true);
+            setSuggestionsShown(true);
+          } else {
+            // Clear audit data if content doesn't match
+            setAuditData(null);
+            setShowSuggestions(false);
+            setSuggestionsShown(false);
+          }
+        }
       } catch (error) {
-        console.error("❌ Audit failed:", error);
+        console.error("Error checking audit existence:", error);
       } finally {
-        setIsLoading(false);
+        setIsInitializing(false);
       }
     };
 
-    runAudit();
-  }, [editorContent, contractId]);
+    setIsInitializing(true);
+    checkExistingAudit();
+  }, [contractId, user, editorContent]);
 
   const runAudit = async () => {
-    if (!editorContent?.blocks) return;
+    if (!editorContent?.blocks || !user) {
+      toast.error("Please log in to run audits");
+      return;
+    }
 
     try {
-      // Clear existing suggestions first
-      setShowSuggestions(false);
       setIsLoading(true);
 
+      // Run the audit
       const response = await fetch("/api/auditContract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blocks: editorContent.blocks }),
       });
 
-      if (!response.ok)
+      if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
-      console.log("✅ Manual audit completed successfully");
+
+      // Save to Firestore first to ensure persistence
+      if (contractId) {
+        await saveContractAudit(contractId, {
+          ...data,
+          content: JSON.stringify(editorContent),
+        });
+      }
+
+      // Update local state after successful save
       setAuditData(data);
       setShowSuggestions(true);
       setSuggestionsShown(true);
+      setHasRunAudit(true);
     } catch (error) {
-      console.error("❌ Manual audit failed:", error);
+      console.error("❌ Audit failed:", error);
+      toast.error("Failed to run audit");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleShowAudit = useCallback(() => {
-    console.log("👁️ Showing audit suggestions");
-    setShowSuggestions(true);
-    setSuggestionsShown(true);
-  }, []);
-
-  const buttonText = useMemo(() => {
-    if (isLoading) return "Analyzing...";
-    if (!hasRunAudit || !suggestionsShown) return "Show Audit";
-    return "Rerun Audit";
-  }, [isLoading, hasRunAudit, suggestionsShown]);
-
   return (
-    <div className="space-y-4 h-[calc(100vh-180px)] flex flex-col">
-      <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-200 p-6 flex-shrink-0">
-        <h2 className="text-gray-900 text-xl font-semibold mb-4">
-          Contract Audit
-        </h2>
+    <div className="flex flex-col h-full border-l bg-white w-[400px] absolute right-0 top-0 bottom-0 pointer-events-auto">
+      {/* Fixed Header Section */}
+      <div className="p-6 border-b border-gray-200 bg-white shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-gray-900 text-xl font-semibold">
+            Contract Audit
+          </h2>
+          {hasRunAudit && auditData?.issues && auditData.issues.length > 0 && (
+            <button
+              onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+              className="p-1.5 bg-gray-100 rounded-md transition-colors hover:bg-gray-200"
+            >
+              {isPanelCollapsed ? (
+                <ChevronDownIcon className="w-5 h-5 text-gray-600" />
+              ) : (
+                <ChevronUpIcon className="w-5 h-5 text-gray-600" />
+              )}
+            </button>
+          )}
+        </div>
+        {auditData && (
+          <p className="text-sm text-gray-500 mb-4">
+            {auditData.summary.total} suggestions found
+          </p>
+        )}
         <div className="space-y-3">
           {isLoading ? (
             <div className="animate-pulse space-y-2">
@@ -201,195 +243,232 @@ export function ContractAudit({
               <div className="h-4 bg-gray-200 rounded w-2/3"></div>
               <div className="h-4 bg-gray-200 rounded w-1/2"></div>
             </div>
-          ) : (
+          ) : !hasRunAudit ? (
+            <div className="text-center py-6">
+              <div className="mb-4">
+                <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto" />
+              </div>
+              <h3 className="text-gray-700 font-medium mb-2">
+                No suggestions yet
+              </h3>
+              <p className="text-gray-500 text-sm">
+                Run an analysis to get professional enhancement suggestions
+              </p>
+            </div>
+          ) : auditData ? (
             <>
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-full bg-gray-100">
-                  <InformationCircleIcon className="w-5 h-5 text-gray-600" />
-                </div>
-                <span className="text-gray-700">
-                  {auditData?.summary?.total ?? 0} suggestions found
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-full bg-purple-100">
-                  <DocumentTextIcon className="w-5 h-5 text-purple-600" />
+                  <LightBulbIcon className="w-5 h-5 text-purple-600" />
                 </div>
                 <span className="text-gray-700">
-                  {auditData?.summary?.rewordings ?? 0} rewording recommended
+                  {auditData.summary.enhancements} enhancements
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-full bg-red-100">
-                  <ExclamationCircleIcon className="w-5 h-5 text-red-600" />
+                <div className="p-1.5 rounded-full bg-blue-100">
+                  <ShieldCheckIcon className="w-5 h-5 text-blue-600" />
                 </div>
                 <span className="text-gray-700">
-                  {auditData?.summary?.spelling ?? 0} Spelling errors
+                  {auditData.summary.protections} protections
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-full bg-green-100">
-                  <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
+                  <DocumentTextIcon className="w-5 h-5 text-green-600" />
                 </div>
                 <span className="text-gray-700">
-                  {auditData?.summary?.upsell ?? 0} Upsell potentials
+                  {auditData.summary.clarities} clarity improvements
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-yellow-100">
+                  <BriefcaseIcon className="w-5 h-5 text-yellow-600" />
+                </div>
+                <span className="text-gray-700">
+                  {auditData.summary.communications} communication tips
                 </span>
               </div>
             </>
-          )}
+          ) : null}
         </div>
         <button
-          onClick={suggestionsShown ? runAudit : handleShowAudit}
-          disabled={isLoading}
+          onClick={runAudit}
+          disabled={isLoading || isInitializing}
           className={`mt-6 w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm 
             ${
-              isLoading
+              isLoading || isInitializing
                 ? "text-gray-400 cursor-not-allowed"
                 : "text-gray-700 hover:bg-gray-50"
             } 
             transition-colors`}
         >
-          {buttonText}
+          {isLoading
+            ? "Analyzing..."
+            : isInitializing
+            ? "Loading..."
+            : hasRunAudit
+            ? "Run New Audit"
+            : "Run Audit"}
         </button>
       </div>
 
-      {showSuggestions && auditData?.issues && auditData.issues.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 overflow-y-auto flex flex-col">
-          <h3 className="text-lg font-semibold mb-4">Suggestions</h3>
-          <div className="space-y-4">
-            {auditData.issues.map((issue, index) => (
-              <div
-                key={index}
-                data-issue-id={issue.position.id}
-                className={`p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${getIssueTypeStyles(
-                  issue.type
-                )}`}
-                onClick={() => {
-                  console.log(" Suggestion clicked:", {
-                    blockIndex: issue.position.blockIndex,
-                    type: issue.type,
-                    section: issue.section,
-                  });
-
-                  // Get all EditorJS blocks
-                  const blocks = document.querySelectorAll(".ce-block");
-                  console.log(`📑 Found ${blocks.length} editor blocks`);
-
-                  // Get the target block by index
-                  const targetBlock = blocks[issue.position.blockIndex];
-                  console.log("🎯 Target block:", targetBlock);
-
-                  if (targetBlock) {
-                    console.log("✅ Found block, scrolling into view");
-                    targetBlock.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-
-                    // Add highlight effect
-                    targetBlock.classList.add(
-                      `audit-highlight`,
-                      `audit-highlight-${issue.type}`
-                    );
-                    // Start fading out the background after 2 seconds
-                    setTimeout(() => {
-                      targetBlock.classList.add("fade-background");
-                      // Remove all classes after the fade is complete
-                      setTimeout(() => {
-                        targetBlock.classList.remove(
-                          "fade-background",
-                          `audit-highlight`,
-                          `audit-highlight-${issue.type}`
-                        );
-                      }, 1500); // Wait for fade to complete
-                    }, 2000);
-                  } else {
-                    console.log(
-                      "❌ Block not found at index:",
-                      issue.position.blockIndex
-                    );
-                  }
-
-                  onIssueClick(issue.position.blockIndex, issue.type);
-                }}
-              >
-                <div className="flex flex-col items-start gap-3">
-                  <div className="flex items-center gap-2">
+      {/* Scrollable Suggestions Section */}
+      {showSuggestions &&
+        auditData?.issues &&
+        auditData.issues.length > 0 &&
+        !isPanelCollapsed && (
+          <div className="flex-1 overflow-hidden bg-white border-t border-gray-200">
+            <style jsx>{`
+              .suggestions-container {
+                position: relative;
+                height: 100%;
+                width: 400px;
+                overflow: hidden;
+              }
+              .suggestions-scroll {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: -17px; /* Hide scrollbar */
+                bottom: 0;
+                overflow-y: scroll;
+                padding-right: 17px; /* Compensate for hidden scrollbar */
+              }
+              .suggestions-scroll::-webkit-scrollbar {
+                width: 8px;
+              }
+              .suggestions-scroll::-webkit-scrollbar-track {
+                background: transparent;
+              }
+              .suggestions-scroll::-webkit-scrollbar-thumb {
+                background-color: transparent;
+                border-radius: 4px;
+              }
+              .suggestions-scroll:hover::-webkit-scrollbar-thumb {
+                background-color: #e5e7eb;
+              }
+            `}</style>
+            <div className="suggestions-container">
+              <div className="suggestions-scroll p-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                  Suggestions
+                </h3>
+                <div className="space-y-4">
+                  {auditData.issues.map((issue, index) => (
                     <div
-                      className={`p-1.5 rounded-full ${getIssueBackgroundStyle(
+                      key={index}
+                      data-issue-id={issue.position?.id}
+                      className={`p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-sm ${getIssueTypeStyles(
                         issue.type
                       )}`}
+                      onClick={() => {
+                        if (issue.position?.blockIndex !== undefined) {
+                          onIssueClick(issue.position.blockIndex, issue.type);
+
+                          // Add a small delay to ensure the DOM is ready
+                          setTimeout(() => {
+                            const blockElement = document.querySelector(
+                              `[data-block-index="${issue.position?.blockIndex}"]`
+                            );
+                            if (blockElement) {
+                              blockElement.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center",
+                              });
+
+                              // Add a temporary highlight class
+                              blockElement.classList.add("highlight-pulse");
+                              setTimeout(() => {
+                                blockElement.classList.remove(
+                                  "highlight-pulse"
+                                );
+                              }, 2000);
+                            }
+                          }, 100);
+                        }
+                      }}
                     >
-                      {getIssueIcon(issue.type)}
-                    </div>
-                    <span className="text-sm font-medium capitalize">
-                      {issue.type}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900 mb-1">
-                      {issue.text}
-                    </div>
-                    {issue.suggestion && (
-                      <div className="text-sm text-gray-600">
-                        Suggestion: {issue.suggestion}
+                      <div className="flex flex-col items-start gap-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`p-1.5 rounded-full ${getIssueBackgroundStyle(
+                              issue.type
+                            )}`}
+                          >
+                            {getIssueIcon(issue.type)}
+                          </div>
+                          <span className="text-sm font-medium capitalize">
+                            {issue.type}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 mb-1">
+                            {issue.text}
+                          </div>
+                          {issue.suggestion && (
+                            <div className="text-sm text-gray-600">
+                              Suggestion: {issue.suggestion}
+                            </div>
+                          )}
+                          <div className="text-sm text-gray-500">
+                            Section: {issue.section || "Unnamed"}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    <div className="text-sm text-gray-500">
-                      Name: {issue.section || "Unnamed"}
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
 
 // Helper functions for styling
 const getIssueTypeStyles = (type: string) => {
-  switch (type) {
-    case "rewording":
-      return "bg-purple-50/50 border border-purple-100";
-    case "spelling":
-      return "bg-red-50/50 border border-red-100";
-    case "upsell":
-      return "bg-green-50/50 border border-green-100";
+  switch (type.toLowerCase()) {
+    case "enhancement":
+      return "bg-purple-50 border border-purple-100";
+    case "protection":
+      return "bg-blue-50 border border-blue-100";
+    case "clarity":
+      return "bg-green-50 border border-green-100";
+    case "communication":
+      return "bg-yellow-50 border border-yellow-100";
     default:
-      return "bg-gray-50/50 border border-gray-100";
+      return "bg-gray-50 border border-gray-100";
   }
 };
 
 const getIssueBackgroundStyle = (type: string) => {
-  switch (type) {
-    case "rewording":
+  switch (type.toLowerCase()) {
+    case "enhancement":
       return "bg-purple-100";
-    case "spelling":
-      return "bg-red-100";
-    case "upsell":
+    case "protection":
+      return "bg-blue-100";
+    case "clarity":
       return "bg-green-100";
+    case "communication":
+      return "bg-yellow-100";
     default:
       return "bg-gray-100";
   }
 };
 
 const getIssueIcon = (type: string) => {
-  const iconClasses = "w-5 h-5";
-  switch (type) {
-    case "rewording":
-      return <DocumentTextIcon className={`${iconClasses} text-purple-600`} />;
-    case "spelling":
-      return (
-        <ExclamationCircleIcon className={`${iconClasses} text-red-600`} />
-      );
-    case "upsell":
-      return <CurrencyDollarIcon className={`${iconClasses} text-green-600`} />;
+  switch (type.toLowerCase()) {
+    case "enhancement":
+      return <LightBulbIcon className="w-5 h-5 text-purple-600" />;
+    case "protection":
+      return <ShieldCheckIcon className="w-5 h-5 text-blue-600" />;
+    case "clarity":
+      return <DocumentTextIcon className="w-5 h-5 text-green-600" />;
+    case "communication":
+      return <BriefcaseIcon className="w-5 h-5 text-yellow-600" />;
     default:
-      return (
-        <InformationCircleIcon className={`${iconClasses} text-gray-600`} />
-      );
+      return <InformationCircleIcon className="w-5 h-5 text-gray-600" />;
   }
 };

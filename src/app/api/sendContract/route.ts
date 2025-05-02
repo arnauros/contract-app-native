@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { getFirestore, doc, updateDoc } from "firebase/firestore";
+import { initFirebase } from "@/lib/firebase/init";
 
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -12,6 +14,20 @@ export async function POST(request: Request) {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
+    // Initialize Firebase
+    const app = initFirebase();
+    const db = getFirestore(app);
+
+    // Update contract status and client info in Firestore
+    const contractRef = doc(db, "contracts", contractId);
+    await updateDoc(contractRef, {
+      status: "pending",
+      clientEmail: to,
+      clientName: clientName,
+      sentAt: new Date().toISOString(),
+    });
+
+    // Send email
     const email = await resend.emails.send({
       from: "Contracts <onboarding@resend.dev>", // Update this with your verified domain
       to: [to],

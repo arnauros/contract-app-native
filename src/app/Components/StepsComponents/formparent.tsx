@@ -6,18 +6,42 @@ import SecondStage from "./secondstage";
 import ThirdStage from "./thirdstage";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { saveContract } from "@/lib/firebase/firestore";
+import { useAuth } from "@/lib/context/AuthContext";
+import toast from "react-hot-toast";
+import { doc, getFirestore } from "firebase/firestore";
+import { collection } from "firebase/firestore";
 
-const FormParent = ({ formData, setFormData, onStageChange }) => {
+interface FormData {
+  projectBrief: string;
+  techStack: string;
+  startDate: string;
+  endDate: string;
+  attachments: File[];
+  pdf?: string;
+  fileSummaries?: { [key: string]: string };
+}
+
+interface FormParentProps {
+  formData: FormData;
+  setFormData: (data: FormData) => void;
+  onStageChange: (stage: number) => void;
+}
+
+const FormParent: React.FC<FormParentProps> = ({
+  formData,
+  setFormData,
+  onStageChange,
+}) => {
   const [currentStage, setCurrentStage] = useState(1);
   const router = useRouter();
   const TOTAL_STAGES = 3;
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
-  // Add this useEffect for prefetching
   useEffect(() => {
-    // Prefetch the contracts page
     router.prefetch("/Contracts/[id]");
-  }, []); // Empty dependency array means this runs once when component mounts
+  }, [router]);
 
   const handleStageChange = (newStage: number) => {
     if (newStage > 0 && newStage <= TOTAL_STAGES) {
@@ -27,51 +51,164 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
   };
 
   const handleSubmit = async () => {
-    const contractId = Math.random().toString(36).substr(2, 9);
+    if (!user) {
+      toast.error("You must be logged in to create a contract");
+      return;
+    }
 
-    // Format the data properly before saving
-    const contractData = {
-      projectBrief: formData.projectBrief || "",
-      techStack: formData.techStack || "The tech stack includes ",
-      startDate: formData.startDate || "",
-      endDate: formData.endDate || "",
-      attachments: formData.attachments.map((att) => ({
-        summary: att.summary || "",
-        type: att.type || "brief",
-      })),
-      status: "draft",
-      id: contractId,
-      createdAt: new Date().toISOString(),
-    };
+    setIsLoading(true);
+    try {
+      console.log("Current user:", user);
+      console.log("Form data:", formData);
 
-    // Clear any existing content for this new contract
-    localStorage.removeItem(`contract-content-${contractId}`);
-    localStorage.removeItem(`contract-logo-${contractId}`);
-    localStorage.removeItem(`contract-signature-${contractId}`);
+      // Generate a new document reference with auto-generated ID
+      const db = getFirestore();
+      const contractRef = doc(collection(db, "contracts"));
+      const contractId = contractRef.id;
 
-    // Save the new contract data
-    localStorage.setItem(
-      `contract-${contractId}`,
-      JSON.stringify(contractData)
-    );
-
-    router.push(`/Contracts/${contractId}`);
-  };
-
-  const handleFileUpload = (files: FileList | null) => {
-    if (files) {
-      setFormData({
-        ...formData,
-        attachments: [...formData.attachments, ...Array.from(files)],
+      // Generate contract content using OpenAI
+      const response = await fetch("/api/generateContract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectBrief: formData.projectBrief,
+          techStack: formData.techStack,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          pdf: formData.pdf,
+          attachments: formData.attachments.map((file) => ({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            lastModified: file.lastModified,
+            summary: formData.fileSummaries?.[file.name],
+          })),
+        }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("API Error:", data);
+        throw new Error(data.error || "Failed to generate contract");
+      }
+
+      if (!data.blocks) {
+        console.error("No blocks in response:", data);
+        throw new Error("No contract content generated");
+      }
+
+      const contractData = {
+        id: contractId,
+        userId: user.uid,
+        title:
+          data.blocks?.[0]?.type === "header"
+            ? data.blocks[0].data.text
+            : data.blocks?.[0]?.type === "paragraph"
+            ? data.blocks[0].data.text.substring(0, 50) +
+              (data.blocks[0].data.text.length > 50 ? "..." : "")
+            : "Untitled Contract",
+        content: {
+          time: Date.now(),
+          blocks: data.blocks,
+          version: "2.28.2",
+        },
+        rawContent: {
+          projectBrief: formData.projectBrief || "",
+          techStack: formData.techStack || "The tech stack includes ",
+          startDate: formData.startDate || "",
+          endDate: formData.endDate || "",
+          pdf: formData.pdf || "",
+          attachments: await Promise.all(
+            (formData.attachments || []).map(async (file) => ({
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              lastModified: file.lastModified,
+              summary: formData.fileSummaries?.[file.name],
+            }))
+          ),
+        },
+        status: "draft" as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        version: 1,
+      };
+
+      console.log("Saving contract with data:", contractData);
+      const result = await saveContract(contractData);
+
+      if (result.error) {
+        console.error("Error saving contract:", result.error);
+        toast.error(result.error);
+      } else {
+        console.log("Contract saved successfully:", result);
+        // Save to localStorage before redirecting
+        localStorage.setItem(
+          `contract-content-${contractId}`,
+          JSON.stringify({
+            time: Date.now(),
+            blocks: data.blocks,
+            version: "2.28.2",
+          })
+        );
+        toast.success("Contract created successfully!");
+        // Small delay to ensure localStorage is updated
+        setTimeout(() => {
+          router.push(`/Contracts/${contractId}`);
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Error creating contract:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create contract"
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleFileUpload = (
+    processedFiles: Array<{ file: File; summary?: string }>
+  ) => {
+    const newSummaries = { ...formData.fileSummaries };
+    processedFiles.forEach((pf) => {
+      if (pf.summary) {
+        newSummaries[pf.file.name] = pf.summary;
+      }
+    });
+
+    setFormData({
+      ...formData,
+      attachments: [
+        ...formData.attachments,
+        ...processedFiles.map((pf) => pf.file),
+      ],
+      fileSummaries: newSummaries,
+    });
+  };
+
   const handleDeleteFile = (index: number) => {
+    const fileToDelete = formData.attachments[index];
     const updatedAttachments = formData.attachments.filter(
       (_, i) => i !== index
     );
-    setFormData({ ...formData, attachments: updatedAttachments });
+    const updatedSummaries = { ...formData.fileSummaries };
+    if (fileToDelete && updatedSummaries[fileToDelete.name]) {
+      delete updatedSummaries[fileToDelete.name];
+    }
+
+    setFormData({
+      ...formData,
+      attachments: updatedAttachments,
+      fileSummaries: updatedSummaries,
+    });
+  };
+
+  const handleDateChange = (field: string, value: string) => {
+    setFormData({ ...formData, [field]: value });
   };
 
   return (
@@ -79,14 +216,14 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
       {isLoading ? (
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <span className="ml-2">Generating contract...</span>
+          <span className="ml-2">Creating contract...</span>
         </div>
       ) : (
         <>
           {currentStage === 1 && (
             <FirstStage
               projectBrief={formData.projectBrief}
-              onProjectBriefChange={(value) =>
+              onProjectBriefChange={(value: string) =>
                 setFormData({ ...formData, projectBrief: value })
               }
               onNext={() => handleStageChange(2)}
@@ -100,7 +237,7 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
               onBack={() => handleStageChange(1)}
               onNext={() => handleStageChange(3)}
               techStackText={formData.techStack}
-              onTechStackChange={(value) =>
+              onTechStackChange={(value: string) =>
                 setFormData({ ...formData, techStack: value })
               }
             />
@@ -111,9 +248,7 @@ const FormParent = ({ formData, setFormData, onStageChange }) => {
               onNext={handleSubmit}
               startDate={formData.startDate}
               endDate={formData.endDate}
-              onDateChange={(field, value) =>
-                setFormData({ ...formData, [field]: value })
-              }
+              onDateChange={handleDateChange}
             />
           )}
         </>

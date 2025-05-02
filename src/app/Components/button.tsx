@@ -6,6 +6,8 @@ interface ButtonProps {
   fullWidth?: boolean;
   onClick?: () => void;
   variant?: "primary" | "secondary" | "outline";
+  disabled?: boolean;
+  className?: string;
 }
 
 export default function Button({
@@ -14,6 +16,8 @@ export default function Button({
   fullWidth = false,
   onClick,
   variant = "primary",
+  disabled = false,
+  className = "",
 }: ButtonProps) {
   const baseClasses =
     "inline-flex justify-center items-center gap-3 rounded-lg bg-[#323232] hover:bg-[#454545] transition-all duration-200 ease-in-out shadow-sm hover:shadow-lg";
@@ -37,11 +41,12 @@ export default function Button({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={`${baseClasses} ${
         sizeClasses[size as keyof typeof sizeClasses]
       } ${widthClass} ${
         variantClasses[variant as keyof typeof variantClasses]
-      }`}
+      } ${className} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       {children}
     </button>

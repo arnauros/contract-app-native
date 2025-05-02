@@ -1,45 +1,32 @@
-"use client";
-
-import { usePathname } from "next/navigation";
-import Topbar from "@/app/Components/topbar";
-import Sidebar from "@/app/Components/sidebar";
+import { Metadata } from "next";
 import "@/app/globals.css";
-import { Toaster } from "react-hot-toast";
-import { AuthProvider } from "@/lib/context/AuthContext";
+import { ErrorBoundary } from "react-error-boundary";
+import ClientWrapper from "./Components/ClientWrapper";
+import ErrorFallbackComponent from "./Components/ErrorFallback";
+// import RedirectToDashboard from "./Components/RedirectToDashboard";
+
+export const metadata: Metadata = {
+  title: "Next.js App",
+  description: "Created with Next.js",
+};
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const isViewRoute = pathname?.startsWith("/view/");
-
   return (
     <html lang="en">
       <head>
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>My App</title>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content={metadata.description as string} />
       </head>
-      <body className="bg-gray-100 text-gray-900">
-        <AuthProvider>
-          <div className="flex h-screen">
-            {!isViewRoute && (
-              <div className="  ">
-                <Sidebar />
-              </div>
-            )}
-            <div className="flex-1">
-              <Topbar pathname={pathname} />
-              <div className="">
-                <main className="scrollable-content">{children}</main>
-              </div>
-            </div>
-          </div>
-          <Toaster />
-          <div id="modal-root" />
-        </AuthProvider>
+      <body suppressHydrationWarning={true}>
+        <ErrorBoundary FallbackComponent={ErrorFallbackComponent}>
+          {/* <RedirectToDashboard /> */}
+          <ClientWrapper>{children}</ClientWrapper>
+        </ErrorBoundary>
       </body>
     </html>
   );
