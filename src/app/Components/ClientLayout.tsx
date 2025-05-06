@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Topbar from "@/app/Components/topbar";
-import Sidebar from "@/app/Components/sidebar";
+import Topbar from "@/app/(dashboard)/topbar";
+import Sidebar from "@/app/(dashboard)/sidebar";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
 
@@ -14,7 +14,8 @@ export default function ClientLayout({
   const pathname = usePathname();
   const isViewRoute = pathname?.startsWith("/view/");
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
-  const isLandingPage = pathname === "/";
+  const isLandingPage =
+    pathname === "/" || pathname === "/pricing" || pathname === "/about";
 
   // Add global error handling
   useEffect(() => {

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 // Define public routes that don't require authentication
-const publicRoutes = ["/login", "/signup", "/"]; // Add root path as public
+const publicRoutes = ["/", "/pricing", "/login", "/signup"]; // Public routes including pricing page
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, isDevelopment, error } = useAuth();
@@ -21,55 +21,44 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       console.log("Current hostname:", window.location.hostname);
       console.log("Current pathname:", pathname);
       console.log("User authenticated:", !!user);
+      console.log("Public routes:", publicRoutes);
+      console.log(
+        "Is public route:",
+        publicRoutes.some((route) =>
+          (pathname || "").toLowerCase().startsWith(route.toLowerCase())
+        )
+      );
+      console.log("Is pricing page:", pathname === "/pricing");
     }
 
     if (loading) return;
 
-    // In development mode for localhost/127.0.0.1, allow all access
-    if (
-      isDevelopment &&
-      (window.location.hostname.includes("localhost") ||
-        window.location.hostname.includes("127.0.0.1"))
-    ) {
-      console.log("Development mode on localhost - bypassing route guard");
+    // Check if the current path is a public route
+    const isPublicRoute = publicRoutes.some((route) =>
+      (pathname || "").toLowerCase().startsWith(route.toLowerCase())
+    );
+
+    // ALWAYS allow access to public routes
+    if (isPublicRoute) {
+      console.log("Public route - allowing access without auth check");
       setIsRouteAuthorized(true);
       return;
     }
 
-    // ALWAYS allow access to root path
-    if (pathname === "/") {
-      console.log("ROOT PATH - always allowing access without redirect");
-      setIsRouteAuthorized(true);
+    // For all other routes, require authentication regardless of domain
+    if (!user) {
+      console.log("Unauthorized access - redirecting to login");
+      router.push("/login");
       return;
     }
 
-    const isPublicRoute = publicRoutes.includes(pathname || "");
-    const isAppLocalDomain = window.location.hostname.includes("app.local");
-
-    // Special handling for app.local domain
-    if (isAppLocalDomain) {
-      console.log("app.local domain detected");
-
-      if (!user && !isPublicRoute) {
-        console.log("Unauthorized access on app.local - redirecting to signup");
-        router.push("/signup");
-        return;
-      }
-    }
-    // Regular authentication logic for other domains
-    else {
-      if (!user && !isPublicRoute) {
-        console.log("Unauthorized access - redirecting to login");
-        router.push("/login");
-        return;
-      } else if (user && isPublicRoute && pathname !== "/") {
-        // Don't redirect from landing page even if authenticated
-        console.log(
-          "Authenticated user on public route - redirecting to dashboard"
-        );
-        router.push("/dashboard");
-        return;
-      }
+    // If user is authenticated and trying to access login/signup, redirect to dashboard
+    if (user && isPublicRoute && pathname !== "/") {
+      console.log(
+        "Authenticated user on public route - redirecting to dashboard"
+      );
+      router.push("/dashboard");
+      return;
     }
 
     console.log("Route authorized");

@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Hero } from "../components/solar/Hero";
-import ProblemSolution from "../components/solar/ProblemSolution";
-import HowItWorks from "../components/solar/HowItWorks";
-import WhoItsFor from "../components/solar/WhoItsFor";
-import FeatureDivider from "../components/solar/FeatureDivider";
-import { SocialProof } from "../components/solar/SocialProof";
-import { CallToAction } from "../components/solar/CallToAction";
-import VerticalLines from "../components/solar/VerticalLines";
-import GameOfLife from "../components/solar/HeroBackground";
+import { Hero } from "@/components/solar/Hero";
+import ProblemSolution from "@/components/solar/ProblemSolution";
+import HowItWorks from "@/components/solar/HowItWorks";
+import WhoItsFor from "@/components/solar/WhoItsFor";
+import FeatureDivider from "@/components/solar/FeatureDivider";
+import { SocialProof } from "@/components/solar/SocialProof";
+import { CallToAction } from "@/components/solar/CallToAction";
+import VerticalLines from "@/components/solar/VerticalLines";
+import GameOfLife from "@/components/solar/HeroBackground";
 
 export default function LandingPage() {
   const [debugInfo, setDebugInfo] = useState({

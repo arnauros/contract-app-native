@@ -29,16 +29,26 @@ interface NavItem {
 }
 
 const topNavigation: NavItem[] = [
-  { name: "New Doc", href: "/New", icon: FiPlus, shortcut: "⌘N" },
-  { name: "Recent", href: "/Recent", icon: FiClock, shortcut: "⌘R" },
-  { name: "Search", href: "/Search", icon: FiSearch, shortcut: "⌘S" },
+  { name: "New Doc", href: "/new", icon: FiPlus, shortcut: "⌘N" },
+  {
+    name: "Recent",
+    href: "/recent",
+    icon: FiClock,
+    shortcut: "⌘R",
+  },
+  {
+    name: "Search",
+    href: "/search",
+    icon: FiSearch,
+    shortcut: "⌘S",
+  },
 ];
 
 const workNavigation: NavItem[] = [
-  { name: "Analytics", href: "/Analytics", icon: FiPieChart },
-  { name: "People", href: "/People", icon: FiUsers },
-  { name: "Incomes", href: "/Incomes", icon: FiDollarSign },
-  { name: "Payments", href: "/Payments", icon: FiCreditCard },
+  { name: "Analytics", href: "/analytics", icon: FiPieChart },
+  { name: "People", href: "/people", icon: FiUsers },
+  { name: "Incomes", href: "/incomes", icon: FiDollarSign },
+  { name: "Payments", href: "/payments", icon: FiCreditCard },
 ];
 
 function classNames(...classes: string[]) {

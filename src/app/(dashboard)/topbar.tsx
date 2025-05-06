@@ -7,7 +7,7 @@ import { toast } from "react-hot-toast";
 import { FiMenu } from "react-icons/fi";
 import { useSidebar } from "@/lib/context/SidebarContext";
 import { getSignatures } from "@/lib/firebase/firestore";
-import UsersDisplay from "./UsersDisplay";
+import UsersDisplay from "@/app/Components/UsersDisplay";
 import useActiveUsers from "@/lib/hooks/useActiveUsers";
 
 interface TopbarProps {
@@ -136,7 +136,7 @@ export default function Topbar({ pathname }: TopbarProps) {
     if (pathname.startsWith("/Contracts/") && params?.id) {
       return `Dashboard / Contracts / #${params.id}`;
     }
-    if (pathname === "/New") {
+    if (pathname === "/new") {
       return "Dashboard / Contracts / New Contract";
     }
     return "Dashboard / Contracts";

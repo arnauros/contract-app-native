@@ -32,16 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("Current hostname:", window.location.hostname);
       console.log("NODE_ENV:", process.env.NODE_ENV);
 
-      // ALWAYS treat as development mode for now
-      console.log("⚠️ FORCING DEVELOPMENT MODE IN AUTH CONTEXT ⚠️");
-      setIsDevelopment(true);
-      return true;
-
-      /* Original code disabled for testing
+      // Only treat as development mode if NODE_ENV is development
+      // and we're on localhost/127.0.0.1
       const isDevEnvironment =
-        process.env.NODE_ENV === "development" ||
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
+        process.env.NODE_ENV === "development" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1");
 
       setIsDevelopment(isDevEnvironment);
       console.log(
@@ -49,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isDevEnvironment ? "development" : "production"
       );
       return isDevEnvironment;
-      */
     };
 
     try {

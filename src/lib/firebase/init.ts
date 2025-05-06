@@ -19,6 +19,11 @@ const firebaseConfig: FirebaseOptions = {
 // Initialize Firebase only once
 export const initFirebase = () => {
   try {
+    // If app is already initialized, return it
+    if (getApps().length > 0) {
+      return getApps()[0];
+    }
+
     if (!app) {
       // Debug logging
       console.log("Initializing Firebase with config:", {
@@ -38,13 +43,40 @@ export const initFirebase = () => {
         );
       }
 
-      app = initializeApp(firebaseConfig);
-      getFirestore(app); // Initialize Firestore
+      try {
+        app = initializeApp(firebaseConfig);
+        console.log("Firebase initialized successfully:", app.name);
+
+        // Initialize Firestore
+        const db = getFirestore(app);
+        console.log("Firestore initialized");
+
+        return app;
+      } catch (initError: any) {
+        console.error("Firebase initialization error:", initError);
+        throw new Error(
+          `Firebase initialization failed: ${
+            initError?.message || "Unknown error"
+          }`
+        );
+      }
     }
 
-    return app || getApps()[0];
-  } catch (error) {
-    console.error("Error initializing Firebase:", error);
+    return app;
+  } catch (error: any) {
+    console.error("Error in initFirebase:", error);
+
+    // In development, we can tolerate errors for testing
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname === "localhost"
+    ) {
+      console.warn(
+        "Continuing despite Firebase initialization error in development"
+      );
+      return null;
+    }
+
     throw error;
   }
 };

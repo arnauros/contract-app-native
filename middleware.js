@@ -1,5 +1,33 @@
 import { NextResponse } from "next/server";
 
+// Define public paths that don't require authentication
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/signup",
+  "/pricing",
+  "/subscribe",
+  "/test-config",
+];
+
+// Routes that should only be accessible on app.local
+const SUBSCRIPTION_ROUTES = ["/subscription", "/billing"];
+
+// Dashboard routes that require authentication - add all routes in (dashboard) route group
+const PROTECTED_ROUTES = [
+  "/dashboard",
+  "/profile",
+  "/new",
+  "/store",
+  "/view",
+  "/subscription",
+  "/billing",
+  "/Contracts/",
+];
+
+// Define public routes that don't require authentication
+// const publicRoutes = ["/login", "/signup", "/"]; // Add root path as public
+
 export function middleware(request) {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get("host") || "";
@@ -11,25 +39,112 @@ export function middleware(request) {
   console.log("Request pathname:", pathname);
   console.log("Full URL:", request.url);
 
-  // Handle any localhost or IP variant - let client-side RouteGuard handle auth
-  if (hostname.includes("localhost") || hostname.includes("127.0.0.1")) {
-    console.log("Localhost domain detected, allowing normal page load");
+  // Check if the hostname is app.local
+  const isAppLocal =
+    hostname === "app.local" || hostname.includes("app.localhost");
+
+  // Check if we're on localhost (for development)
+  // Use includes() to be more permissive and catch port numbers
+  const isLocalhost =
+    hostname.includes("localhost") ||
+    hostname.includes("127.0.0.1") ||
+    hostname === "local";
+
+  console.log("Is localhost detection:", {
+    hostname,
+    isLocalhost,
+    hostnameIncludes: hostname.includes("localhost"),
+    ip: hostname.includes("127.0.0.1"),
+  });
+
+  // HANDLING APP SUBDOMAIN REDIRECTIONS
+  // If we're on app.local or app.localhost and at the root path, redirect to dashboard
+  if (isAppLocal && pathname === "/") {
+    console.log("App subdomain at root path, redirecting to dashboard");
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // First, check if the path is public - allow access without auth
+  if (
+    PUBLIC_PATHS.includes(pathname) ||
+    PUBLIC_PATHS.includes(pathname + "/")
+  ) {
     return NextResponse.next();
   }
 
-  // For app.local domain, let the RouteGuard handle authentication-based redirects
-  if (hostname.includes("app.local")) {
+  // Check for static assets and API routes - these are exempt from auth
+  if (
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/api/") ||
+    pathname.includes("favicon.ico") ||
+    pathname.startsWith("/assets/")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Check if path is protected (direct match or starts with any protected route)
+  const isProtectedPath = PROTECTED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  // For protected paths, we need to check authentication
+  if (isProtectedPath) {
+    const sessionCookie = request.cookies.get("session");
+    if (!sessionCookie) {
+      console.log("No session cookie found, redirecting to login.");
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    // If it's a subscription-related route, check if on app.local
+    if (
+      (pathname.startsWith("/subscription") ||
+        pathname.startsWith("/billing")) &&
+      !isAppLocal &&
+      !isLocalhost
+    ) {
+      console.log(
+        "Subscription route not on allowed host, redirecting to dashboard"
+      );
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
     console.log(
-      "app.local domain detected, allowing RouteGuard to handle auth"
+      "Session cookie found, allowing access to protected route:",
+      pathname
     );
     return NextResponse.next();
   }
 
-  // For all other cases, continue as normal
-  console.log("Middleware allowing normal page load");
+  // ALL OTHER ROUTES REQUIRE AUTHENTICATION
+  const sessionCookie = request.cookies.get("session");
+
+  // No session cookie means redirect to login
+  if (!sessionCookie) {
+    console.log(
+      "No session cookie found, redirecting to login for path:",
+      pathname
+    );
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Handle subscription routes access restrictions
+  if (
+    SUBSCRIPTION_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    ) &&
+    !isAppLocal &&
+    !isLocalhost
+  ) {
+    console.log(
+      "Subscription route not on allowed host, redirecting to dashboard"
+    );
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // User is authenticated, allow access
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

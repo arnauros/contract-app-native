@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase/config";
 import DashboardStats from "@/app/Components/DashboardStats";
 import CommentFeed from "@/app/Components/CommentFeed";
 import useRecentComments from "@/lib/hooks/useRecentComments";
+import { useDomain } from "@/lib/hooks/useDomain";
 import {
   collection,
   query,
@@ -17,6 +18,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import {
   FiFileText,
@@ -40,6 +42,9 @@ import {
   Legend,
 } from "chart.js";
 import toast from "react-hot-toast";
+import { SubscriptionStatus } from "@/components/SubscriptionStatus";
+import Link from "next/link";
+import { UserSubscription } from "@/lib/stripe/config";
 
 ChartJS.register(
   CategoryScale,
@@ -85,9 +90,29 @@ interface Contract {
   mySignature?: boolean;
 }
 
+// Add the StatCard component implementation
+const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => {
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-sm">
+      <div className="flex items-center">
+        <div className={`rounded-full p-2.5 mr-4 ${color}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <dt className="text-sm font-medium text-gray-500">{title}</dt>
+          <dd className="text-2xl font-medium tracking-tight text-gray-900 mt-1">
+            {value}
+          </dd>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { isAppLocal } = useDomain();
   const [stats, setStats] = useState({
     total: 0,
     pendingClient: 0,
@@ -104,6 +129,9 @@ export default function Dashboard() {
     labels: [],
     datasets: [],
   });
+  const [subscription, setSubscription] = useState<UserSubscription | null>(
+    null
+  );
 
   // Get recent comments from all contracts
   const { comments, loading: commentsLoading } = useRecentComments(10);
@@ -237,6 +265,26 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // Add a subscription tracking effect
+  useEffect(() => {
+    if (loading || !user || !db) return;
+
+    // Listen for subscription changes
+    const userDocRef = doc(db as Firestore, "users", user.uid);
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnapshot) => {
+        const userData = docSnapshot.data();
+        setSubscription(userData?.subscription || null);
+      },
+      (error) => {
+        console.error("Error getting subscription:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, loading, db]);
+
   const filteredContracts = contracts.filter((contract) => {
     if (filter === "all") return true;
     if (filter === "pending_client")
@@ -303,20 +351,92 @@ export default function Dashboard() {
     return null;
   }
 
+  const hasActiveSubscription = subscription?.status === "active";
+
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-medium text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500">{user.email}</p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex gap-4">
+          <Link
+            href="/new-contract"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+          >
+            Create New Contract
+          </Link>
         </div>
-        <button
-          onClick={() => router.push("/New")}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-sm font-medium text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          Create New Contract
-        </button>
       </div>
+
+      {/* Add subscription status component */}
+      {isAppLocal && (
+        <div className="mb-8">
+          <SubscriptionStatus />
+        </div>
+      )}
+
+      {/* Show upgrade banner for free tier users */}
+      {isAppLocal && subscription?.tier === "free" && (
+        <div className="mb-8 bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-bold mb-2">Upgrade to Pro</h3>
+          <p className="mb-4">
+            Get unlimited contracts, premium templates, and priority support.
+          </p>
+          <Link
+            href="/pricing"
+            className="bg-white text-indigo-600 hover:bg-gray-100 py-2 px-4 rounded-md font-medium"
+          >
+            View Plans
+          </Link>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Total Contracts"
+          value={stats.total}
+          icon={FiFileText}
+          color="bg-blue-100 text-blue-600"
+        />
+        <StatCard
+          title="Pending Client"
+          value={stats.pendingClient}
+          icon={FiClock}
+          color="bg-yellow-100 text-yellow-600"
+        />
+        <StatCard
+          title="Need Your Signature"
+          value={stats.pendingMe}
+          icon={FiEdit3}
+          color="bg-red-100 text-red-600"
+        />
+        <StatCard
+          title="Completed"
+          value={stats.completed}
+          icon={FiCheck}
+          color="bg-green-100 text-green-600"
+        />
+      </div>
+
+      {/* Limit maximum contracts for free tier */}
+      {isAppLocal && subscription?.tier === "free" && stats.total >= 3 && (
+        <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiAlertCircle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                You've reached the maximum number of contracts for the free
+                tier.
+                <Link href="/pricing" className="font-medium underline ml-1">
+                  Upgrade to Pro
+                </Link>
+                to create unlimited contracts.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overview Section */}
       <div className="mb-8">
@@ -340,71 +460,6 @@ export default function Dashboard() {
           </div>
         </div>
         <DashboardStats />
-      </div>
-
-      {/* Contract Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center">
-            <div className="bg-blue-50 rounded-full p-2.5 mr-4">
-              <FiFileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">
-                Total Contracts
-              </dt>
-              <dd className="text-2xl font-medium tracking-tight text-gray-900 mt-1">
-                {stats.total}
-              </dd>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center">
-            <div className="bg-yellow-50 rounded-full p-2.5 mr-4">
-              <FiClock className="w-5 h-5 text-yellow-500" />
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">
-                Pending Client
-              </dt>
-              <dd className="text-2xl font-medium tracking-tight text-gray-900 mt-1">
-                {stats.pendingClient}
-              </dd>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center">
-            <div className="bg-red-50 rounded-full p-2.5 mr-4">
-              <FiAlertCircle className="w-5 h-5 text-red-500" />
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">
-                Pending Your Signature
-              </dt>
-              <dd className="text-2xl font-medium tracking-tight text-gray-900 mt-1">
-                {stats.pendingMe}
-              </dd>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center">
-            <div className="bg-green-50 rounded-full p-2.5 mr-4">
-              <FiCheck className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Completed</dt>
-              <dd className="text-2xl font-medium tracking-tight text-gray-900 mt-1">
-                {stats.completed}
-              </dd>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Activity Graph */}
