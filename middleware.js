@@ -26,7 +26,15 @@ const PROTECTED_ROUTES = [
 ];
 
 // Define the Vercel deployment URL
-const VERCEL_URL = "v0-new-project-6osc54um3g1.vercel.app";
+const VERCEL_URL = "freelance-app-seven.vercel.app";
+const VERCEL_PREVIEW_DOMAINS = [
+  "freelance-app-seven.vercel.app",
+  "freelance-1hwmap23a-arnaus-projects-0c4a8e0c.vercel.app",
+  "freelance-drlupagt5-arnaus-projects-0c4a8e0c.vercel.app",
+  "freelance-3v7mjzax1-arnaus-projects-0c4a8e0c.vercel.app",
+  "freelance-38mahjevs-arnaus-projects-0c4a8e0c.vercel.app",
+  "freelance-iiz4hu9sg-arnaus-projects-0c4a8e0c.vercel.app",
+];
 
 // Define public routes that don't require authentication
 // const publicRoutes = ["/login", "/signup", "/"]; // Add root path as public
@@ -47,7 +55,8 @@ export function middleware(request) {
     hostname === "app.local" ||
     hostname.includes("app.localhost") ||
     hostname === VERCEL_URL ||
-    hostname.includes(VERCEL_URL);
+    hostname.includes(VERCEL_URL) ||
+    VERCEL_PREVIEW_DOMAINS.some((domain) => hostname.includes(domain));
 
   // Check if we're on localhost (for development)
   // Use includes() to be more permissive and catch port numbers

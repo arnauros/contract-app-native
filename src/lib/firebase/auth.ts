@@ -9,7 +9,55 @@ import {
   getAuth,
   AuthError,
   signInAnonymously,
+  onAuthStateChanged,
+  User,
 } from "firebase/auth";
+import {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  ReactNode,
+} from "react";
+
+// Create auth context
+type AuthContextType = {
+  user: User | null;
+  loading: boolean;
+};
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+});
+
+// Auth provider component
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth) return;
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Hook to use auth context
+export function useAuth() {
+  return useContext(AuthContext);
+}
 
 const handleAuthError = (error: AuthError) => {
   console.error("Auth error:", error);

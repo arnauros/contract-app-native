@@ -1,7 +1,16 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
-if (!getApps().length) {
+/**
+ * Initializes Firebase Admin SDK if it hasn't been initialized already
+ * @returns void
+ */
+export function initAdmin() {
+  if (getApps().length > 0) {
+    // Already initialized
+    return;
+  }
+
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     throw new Error(
       "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set"
@@ -60,5 +69,8 @@ if (!getApps().length) {
     throw error;
   }
 }
+
+// Auto-initialize on import
+initAdmin();
 
 export const adminAuth = getAuth();
