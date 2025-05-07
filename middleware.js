@@ -25,6 +25,9 @@ const PROTECTED_ROUTES = [
   "/Contracts/",
 ];
 
+// Define the Vercel deployment URL
+const VERCEL_URL = "v0-new-project-6osc54um3g1.vercel.app";
+
 // Define public routes that don't require authentication
 // const publicRoutes = ["/login", "/signup", "/"]; // Add root path as public
 
@@ -41,7 +44,10 @@ export function middleware(request) {
 
   // Check if the hostname is app.local
   const isAppLocal =
-    hostname === "app.local" || hostname.includes("app.localhost");
+    hostname === "app.local" ||
+    hostname.includes("app.localhost") ||
+    hostname === VERCEL_URL ||
+    hostname.includes(VERCEL_URL);
 
   // Check if we're on localhost (for development)
   // Use includes() to be more permissive and catch port numbers
