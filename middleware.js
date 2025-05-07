@@ -34,6 +34,7 @@ const VERCEL_PREVIEW_DOMAINS = [
   "freelance-3v7mjzax1-arnaus-projects-0c4a8e0c.vercel.app",
   "freelance-38mahjevs-arnaus-projects-0c4a8e0c.vercel.app",
   "freelance-iiz4hu9sg-arnaus-projects-0c4a8e0c.vercel.app",
+  "freelancenextjs.vercel.app",
 ];
 
 // Define public routes that don't require authentication
