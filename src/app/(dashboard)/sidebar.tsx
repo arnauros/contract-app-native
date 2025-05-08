@@ -14,7 +14,9 @@ import {
   FiSettings,
   FiHelpCircle,
   FiChevronDown,
-  FiMenu,
+  FiChevronLeft,
+  FiHome,
+  FiUser,
 } from "react-icons/fi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,6 +31,7 @@ interface NavItem {
 }
 
 const topNavigation: NavItem[] = [
+  { name: "Dashboard", href: "/dashboard", icon: FiHome, shortcut: "⌘D" },
   { name: "New Doc", href: "/new", icon: FiPlus, shortcut: "⌘N" },
   {
     name: "Recent",
@@ -71,36 +74,25 @@ export default function Sidebar() {
     <div className="h-full">
       <div
         className={`sticky top-0 h-screen flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${
-          isCollapsed ? "w-16" : "w-64"
+          isCollapsed ? "w-16" : "w-60"
         }`}
       >
-        {/* Header */}
+        {/* Header with Logo */}
         <div
           className={classNames(
-            "p-4 flex items-center",
+            "p-3 flex items-center",
             isCollapsed ? "justify-center" : "gap-3"
           )}
         >
-          <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
-            <FiFileText className="w-5 h-5 text-gray-600" />
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 h-8 w-8">
+            <span className="text-white font-bold text-sm">M</span>
           </div>
           {!isCollapsed && (
             <div className="min-w-0">
-              <div className="font-medium truncate">Docs</div>
-              <div className="text-sm text-gray-500 truncate">
-                {user?.email}
-              </div>
+              <div className="font-medium text-sm">MacuDocs</div>
+              <div className="text-xs text-gray-500">Your workspace</div>
             </div>
           )}
-          <button
-            onClick={toggleSidebar}
-            className={`absolute ${
-              isCollapsed ? "right-[-12px]" : "right-[-12px]"
-            } top-4 bg-white p-2 rounded-md hover:bg-gray-50 border border-gray-200`}
-            title="Toggle Sidebar"
-          >
-            <FiMenu className="w-5 h-5 text-gray-600" />
-          </button>
         </div>
 
         {/* Main navigation */}
@@ -206,6 +198,24 @@ export default function Sidebar() {
             isCollapsed ? "p-2" : "p-4"
           )}
         >
+          {/* Toggle sidebar button now in footer */}
+          <button
+            onClick={toggleSidebar}
+            className={classNames(
+              "w-full mb-3 py-2 border border-gray-200 rounded-md flex items-center justify-center",
+              isCollapsed ? "px-2" : "px-3"
+            )}
+            title="Toggle Sidebar"
+          >
+            <FiChevronLeft
+              className={classNames(
+                "w-5 h-5 text-gray-600 transition-transform",
+                isCollapsed ? "transform rotate-180" : ""
+              )}
+            />
+            {!isCollapsed && <span className="ml-2">Collapse</span>}
+          </button>
+
           <div
             className={classNames(
               "flex items-center",
@@ -222,18 +232,18 @@ export default function Sidebar() {
               {isCollapsed ? "↑" : "Upgrade"}
             </Link>
           </div>
-          {/* Add logout button if user is logged in */}
-          {user && (
-            <button
-              onClick={handleLogout}
-              className="w-full mt-2 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Log Out
-            </button>
+
+          {/* User email above logout */}
+          {user && !isCollapsed && (
+            <div className="flex items-center gap-2 mb-2 py-2 border-t border-gray-100 pt-2">
+              <FiUser className="w-4 h-4 text-gray-500" />
+              <div className="text-sm text-gray-700 truncate">{user.email}</div>
+            </div>
           )}
+
           <div
             className={classNames(
-              "space-y-3",
+              "space-y-3 mt-3",
               isCollapsed ? "flex flex-col items-center gap-2" : ""
             )}
           >
