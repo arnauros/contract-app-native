@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { updateUserProfile, signOut } from "@/lib/firebase/auth";
+import { updateUserProfile, signOut } from "@/lib/firebase/authUtils";
 import { FiUser, FiCreditCard, FiSettings, FiLogOut } from "react-icons/fi";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();

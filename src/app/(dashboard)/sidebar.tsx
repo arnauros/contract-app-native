@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useSidebar } from "@/lib/context/SidebarContext";
 import {
   FiFileText,
@@ -17,11 +17,19 @@ import {
   FiChevronLeft,
   FiHome,
   FiUser,
+  FiLogOut,
+  FiPlusCircle,
+  FiInbox,
+  FiMenu,
+  FiX,
 } from "react-icons/fi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { signOut } from "@/lib/firebase/auth";
+import { useState, useEffect, useRef } from "react";
+import { signOut } from "@/lib/firebase/authUtils";
+import Image from "next/image";
+import { toast } from "react-hot-toast";
+import useOnClickOutside from "@/lib/hooks/useOnClickOutside";
 
 interface NavItem {
   name: string;

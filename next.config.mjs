@@ -18,10 +18,11 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
-  // Rewrites and redirects removed - letting the RouteGuard handle authentication-based routing
+  // Add proper static asset handling
+  output: "standalone",
 
-  // Add assetPrefix if needed for cross-domain assets
-  assetPrefix: process.env.NODE_ENV === "production" ? undefined : undefined,
+  // Add proper CSS asset handling
+  optimizeFonts: true,
 
   // Disable automatic redirect for trailing slashes
   trailingSlash: false,
@@ -30,6 +31,19 @@ const nextConfig = {
   // This is important for handling subdomain and localhost variants
   skipMiddlewareUrlNormalize: true,
   skipTrailingSlashRedirect: true,
+
+  // Remove static assetPrefix to allow dynamic port detection
+  // Next.js will automatically use the correct port
+  assetPrefix: undefined,
+
+  // Ensure proper static files serving
+  images: {
+    domains: ["localhost", "app.localhost"],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+  },
+
+  // Enable cross-origin isolation for better security
+  crossOrigin: "anonymous",
 };
 
 export default nextConfig;

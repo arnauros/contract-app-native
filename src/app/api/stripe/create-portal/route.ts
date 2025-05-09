@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getFirestore } from "firebase-admin/firestore";
+import { initAdmin } from "@/lib/firebase/admin";
+
+// Initialize Firebase Admin
+initAdmin();
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -32,6 +36,15 @@ export async function POST(req: Request) {
 
     const { userId } = await req.json();
 
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Missing userId parameter" },
+        { status: 400 }
+      );
+    }
+
+    console.log(`Getting Stripe customer for user: ${userId}`);
+
     // Get user's Stripe customer ID from Firestore
     const db = getFirestore();
     const userDoc = await db.collection("users").doc(userId).get();
@@ -43,6 +56,8 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
+
+    console.log(`Found customer: ${userData.stripeCustomerId}`);
 
     // Create customer portal session
     const session = await stripe.billingPortal.sessions.create({

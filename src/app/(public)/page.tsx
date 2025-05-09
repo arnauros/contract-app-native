@@ -62,6 +62,21 @@ export default function LandingPage() {
         <CallToAction />
       </div>
 
+      <div className="flex justify-center mt-10 gap-4">
+        <Link
+          href="/pricing"
+          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          View Pricing
+        </Link>
+        <Link
+          href="/test-flow"
+          className="px-4 py-2 text-sm font-medium text-indigo-600 bg-white border border-indigo-600 rounded-md hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Test Subscription Flow
+        </Link>
+      </div>
+
       {/* Debug info (only shown in development) */}
       {process.env.NODE_ENV === "development" && (
         <div className="fixed bottom-4 right-4 p-4 bg-gray-100 rounded text-xs max-w-lg opacity-70 hover:opacity-100 transition-opacity">

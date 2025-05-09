@@ -1,44 +1,106 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { UserSubscription } from "@/lib/stripe/config";
 import { getFirestore, doc, onSnapshot } from "firebase/firestore";
 import { useDomain } from "@/lib/hooks/useDomain";
+import { app } from "@/lib/firebase/firebase";
 
 export function SubscriptionStatus() {
   const { user } = useAuth();
-  const { openCustomerPortal, loading } = useSubscription();
+  const {
+    openCustomerPortal,
+    loading,
+    error: subscriptionError,
+  } = useSubscription();
   const [subscription, setSubscription] = useState<UserSubscription | null>(
     null
   );
+  const [error, setError] = useState<Error | null>(null);
   const { isAppLocal } = useDomain();
 
   useEffect(() => {
     if (!user) return;
 
-    const db = getFirestore();
-    const unsubscribe = onSnapshot(
-      doc(db, "users", user.uid),
-      (doc) => {
-        const data = doc.data();
-        setSubscription(data?.subscription || null);
-      },
-      (error) => {
-        console.error("Error fetching subscription:", error);
-      }
-    );
+    try {
+      const db = getFirestore();
 
-    return () => unsubscribe();
+      // Safe guard in case Firestore isn't initialized properly
+      if (!db) {
+        console.error("Firestore not initialized in SubscriptionStatus");
+        setError(new Error("Database connection issue"));
+        return;
+      }
+
+      const unsubscribe = onSnapshot(
+        doc(db, "users", user.uid),
+        (docSnapshot) => {
+          try {
+            const data = docSnapshot.data();
+            setSubscription(data?.subscription || null);
+          } catch (err) {
+            console.error("Error processing subscription data:", err);
+            setError(err instanceof Error ? err : new Error("Unknown error"));
+          }
+        },
+        (firestoreError) => {
+          console.error("Error fetching subscription:", firestoreError);
+          setError(firestoreError);
+        }
+      );
+
+      return () => {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.error("Error unsubscribing from snapshot:", err);
+        }
+      };
+    } catch (err) {
+      console.error("Error setting up subscription listener:", err);
+      setError(err instanceof Error ? err : new Error("Unknown error"));
+    }
   }, [user]);
 
-  if (!isAppLocal) {
+  // Handle errors
+  if (error || subscriptionError) {
+    return (
+      <div className="rounded-lg bg-red-50 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg
+              className="h-5 w-5 text-red-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800">
+              Subscription service error
+            </h3>
+            <div className="mt-2 text-sm text-red-700">
+              <p>
+                Unable to load subscription information. Please try again later.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not on app.local or user not authenticated
+  if (!isAppLocal || !user) {
     return null;
   }
 
-  if (!user) {
-    return null;
-  }
-
+  // Show the free tier message if no subscription
   if (!subscription) {
     return (
       <div className="rounded-lg bg-yellow-50 p-4">

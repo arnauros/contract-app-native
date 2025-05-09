@@ -17,16 +17,8 @@ export default async function DashboardLayout({
   // }
 
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body suppressHydrationWarning={true}>
-        <ErrorBoundary FallbackComponent={ErrorFallbackComponent}>
-          <ClientWrapper>{children}</ClientWrapper>
-        </ErrorBoundary>
-      </body>
-    </html>
+    <ErrorBoundary FallbackComponent={ErrorFallbackComponent}>
+      <ClientWrapper>{children}</ClientWrapper>
+    </ErrorBoundary>
   );
 }

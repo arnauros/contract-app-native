@@ -1,4 +1,4 @@
-import { db } from "./config";
+import { db } from "./firebase";
 import {
   collection,
   doc,
@@ -14,6 +14,11 @@ import {
   orderBy,
   addDoc,
   writeBatch,
+  where,
+  onSnapshot,
+  DocumentData,
+  QuerySnapshot,
+  DocumentSnapshot,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 

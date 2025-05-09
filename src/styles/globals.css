@@ -1,0 +1,13 @@
+/* Import the original globals.css styles */
+@import "../app/globals.css";
+
+/* Additional styles to ensure consistent loading */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+}

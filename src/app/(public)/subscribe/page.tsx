@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signUp } from "@/lib/firebase/auth";
+import { signUp } from "@/lib/firebase/authUtils";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { STRIPE_PRICE_IDS } from "@/lib/stripe/config";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { app } from "@/lib/firebase/config";
+import { app } from "@/lib/firebase/firebase";
 import { useAuth } from "@/lib/hooks/useAuth";
 import SubscribeDebug from "./debug";
 

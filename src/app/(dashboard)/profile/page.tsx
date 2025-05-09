@@ -1,10 +1,10 @@
 "use client";
 
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { updateUserProfile, signOut } from "@/lib/firebase/auth";
+import { updateUserProfile, signOut } from "@/lib/firebase/authUtils";
 import ProfileView from "@/app/Components/ProfileView";
 
 export default function ProfilePage() {

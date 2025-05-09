@@ -1,9 +1,9 @@
 "use client";
 
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase/config";
+import { app, db } from "@/lib/firebase/firebase";
 import DashboardStats from "@/app/Components/DashboardStats";
 import CommentFeed from "@/app/Components/CommentFeed";
 import useRecentComments from "@/lib/hooks/useRecentComments";
@@ -19,6 +19,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  where,
 } from "firebase/firestore";
 import {
   FiFileText,
@@ -149,6 +150,7 @@ export default function Dashboard() {
     const fetchContractData = async () => {
       if (!user || !db) {
         console.log("No user or db:", { user, db });
+        setIsLoading(false);
         return;
       }
 
@@ -172,61 +174,76 @@ export default function Dashboard() {
 
         // Process each contract
         for (const docSnapshot of querySnapshot.docs) {
-          const data = docSnapshot.data();
-          console.log("Contract data:", { id: docSnapshot.id, ...data });
+          try {
+            const data = docSnapshot.data();
+            console.log("Contract data:", { id: docSnapshot.id, ...data });
 
-          // Only include contracts for the current user
-          if (data.userId === user.uid) {
-            // Get signatures for this contract
-            const designerSignatureRef = doc(
-              db as Firestore,
-              "contracts",
-              docSnapshot.id,
-              "signatures",
-              "designer"
-            );
-            const clientSignatureRef = doc(
-              db as Firestore,
-              "contracts",
-              docSnapshot.id,
-              "signatures",
-              "client"
-            );
-            const [designerSignature, clientSignature] = await Promise.all([
-              getDoc(designerSignatureRef),
-              getDoc(clientSignatureRef),
-            ]);
+            // Only include contracts for the current user
+            if (data.userId === user.uid) {
+              // Get signatures for this contract
+              const designerSignatureRef = doc(
+                db as Firestore,
+                "contracts",
+                docSnapshot.id,
+                "signatures",
+                "designer"
+              );
+              const clientSignatureRef = doc(
+                db as Firestore,
+                "contracts",
+                docSnapshot.id,
+                "signatures",
+                "client"
+              );
 
-            const contract: Contract = {
-              ...data,
-              id: docSnapshot.id,
-              createdAt: data.createdAt || Timestamp.now(),
-              updatedAt: data.updatedAt || Timestamp.now(),
-              content: data.content || {},
-              status: data.status || "draft",
-              mySignature: designerSignature.exists(),
-              clientSignature: clientSignature.exists(),
-            };
+              let designerSignature;
+              let clientSignature;
 
-            stats.total++;
+              try {
+                [designerSignature, clientSignature] = await Promise.all([
+                  getDoc(designerSignatureRef),
+                  getDoc(clientSignatureRef),
+                ]);
+              } catch (signatureError) {
+                console.error("Error fetching signatures:", signatureError);
+                designerSignature = { exists: () => false };
+                clientSignature = { exists: () => false };
+              }
 
-            // Determine contract status based on signatures
-            if (designerSignature.exists() && clientSignature.exists()) {
-              stats.completed++;
-              contract.status = "signed";
-            } else if (designerSignature.exists()) {
-              stats.pendingClient++;
-              contract.status = "pending";
-            } else {
-              stats.pendingMe++;
-              contract.status = "draft";
+              const contract: Contract = {
+                ...data,
+                id: docSnapshot.id,
+                createdAt: data.createdAt || Timestamp.now(),
+                updatedAt: data.updatedAt || Timestamp.now(),
+                content: data.content || {},
+                status: data.status || "draft",
+                mySignature: designerSignature.exists(),
+                clientSignature: clientSignature.exists(),
+              };
+
+              stats.total++;
+
+              // Determine contract status based on signatures
+              if (designerSignature.exists() && clientSignature.exists()) {
+                stats.completed++;
+                contract.status = "signed";
+              } else if (designerSignature.exists()) {
+                stats.pendingClient++;
+                contract.status = "pending";
+              } else {
+                stats.pendingMe++;
+                contract.status = "draft";
+              }
+
+              contractsList.push(contract);
+
+              // Track activity for the graph
+              const date = contract.createdAt.toDate().toLocaleDateString();
+              activityMap.set(date, (activityMap.get(date) || 0) + 1);
             }
-
-            contractsList.push(contract);
-
-            // Track activity for the graph
-            const date = contract.createdAt.toDate().toLocaleDateString();
-            activityMap.set(date, (activityMap.get(date) || 0) + 1);
+          } catch (contractError) {
+            console.error("Error processing contract:", contractError);
+            // Continue processing other contracts
           }
         }
 
@@ -251,19 +268,84 @@ export default function Dashboard() {
 
         setStats(stats);
         setContracts(contractsList);
+        setIsLoading(false);
         setActivityData(activityData);
-        setIsLoading(false);
+
+        // Fetch subscription data (if on app.local)
+        if (isAppLocal) {
+          try {
+            const fetchSubscription = async () => {
+              const subscriptionsRef = collection(
+                db as Firestore,
+                "subscriptions"
+              );
+              const userSubscriptions = query(
+                subscriptionsRef,
+                where("userId", "==", user.uid)
+              );
+
+              const subscriptionSnapshot = await getDocs(userSubscriptions);
+              if (!subscriptionSnapshot.empty) {
+                const subscriptionData =
+                  subscriptionSnapshot.docs[0].data() as UserSubscription;
+                setSubscription(subscriptionData);
+              } else {
+                // No subscription found, assume free tier
+                setSubscription({
+                  customerId: "free-tier",
+                  subscriptionId: "free-tier",
+                  tier: "free",
+                  status: "active",
+                  currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
+                  cancelAtPeriodEnd: false,
+                });
+              }
+            };
+
+            fetchSubscription();
+          } catch (subscriptionError) {
+            console.error("Error fetching subscription:", subscriptionError);
+            // Set a default subscription as fallback
+            setSubscription({
+              customerId: "free-tier",
+              subscriptionId: "free-tier",
+              tier: "free",
+              status: "active",
+              currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
+              cancelAtPeriodEnd: false,
+            });
+          }
+        }
       } catch (error) {
-        console.error("Error fetching contracts:", error);
-        toast.error("Failed to load contracts");
+        console.error("Error fetching contract data:", error);
+        toast.error("Failed to load contracts. Please try again later.");
         setIsLoading(false);
+        // Set default values to ensure UI doesn't break
+        setStats({
+          total: 0,
+          pendingClient: 0,
+          pendingMe: 0,
+          completed: 0,
+        });
+        setContracts([]);
+        setActivityData({
+          labels: [],
+          datasets: [
+            {
+              label: "Contracts Created",
+              data: [],
+              borderColor: "rgb(59, 130, 246)",
+              backgroundColor: "rgba(59, 130, 246, 0.5)",
+            },
+          ],
+        });
       }
     };
 
-    if (user) {
+    if (!loading && user) {
       fetchContractData();
     }
-  }, [user]);
+  }, [user, loading, db, isAppLocal]);
 
   // Add a subscription tracking effect
   useEffect(() => {

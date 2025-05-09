@@ -8,6 +8,9 @@ const PUBLIC_PATHS = [
   "/pricing",
   "/subscribe",
   "/test-config",
+  "/auth-debug", // Added debug path as public
+  "/test-flow",
+  "/test-client-login",
 ];
 
 // Routes that should only be accessible on app.local
@@ -23,6 +26,7 @@ const PROTECTED_ROUTES = [
   "/subscription",
   "/billing",
   "/Contracts/",
+  "/settings",
 ];
 
 // Define the Vercel deployment URL
@@ -37,6 +41,19 @@ const VERCEL_PREVIEW_DOMAINS = [
   "freelancenextjs.vercel.app",
 ];
 
+// Helper function to create URLs while preserving the port
+const createUrlWithPort = (path, requestUrl) => {
+  const url = new URL(path, requestUrl);
+  // Preserve the original port
+  if (process.env.NODE_ENV === "development") {
+    const originalUrl = new URL(requestUrl);
+    if (originalUrl.port) {
+      url.port = originalUrl.port;
+    }
+  }
+  return url;
+};
+
 // Define public routes that don't require authentication
 // const publicRoutes = ["/login", "/signup", "/"]; // Add root path as public
 
@@ -44,11 +61,13 @@ export function middleware(request) {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get("host") || "";
   const pathname = url.pathname;
+  const isDevEnvironment = process.env.NODE_ENV === "development";
 
   // Debug logging
   console.log("🔍 MIDDLEWARE DEBUG 🔍");
   console.log("Request hostname:", hostname);
   console.log("Request pathname:", pathname);
+  console.log("Environment:", process.env.NODE_ENV);
   console.log("Full URL:", request.url);
 
   // Check if the hostname is app.local
@@ -69,6 +88,7 @@ export function middleware(request) {
   console.log("Is localhost detection:", {
     hostname,
     isLocalhost,
+    isDevEnvironment,
     hostnameIncludes: hostname.includes("localhost"),
     ip: hostname.includes("127.0.0.1"),
   });
@@ -77,14 +97,15 @@ export function middleware(request) {
   // If we're on app.local or app.localhost and at the root path, redirect to dashboard
   if (isAppLocal && pathname === "/") {
     console.log("App subdomain at root path, redirecting to dashboard");
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(createUrlWithPort("/dashboard", request.url));
   }
 
   // First, check if the path is public - allow access without auth
   if (
     PUBLIC_PATHS.includes(pathname) ||
-    PUBLIC_PATHS.includes(pathname + "/")
+    PUBLIC_PATHS.some((path) => pathname.startsWith(path + "/"))
   ) {
+    console.log("Public path detected, allowing access:", pathname);
     return NextResponse.next();
   }
 
@@ -98,6 +119,15 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
+  // In development mode, be more lenient
+  if (isDevEnvironment && isLocalhost) {
+    console.log(
+      "Development environment detected, allowing access to:",
+      pathname
+    );
+    return NextResponse.next();
+  }
+
   // Check if path is protected (direct match or starts with any protected route)
   const isProtectedPath = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
@@ -106,9 +136,22 @@ export function middleware(request) {
   // For protected paths, we need to check authentication
   if (isProtectedPath) {
     const sessionCookie = request.cookies.get("session");
+
+    // In development, we can bypass session checks for easier testing
+    if (isDevEnvironment && isLocalhost) {
+      console.log(
+        "Development environment: bypassing auth for protected route:",
+        pathname
+      );
+      return NextResponse.next();
+    }
+
     if (!sessionCookie) {
       console.log("No session cookie found, redirecting to login.");
-      return NextResponse.redirect(new URL("/login", request.url));
+      // Add returnUrl to login for better UX
+      const loginUrl = createUrlWithPort("/login", request.url);
+      loginUrl.searchParams.set("returnUrl", pathname);
+      return NextResponse.redirect(loginUrl);
     }
 
     // If it's a subscription-related route, check if on app.local
@@ -121,7 +164,9 @@ export function middleware(request) {
       console.log(
         "Subscription route not on allowed host, redirecting to dashboard"
       );
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(
+        createUrlWithPort("/dashboard", request.url)
+      );
     }
 
     console.log(
@@ -135,12 +180,15 @@ export function middleware(request) {
   const sessionCookie = request.cookies.get("session");
 
   // No session cookie means redirect to login
-  if (!sessionCookie) {
+  if (!sessionCookie && !isDevEnvironment) {
     console.log(
       "No session cookie found, redirecting to login for path:",
       pathname
     );
-    return NextResponse.redirect(new URL("/login", request.url));
+    // Add returnUrl to login for better UX
+    const loginUrl = createUrlWithPort("/login", request.url);
+    loginUrl.searchParams.set("returnUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Handle subscription routes access restrictions
@@ -154,7 +202,7 @@ export function middleware(request) {
     console.log(
       "Subscription route not on allowed host, redirecting to dashboard"
     );
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(createUrlWithPort("/dashboard", request.url));
   }
 
   // User is authenticated, allow access

@@ -4,6 +4,12 @@ import { loadStripe } from "@stripe/stripe-js";
 export const getStripe = () => {
   const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
+  console.log("Stripe initialization:", {
+    keyExists: !!stripeKey,
+    keyLength: stripeKey?.length || 0,
+    keyPrefix: stripeKey?.substring(0, 7) || "missing",
+  });
+
   // Check if we have a valid key (not undefined or a placeholder)
   if (!stripeKey || stripeKey.includes("YourTest") || stripeKey.endsWith("%")) {
     console.warn(
@@ -14,7 +20,9 @@ export const getStripe = () => {
   }
 
   try {
+    console.log("Attempting to load Stripe with valid key");
     const stripePromise = loadStripe(stripeKey);
+    console.log("Stripe loaded successfully");
     return stripePromise;
   } catch (error) {
     console.error("Error loading Stripe:", error);
@@ -24,17 +32,30 @@ export const getStripe = () => {
 
 // Price IDs with better error handling
 export const STRIPE_PRICE_IDS = {
-  MONTHLY: process.env.STRIPE_MONTHLY_PRICE_ID || "price_monthly",
-  YEARLY: process.env.STRIPE_YEARLY_PRICE_ID || "price_yearly",
+  MONTHLY:
+    process.env.STRIPE_MONTHLY_PRICE_ID || "price_1RM311EAkEk7AeWQBKwfeYxy",
+  YEARLY:
+    process.env.STRIPE_YEARLY_PRICE_ID || "price_1RLht5EAkEk7AeWQgRQmeWcF",
 };
 
 // Validate price IDs
 export const validatePriceIds = () => {
+  // Check if price IDs exist and are not placeholders
   const hasPlaceholder =
     !process.env.STRIPE_MONTHLY_PRICE_ID ||
     !process.env.STRIPE_YEARLY_PRICE_ID ||
     process.env.STRIPE_MONTHLY_PRICE_ID.includes("YourMonthly") ||
     process.env.STRIPE_YEARLY_PRICE_ID.includes("YourYearly");
+
+  // If using fallback values from config, return true as they're valid
+  if (
+    hasPlaceholder &&
+    STRIPE_PRICE_IDS.MONTHLY.startsWith("price_") &&
+    STRIPE_PRICE_IDS.YEARLY.startsWith("price_")
+  ) {
+    console.log("Using fallback Stripe price IDs from config.");
+    return true;
+  }
 
   if (hasPlaceholder) {
     console.warn(
@@ -42,19 +63,22 @@ export const validatePriceIds = () => {
     );
     return false;
   }
+
   return true;
 };
 
-// Subscription status types
+// Subscription status type
 export type SubscriptionStatus =
   | "active"
   | "canceled"
+  | "incomplete"
+  | "incomplete_expired"
   | "past_due"
-  | "unpaid"
   | "trialing"
-  | "incomplete";
+  | "unpaid"
+  | "inactive";
 
-// Subscription tier types
+// Subscription tier type
 export type SubscriptionTier = "free" | "pro";
 
 // User subscription data interface

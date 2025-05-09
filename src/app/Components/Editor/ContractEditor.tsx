@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import EditorJS from "@editorjs/editorjs";
 import Header from "@editorjs/header";
 import List from "@editorjs/list";
@@ -20,8 +20,8 @@ import { SigningStage } from "./SigningStage";
 import { SendStage } from "./SendStage";
 import Modal from "../Modal";
 import ImageUploader from "./ImageUploader";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
 import confetti from "canvas-confetti";
 import { Contract, Signature } from "@/lib/firebase/types";
 import DragDrop from "editorjs-drag-drop";

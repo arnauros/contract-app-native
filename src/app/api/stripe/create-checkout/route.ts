@@ -4,46 +4,100 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { STRIPE_PRICE_IDS } from "@/lib/stripe/config";
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
-});
+// Initialize Stripe with better error handling
+const initStripe = () => {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeKey) {
+    console.error(
+      "Missing Stripe secret key. Check your environment variables."
+    );
+    return null;
+  }
+
+  try {
+    return new Stripe(stripeKey, {
+      apiVersion: "2025-04-30.basil", // Use the required API version
+    });
+  } catch (error) {
+    console.error("Error initializing Stripe:", error);
+    return null;
+  }
+};
+
+const stripe = initStripe();
 
 export async function POST(req: Request) {
   try {
-    // Check if domain is app.local or localhost in development
-    const hostname = req.headers.get("host") || "";
-    const isLocalhost =
-      hostname.includes("localhost") || hostname.includes("127.0.0.1");
-    const isAppLocal = hostname === "app.local";
+    // Check if Stripe is initialized
+    if (!stripe) {
+      return NextResponse.json(
+        { error: "Stripe is not properly configured" },
+        { status: 500 }
+      );
+    }
+
+    // Check if running in development mode
     const isDev = process.env.NODE_ENV === "development";
 
-    // Allow on app.local OR localhost during development
-    const isAllowedHost = isAppLocal || (isDev && isLocalhost);
+    // Always allow in development mode
+    if (!isDev) {
+      // In production, check for allowed domains
+      const hostname = req.headers.get("host") || "";
+      const isAllowedHost =
+        hostname === "app.local" ||
+        hostname.includes("your-production-domain.com");
 
-    // Only allow this API to be called from allowed hosts
-    if (!isAllowedHost) {
-      return NextResponse.json(
-        {
-          error:
-            "This API is only available on app.local or localhost in development",
-        },
-        { status: 403 }
-      );
+      if (!isAllowedHost) {
+        return NextResponse.json(
+          {
+            error: "This API is only available on allowed domains",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const { priceId, userId } = await req.json();
 
-    // Validate price ID
+    console.log("Creating checkout session with:", { priceId, userId });
+    console.log("Available price IDs:", STRIPE_PRICE_IDS);
+
+    // Validate price ID - allow hardcoded fallbacks
     if (
-      ![STRIPE_PRICE_IDS.MONTHLY, STRIPE_PRICE_IDS.YEARLY].includes(priceId)
+      ![STRIPE_PRICE_IDS.MONTHLY, STRIPE_PRICE_IDS.YEARLY].includes(priceId) &&
+      !priceId.startsWith("price_")
     ) {
-      return NextResponse.json({ error: "Invalid price ID" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Invalid price ID",
+          providedId: priceId,
+          availableIds: STRIPE_PRICE_IDS,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
     }
 
     // Get user from Firebase
     const auth = getAuth();
-    const user = await auth.getUser(userId);
+    let user;
+
+    try {
+      user = await auth.getUser(userId);
+    } catch (error) {
+      console.error("Error getting user:", error);
+      return NextResponse.json(
+        { error: "Invalid user ID or user not found" },
+        { status: 404 }
+      );
+    }
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -67,15 +121,32 @@ export async function POST(req: Request) {
 
       customerId = customer.id;
 
-      // Save Stripe customer ID to Firestore
-      await db.collection("users").doc(userId).update({
-        stripeCustomerId: customerId,
-      });
+      // Save Stripe customer ID to Firestore using set with merge
+      // This will handle both cases: document exists or not
+      try {
+        await db.collection("users").doc(userId).set(
+          {
+            stripeCustomerId: customerId,
+            email: user.email,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+        console.log("Updated user document with Stripe customer ID");
+      } catch (dbError) {
+        console.error("Error updating user document:", dbError);
+        // Continue with the checkout even if saving to DB fails
+      }
     }
 
     // Determine subscription type
     const isMonthly = priceId === STRIPE_PRICE_IDS.MONTHLY;
     const interval = isMonthly ? "month" : "year";
+
+    // Get app URL with fallback
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (isDev ? "http://localhost:3000" : "https://app.local");
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
@@ -90,8 +161,8 @@ export async function POST(req: Request) {
       mode: "subscription",
       allow_promotion_codes: true,
       billing_address_collection: "auto",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?checkout_success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?checkout_canceled=true`,
+      success_url: `${appUrl}/pricing?checkout_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/pricing?checkout_canceled=true`,
       metadata: {
         userId,
         interval,
@@ -107,8 +178,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ sessionId: session.id });
   } catch (error) {
     console.error("Error creating checkout session:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to create checkout session", details: errorMessage },
       { status: 500 }
     );
   }

@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../lib/firebase/authContext";
+import { useAuth } from "../lib/hooks/useAuth";
+import { loadStripe } from "@stripe/stripe-js";
+import { db } from "../lib/firebase/firebase";
+import { addDoc, collection } from "firebase/firestore";
 
 export default function StripeCheckoutButton() {
   const { user } = useAuth();

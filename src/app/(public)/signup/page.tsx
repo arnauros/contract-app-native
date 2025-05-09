@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signUp } from "@/lib/firebase/auth";
+import { signUp } from "@/lib/firebase/authUtils";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { app } from "@/lib/firebase/config";
+import { app, db } from "@/lib/firebase/firebase";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
