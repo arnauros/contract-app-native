@@ -12,7 +12,9 @@
 html,
 body {
   height: 100%;
+  width: 100%;
   margin: 0;
+  padding: 0;
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-family);
@@ -314,8 +316,6 @@ body {
   font-weight: 600 !important;
 }
 
-
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -372,13 +372,29 @@ body {
   }
 }
 
-
-
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding: 0 2rem;
   }
 }

@@ -13,22 +13,27 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
   try {
-    // Check if domain is app.local or localhost in development
+    // Check hostname with better detection for local development
     const hostname = req.headers.get("host") || "";
-    const isLocalhost =
-      hostname.includes("localhost") || hostname.includes("127.0.0.1");
-    const isAppLocal = hostname === "app.local";
+    console.log("Request hostname (portal):", hostname);
+
     const isDev = process.env.NODE_ENV === "development";
 
-    // Allow on app.local OR localhost during development
-    const isAllowedHost = isAppLocal || (isDev && isLocalhost);
+    // More comprehensive local development hostname detection
+    const isLocalDevelopment =
+      hostname.includes("localhost") ||
+      hostname.includes("127.0.0.1") ||
+      hostname.includes("app.local") ||
+      (isDev && hostname.match(/app\.localhost:\d+/)) ||
+      (isDev && hostname.match(/localhost:\d+/));
 
-    // Only allow this API to be called from allowed hosts
-    if (!isAllowedHost) {
+    // In development, allow all hostnames
+    if (!isLocalDevelopment && !isDev) {
       return NextResponse.json(
         {
           error:
-            "This API is only available on app.local or localhost in development",
+            "This API is only available in development or on approved domains",
+          hostname,
         },
         { status: 403 }
       );

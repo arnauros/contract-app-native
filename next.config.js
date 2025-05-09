@@ -12,6 +12,17 @@ const nextConfig = {
     STRIPE_YEARLY_PRICE_ID: "price_1RLht5EAkEk7AeWQgRQmeWcF", // Yearly price ID
   },
 
+  // Configure asset prefix for proper static file loading with subdomains
+  assetPrefix: process.env.NODE_ENV === "development" ? undefined : undefined,
+
+  // Configure base path
+  basePath: "",
+
+  // Update images configuration for domains
+  images: {
+    domains: ["localhost", "app.localhost"],
+  },
+
   // Allow Stripe checkout in localhost development
   async headers() {
     return [
@@ -23,6 +34,11 @@ const nextConfig = {
             value: "*",
           },
         ],
+      },
+      // Add CORS headers for all static assets
+      {
+        source: "/_next/:path*",
+        headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
       },
     ];
   },

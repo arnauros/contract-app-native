@@ -44,8 +44,34 @@ function isPathInArray(path, array) {
 }
 
 export async function middleware(request) {
+  // Get hostname information
+  const hostname = request.headers.get("host") || "";
+  const url = request.nextUrl.clone();
+
+  // Log hostname for debugging
+  console.log("Request hostname in middleware:", hostname);
+
+  // Handle static asset requests for app.localhost
+  if (
+    hostname.includes("app.localhost") &&
+    url.pathname.startsWith("/_next/")
+  ) {
+    // Rewrite the URL to use the localhost base URL to fix static asset loading
+    const assetUrl = new URL(
+      url.pathname,
+      `http://localhost:${url.port || 3000}`
+    );
+    console.log(
+      "Rewriting asset request:",
+      url.pathname,
+      "to",
+      assetUrl.toString()
+    );
+    return NextResponse.rewrite(assetUrl);
+  }
+
   // Get the pathname from the request
-  const { pathname } = request.nextUrl;
+  const { pathname } = url;
 
   console.log(`[Middleware] Processing request for path: ${pathname}`);
 
@@ -210,17 +236,16 @@ function redirectToPricing(request) {
   return NextResponse.redirect(new URL(destination, request.url));
 }
 
-// Apply middleware to all routes except public files
+// Configure which paths this middleware runs on
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * 1. /_next (Next.js internals)
-     * 2. /static (static files)
-     * 3. /public (public files)
-     * 4. /_vercel (Vercel internals)
-     * 5. /favicon.ico, /sitemap.xml (SEO files)
+     * Match all paths except for:
+     * 1. /api routes
+     * 2. /_next (Next.js internals)
+     * 3. /_static (inside /public)
+     * 4. all root files inside /public (e.g. /favicon.ico)
      */
-    "/((?!_next|static|public|_vercel|favicon.ico|sitemap.xml).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

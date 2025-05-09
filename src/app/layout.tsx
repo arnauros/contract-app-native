@@ -1,9 +1,9 @@
 import { Metadata, Viewport } from "next";
-import "@/app/globals.css";
-import "@/styles/globals.css";
-import "@/styles/layout.css";
+import "./globals.css";
 import { Providers } from "./providers";
 import { Inter } from "next/font/google";
+// Import Tailwind CSS
+import "../styles/globals.css";
 
 // Initialize font
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <head>
         <meta charSet="utf-8" />
-        {/* Remove hardcoded CSS path - Next.js handles this automatically */}
+        {/* Remove any hardcoded CSS links - Next.js handles CSS imports automatically */}
       </head>
       <body
         suppressHydrationWarning={true}
