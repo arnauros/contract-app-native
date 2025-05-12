@@ -11,7 +11,6 @@ import Image from "next/image";
 import toast from "react-hot-toast";
 import { CheckIcon } from "@heroicons/react/20/solid";
 import { cn } from "@/lib/utils";
-import { SolarLogo } from "../../../../template-solar-main/public/SolarLogo";
 
 // Features included in each plan
 const includedFeatures = [
@@ -21,9 +20,6 @@ const includedFeatures = [
   "Official member t-shirt",
 ];
 
-// Global lock to prevent multiple subscription attempts
-let GLOBAL_CHECKOUT_LOCK = false;
-
 // Track checkout attempts with a timestamp
 const CHECKOUT_ATTEMPT_HISTORY: number[] = [];
 const MAX_CHECKOUT_ATTEMPTS = 3; // Maximum attempts in a 10-minute window
@@ -32,14 +28,76 @@ const CHECKOUT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 // Track checkout IDs to prevent duplicate checkouts
 const CHECKOUT_IDS = new Set<string>();
 
+// Single global lock for any checkout
+let GLOBAL_CHECKOUT_LOCK = false;
+
 // Extend Window interface to add our custom properties
 declare global {
   interface Window {
     CHECKOUT_CLEARED_ON_MOUNT?: boolean;
+    __PRICING_PAGE_LOGGED?: boolean;
+    __PRICING_PAGE_RENDERED?: boolean;
+    __PRICING_RENDER_TOKEN?: string;
+    GLOBAL_CHECKOUT_LOCK?: boolean;
+    CHECKOUT_TIMESTAMP?: number;
+    __SUBSCRIBE_REQUEST_IN_PROGRESS?: boolean;
   }
 }
 
+// Simple inline SolarLogo component to avoid cross-project imports
+const SolarLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 123 42"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M65.888 16.936C65.824 16.616 65.7067 16.2747 65.536 15.912C65.3867 15.528 65.152 15.176 64.832 14.856C64.512 14.536 64.096 14.2693 63.584 14.056C63.0933 13.8427 62.4853 13.736 61.76 13.736C61.2267 13.736 60.736 13.8213 60.288 13.992C59.8613 14.1413 59.488 14.3547 59.168 14.632C58.8693 14.888 58.6347 15.1867 58.464 15.528C58.2933 15.8693 58.208 16.232 58.208 16.616C58.208 17.2347 58.4107 17.7787 58.816 18.248C59.2213 18.696 59.84 19.0053 60.672 19.176L63.84 19.784C64.864 19.976 65.7707 20.2853 66.56 20.712C67.3493 21.1387 68.0107 21.6507 68.544 22.248C69.0773 22.824 69.4827 23.4747 69.76 24.2C70.0373 24.9253 70.176 25.6827 70.176 26.472C70.176 27.3467 69.9947 28.2107 69.632 29.064C69.2693 29.896 68.736 30.6427 68.032 31.304C67.3493 31.944 66.496 32.4667 65.472 32.872C64.4693 33.2773 63.3067 33.48 61.984 33.48C60.4693 33.48 59.168 33.2667 58.08 32.84C56.992 32.392 56.0747 31.8267 55.328 31.144C54.6027 30.4613 54.048 29.704 53.664 28.872C53.28 28.0187 53.0453 27.1867 52.96 26.376L57.056 25.288C57.0987 25.8427 57.2267 26.376 57.44 26.888C57.6747 27.4 57.9947 27.8587 58.4 28.264C58.8053 28.648 59.3067 28.9573 59.904 29.192C60.5013 29.4267 61.2053 29.544 62.016 29.544C63.2107 29.544 64.1173 29.288 64.736 28.776C65.376 28.2427 65.696 27.5707 65.696 26.76C65.696 26.0987 65.4613 25.5333 64.992 25.064C64.5227 24.5733 63.84 24.2427 62.944 24.072L59.776 23.432C57.9627 23.0693 56.512 22.3333 55.424 21.224C54.3573 20.0933 53.824 18.664 53.824 16.936C53.824 15.9333 54.0267 15.0053 54.432 14.152C54.8587 13.2773 55.4347 12.52 56.16 11.88C56.8853 11.24 57.728 10.7387 58.688 10.376C59.648 10.0133 60.6613 9.832 61.728 9.832C63.0933 9.832 64.256 10.024 65.216 10.408C66.1973 10.7707 67.008 11.24 67.648 11.816C68.288 12.392 68.7787 13.032 69.12 13.736C69.4827 14.4187 69.728 15.08 69.856 15.72L65.888 16.936Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 export default function PricingPage() {
+  // Early check to prevent duplicate rendering
+  const renderToken = useRef(Math.random().toString(36).substring(2, 15));
+  const [shouldRender, setShouldRender] = useState(true);
+
+  // Check for duplicate rendering on first mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Set a unique token for this render instance
+    if (!window.__PRICING_PAGE_RENDERED) {
+      window.__PRICING_PAGE_RENDERED = true;
+      // Store the render token
+      window.__PRICING_RENDER_TOKEN = renderToken.current;
+
+      // Clear all checkout locks on a fresh render/page load
+      clearAllCheckoutFlags();
+      console.log("Fresh pricing page load - clearing all checkout flags");
+    } else if (window.__PRICING_RENDER_TOKEN !== renderToken.current) {
+      // If there's already a render with a different token, this is a duplicate
+      console.warn("Duplicate PricingPage instance detected - not rendering");
+      setShouldRender(false);
+    }
+
+    return () => {
+      // Only remove the render flag if this is the original instance
+      if (window.__PRICING_RENDER_TOKEN === renderToken.current) {
+        console.log("Original pricing page instance unmounting");
+        window.__PRICING_PAGE_RENDERED = false;
+        delete window.__PRICING_RENDER_TOKEN;
+      }
+    };
+  }, []);
+
+  // If this is a duplicate instance, don't render
+  if (!shouldRender) {
+    return null;
+  }
+
   const { loading, error, createCheckoutSession } = useSubscription();
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">(
     "monthly"
@@ -99,19 +157,20 @@ export default function PricingPage() {
       "checkout_price_id",
     ];
 
-    checkoutFlags.forEach((flag) => {
-      if (localStorage.getItem(flag)) {
-        localStorage.removeItem(flag);
-      }
-    });
+    if (typeof window !== "undefined") {
+      checkoutFlags.forEach((flag) => {
+        if (localStorage.getItem(flag)) {
+          localStorage.removeItem(flag);
+        }
+      });
 
-    // Reset the locks
-    GLOBAL_CHECKOUT_LOCK = false;
-    checkoutInitiatedRef.current = false;
-
-    // Clear global window flag if it exists
-    if (typeof window !== "undefined" && window.GLOBAL_CHECKOUT_LOCK) {
+      // Reset the global locks
       window.GLOBAL_CHECKOUT_LOCK = false;
+      GLOBAL_CHECKOUT_LOCK = false;
+      checkoutInitiatedRef.current = false;
+
+      // Set timestamp of last clear
+      window.CHECKOUT_TIMESTAMP = Date.now();
     }
   };
 
@@ -135,6 +194,7 @@ export default function PricingPage() {
       ) {
         console.log("Clearing checkout flags on PricingPage unmount");
         clearAllCheckoutFlags();
+        window.CHECKOUT_CLEARED_ON_MOUNT = false;
       }
     };
   }, []);
@@ -148,6 +208,13 @@ export default function PricingPage() {
     const checkoutCanceled = searchParams.get("checkout_canceled");
     const checkoutError = searchParams.get("checkout_error");
     const checkoutId = searchParams.get("checkout_id");
+    // Add check for promo code in URL
+    const promoCode = searchParams.get("promo");
+
+    // Store promo code in state if present
+    if (promoCode) {
+      localStorage.setItem("promo_code", promoCode);
+    }
 
     if (checkoutCanceled === "true") {
       console.log("Checkout was canceled, clearing flags");
@@ -173,6 +240,16 @@ export default function PricingPage() {
 
   // Add logging for debugging
   useEffect(() => {
+    // Skip if auth is still loading or already logged
+    if (
+      authLoading ||
+      typeof window === "undefined" ||
+      window.__PRICING_PAGE_LOGGED
+    )
+      return;
+
+    window.__PRICING_PAGE_LOGGED = true;
+
     console.log("Pricing page - auth state:", {
       loggedIn,
       authLoading,
@@ -188,6 +265,11 @@ export default function PricingPage() {
         yearly: process.env.STRIPE_YEARLY_PRICE_ID || "not set",
       },
     });
+
+    // Clean up on unmount
+    return () => {
+      window.__PRICING_PAGE_LOGGED = false;
+    };
   }, [user, authLoading, loggedIn]);
 
   // Handler for Firebase errors
@@ -246,6 +328,7 @@ export default function PricingPage() {
     return `${userId}_${priceId}_${Date.now()}`;
   };
 
+  // Optimized function to prevent multiple checkout attempts
   const handleSubscribe = async (interval: "monthly" | "yearly") => {
     // Add simple debounce with ref
     const now = Date.now();
@@ -255,36 +338,68 @@ export default function PricingPage() {
       return;
     }
 
-    // Track too many checkout attempts
-    if (tooManyCheckoutAttempts()) {
-      console.log("Too many checkout attempts in a short period, blocking");
-      toast.error("Too many checkout attempts. Please try again later.");
+    // Check if we already have a subscription request in progress
+    if (
+      typeof window !== "undefined" &&
+      window.__SUBSCRIBE_REQUEST_IN_PROGRESS
+    ) {
+      console.log(
+        "Subscribe request already in progress, ignoring duplicate click"
+      );
+      toast.error("Please wait, your request is being processed");
       return;
     }
 
-    lastClickTime.current = now;
-    // Record this attempt
-    CHECKOUT_ATTEMPT_HISTORY.push(now);
-
-    console.log("Button clicked:", interval);
+    // Set flag to prevent multiple calls
+    if (typeof window !== "undefined") {
+      window.__SUBSCRIBE_REQUEST_IN_PROGRESS = true;
+    }
 
     try {
-      // Prevent multiple checkout attempts - use both localStorage and memory
-      if (
-        localStorage.getItem("checkout_in_progress") ||
-        GLOBAL_CHECKOUT_LOCK ||
-        checkoutInitiatedRef.current
-      ) {
-        console.log("Checkout already in progress, aborting");
+      console.log("Button clicked:", interval);
+
+      // Track too many checkout attempts
+      if (tooManyCheckoutAttempts()) {
+        console.log("Too many checkout attempts in a short period, blocking");
+        toast.error("Too many checkout attempts. Please try again later.");
+        return;
+      }
+
+      lastClickTime.current = now;
+      // Record this attempt
+      CHECKOUT_ATTEMPT_HISTORY.push(now);
+
+      // Check for existing locks before proceeding
+      if (typeof window !== "undefined") {
+        // If browser-level lock is set, prevent duplicate checkout
+        if (window.GLOBAL_CHECKOUT_LOCK) {
+          console.log("Global checkout lock is set, aborting");
+          toast.error(
+            "A checkout is already in progress. Please wait or refresh the page."
+          );
+          return;
+        }
+
+        // Set checkout in progress on window and memory
+        window.GLOBAL_CHECKOUT_LOCK = true;
+        GLOBAL_CHECKOUT_LOCK = true;
+      }
+
+      // Make sure localStorage is clear
+      clearAllCheckoutFlags();
+
+      // Prevent multiple checkout attempts - check local storage as backup
+      if (localStorage.getItem("checkout_in_progress")) {
+        console.log("Checkout already in progress (localStorage), aborting");
         toast.error(
           "A checkout is already in progress. Please wait or refresh the page."
         );
+        clearAllCheckoutFlags();
         return;
       }
 
       // Set checkout in progress flags
       localStorage.setItem("checkout_in_progress", "true");
-      GLOBAL_CHECKOUT_LOCK = true;
       checkoutInitiatedRef.current = true;
 
       // Wait for auth state to stabilize
@@ -295,8 +410,7 @@ export default function PricingPage() {
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      // After waiting, check if the user exists in Firebase Auth context
-      // This works even if loggedIn hasn't been updated yet
+      // After waiting, check if the user exists
       if (user) {
         console.log("User found in auth context:", user.uid);
 
@@ -315,32 +429,21 @@ export default function PricingPage() {
         // Generate a unique checkout ID
         const checkoutId = generateCheckoutId(user.uid, priceId);
 
-        // Check if this exact checkout has been attempted recently
-        if (CHECKOUT_IDS.has(checkoutId)) {
-          console.log("Duplicate checkout attempt detected", checkoutId);
-          toast.error(
-            "Please wait, your previous checkout is still processing"
-          );
-          setRedirecting(false);
-          return;
-        }
+        // Check for stored promo code
+        const promoCode = localStorage.getItem("promo_code");
 
-        // Add to tracking set
-        CHECKOUT_IDS.add(checkoutId);
-
-        // Set a timeout to clear this ID after 5 minutes
-        setTimeout(() => {
-          CHECKOUT_IDS.delete(checkoutId);
-        }, 5 * 60 * 1000);
-
-        console.log("Using price ID:", priceId);
-
-        // Directly call Stripe checkout
         try {
-          // The checkout process uses Firebase Firestore and the Stripe extension
-          // The actual redirect will happen in the createCheckoutSession function
-          await createCheckoutSession(priceId);
-          // Note: No need to reset redirecting state as the user will be redirected to Stripe
+          // Show processing feedback
+          toast.loading("Preparing your checkout...");
+
+          // Call the subscription service to create checkout
+          await createCheckoutSession(priceId, promoCode || undefined);
+
+          // If we got here without redirect, something went wrong
+          console.log("Expected redirect didn't happen - clearing flags");
+          clearAllCheckoutFlags();
+          // Clear promo code from storage
+          localStorage.removeItem("promo_code");
         } catch (error) {
           console.error("Failed to start checkout:", error);
           toast.error("Failed to start checkout. Please try again later.");
@@ -362,6 +465,11 @@ export default function PricingPage() {
       toast.error("An unexpected error occurred. Please try again later.");
       setRedirecting(false);
       clearAllCheckoutFlags();
+    } finally {
+      // Always clear the in progress flag when done
+      if (typeof window !== "undefined") {
+        window.__SUBSCRIBE_REQUEST_IN_PROGRESS = false;
+      }
     }
   };
 

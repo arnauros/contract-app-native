@@ -1,32 +1,7 @@
-import { Metadata, Viewport } from "next";
-import "./globals.css";
-import { Roboto, Inter } from "next/font/google";
-import { Providers } from "./providers";
-import ClientWrapper from "./ClientWrapper";
+"use client";
 
-// Initialize fonts
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-roboto",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-// Metadata
-export const metadata: Metadata = {
-  title: "Macu",
-  description: "Freelance Next.js Demo",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 5,
-};
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 // Global cleanup function to reset checkout state
 const resetCheckoutState = () => {
@@ -66,18 +41,24 @@ const resetCheckoutState = () => {
   }
 };
 
-export default function RootLayout({
+export default function ClientWrapper({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html lang="en" className={inter.variable}>
-      <body className={roboto.variable}>
-        <Providers>
-          <ClientWrapper>{children}</ClientWrapper>
-        </Providers>
-      </body>
-    </html>
-  );
+  const pathname = usePathname();
+
+  // Reset checkout state on first load
+  useEffect(() => {
+    resetCheckoutState();
+  }, []);
+
+  // Also reset checkout state when navigating between major sections
+  useEffect(() => {
+    if (pathname) {
+      resetCheckoutState();
+    }
+  }, [pathname]);
+
+  return <>{children}</>;
 }

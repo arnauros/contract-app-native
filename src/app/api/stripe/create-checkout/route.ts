@@ -40,8 +40,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const { userId, priceId, successUrl, cancelUrl, checkoutId } =
-      await req.json();
+    const {
+      userId,
+      priceId,
+      successUrl,
+      cancelUrl,
+      checkoutId,
+      promotionCodeId,
+    } = await req.json();
 
     if (!userId || !priceId) {
       return NextResponse.json(
@@ -104,6 +110,47 @@ export async function POST(req: Request) {
         .catch((error) => {
           console.error("Error updating user with Stripe customer ID:", error);
         });
+    } else {
+      // Verify that the customer exists in Stripe
+      try {
+        await stripe.customers.retrieve(customerId);
+        console.log(`Verified existing Stripe customer: ${customerId}`);
+      } catch (error: any) {
+        // If customer doesn't exist in Stripe, create a new one
+        if (error.code === "resource_missing") {
+          console.log(
+            `Customer ${customerId} doesn't exist in Stripe, creating new one`
+          );
+          const userRecord = await db.collection("users").doc(userId).get();
+          const email = userRecord.data()?.email || null;
+
+          const customer = await stripe.customers.create({
+            email: email,
+            metadata: {
+              firebaseUID: userId,
+            },
+          });
+
+          customerId = customer.id;
+
+          // Update the customer ID in Firestore
+          await db
+            .collection("users")
+            .doc(userId)
+            .update({
+              stripeCustomerId: customerId,
+            })
+            .catch((updateError) => {
+              console.error(
+                "Error updating user with new Stripe customer ID:",
+                updateError
+              );
+            });
+        } else {
+          // For other errors, rethrow
+          throw error;
+        }
+      }
     }
 
     // Track the checkout in Firestore to prevent duplicates
@@ -137,6 +184,14 @@ export async function POST(req: Request) {
         checkoutId: requestId,
         timestamp: Date.now().toString(),
       },
+      allow_promotion_codes: promotionCodeId ? false : true,
+      ...(promotionCodeId && {
+        discounts: [
+          {
+            promotion_code: promotionCodeId,
+          },
+        ],
+      }),
     });
 
     // Update the checkout record with the session ID

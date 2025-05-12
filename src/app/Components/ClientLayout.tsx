@@ -3,9 +3,17 @@
 import { usePathname } from "next/navigation";
 import Topbar from "@/app/(dashboard)/topbar";
 import Sidebar from "@/app/(dashboard)/sidebar";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { FirebaseError } from "firebase/app";
+
+// Global map to track rendered paths
+declare global {
+  interface Window {
+    __RENDERED_PATHS?: Map<string, boolean>;
+    __PRICING_IN_CLIENT_LAYOUT?: boolean;
+  }
+}
 
 export default function ClientLayout({
   children,
@@ -13,10 +21,60 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const instanceRef = useRef(Math.random().toString(36).substring(2, 15));
   const isViewRoute = pathname?.startsWith("/view/");
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const isLandingPage =
     pathname === "/" || pathname === "/pricing" || pathname === "/about";
+
+  // Special handler for pricing page to prevent double rendering
+  const isPricingPage = pathname === "/pricing";
+
+  // Check for duplicate rendering of the same path
+  useEffect(() => {
+    if (typeof window === "undefined" || !pathname) return;
+
+    // Initialize the rendered paths map if it doesn't exist
+    if (!window.__RENDERED_PATHS) {
+      window.__RENDERED_PATHS = new Map();
+    }
+
+    // Special case for pricing page
+    if (isPricingPage) {
+      if (window.__PRICING_IN_CLIENT_LAYOUT) {
+        console.warn(
+          "Pricing page already rendered through ClientLayout - avoiding duplicate render"
+        );
+        return;
+      }
+      window.__PRICING_IN_CLIENT_LAYOUT = true;
+    }
+
+    // Check if this path is already being rendered by another instance
+    const pathKey = `${pathname}`;
+    const isAlreadyRendered = window.__RENDERED_PATHS.has(pathKey);
+
+    if (isAlreadyRendered) {
+      console.warn(
+        `Path ${pathname} is already being rendered by another ClientLayout instance`
+      );
+    } else {
+      // Mark this path as being rendered
+      window.__RENDERED_PATHS.set(pathKey, true);
+    }
+
+    return () => {
+      // When unmounting, remove this path from the rendered paths
+      if (window.__RENDERED_PATHS) {
+        window.__RENDERED_PATHS.delete(pathKey);
+      }
+
+      // Clean up pricing page flag
+      if (isPricingPage) {
+        window.__PRICING_IN_CLIENT_LAYOUT = false;
+      }
+    };
+  }, [pathname, isPricingPage]);
 
   // Add global error handling
   useEffect(() => {

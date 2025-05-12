@@ -7,6 +7,9 @@ import ClientLayout from "@/app/Components/ClientLayout";
 import { Suspense, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
+// Global variable to prevent multiple ClientApp instances
+let CLIENT_APP_MOUNTED = false;
+
 export default function ClientApp({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // Add a mounting ref to prevent duplicate effects
@@ -16,8 +19,21 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (hasMounted.current) return;
 
+    // Check if another ClientApp instance is already mounted
+    if (typeof window !== "undefined" && CLIENT_APP_MOUNTED) {
+      console.warn(
+        "Multiple ClientApp instances detected - this should not happen"
+      );
+      hasMounted.current = true;
+      return;
+    }
+
     console.log("ClientApp mounted, pathname:", pathname);
     hasMounted.current = true;
+
+    if (typeof window !== "undefined") {
+      CLIENT_APP_MOUNTED = true;
+    }
 
     // Clean up any stale flags that might be lingering
     if (typeof window !== "undefined") {
@@ -32,6 +48,9 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
 
     return () => {
       console.log("ClientApp unmounting");
+      if (typeof window !== "undefined") {
+        CLIENT_APP_MOUNTED = false;
+      }
     };
   }, [pathname]);
 

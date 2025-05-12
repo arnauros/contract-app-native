@@ -165,7 +165,7 @@ export function useSubscription() {
 
   // Simplified checkout function with enhanced safeguards
   const createCheckoutSession = useCallback(
-    async (priceId: string) => {
+    async (priceId: string, promotionCodeId?: string) => {
       try {
         // Check for user authentication
         if (!user) {
@@ -192,17 +192,17 @@ export function useSubscription() {
         // Check both localStorage and module-level variable for locks
         clearStaleCheckoutFlags();
 
-        if (
-          localStorage.getItem("checkout_in_progress") ||
-          CHECKOUT_IN_PROGRESS ||
-          (typeof window !== "undefined" && window.GLOBAL_CHECKOUT_LOCK)
-        ) {
-          console.warn("Checkout already in progress");
-          toast.error(
-            "A checkout is already in progress. Please wait or refresh the page."
-          );
-          return;
+        // Reset all checkout locks to start fresh
+        localStorage.removeItem("checkout_in_progress");
+        localStorage.removeItem("checkout_start_time");
+        CHECKOUT_IN_PROGRESS = false;
+
+        if (typeof window !== "undefined") {
+          window.GLOBAL_CHECKOUT_LOCK = false;
         }
+
+        // Short delay to ensure locks are cleared
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Generate a unique checkout ID
         const checkoutId = generateCheckoutId(user.uid, priceId);
@@ -214,7 +214,7 @@ export function useSubscription() {
           return;
         }
 
-        // Set all locks
+        // Set all locks after check
         localStorage.setItem("checkout_in_progress", "true");
         localStorage.setItem("checkout_start_time", Date.now().toString());
         CHECKOUT_IN_PROGRESS = true;
@@ -227,7 +227,9 @@ export function useSubscription() {
 
         setLoading(true);
         setError(null);
-        toast.loading("Preparing checkout...");
+
+        // Don't show loading toast here - it's confusing to users
+        // toast.loading("Preparing checkout...");
 
         // Create a new abort controller for this request
         abortControllerRef.current = new AbortController();
@@ -249,7 +251,7 @@ export function useSubscription() {
               window.GLOBAL_CHECKOUT_LOCK = false;
             }
           }
-        }, 30000); // 30 second timeout
+        }, 30000);
 
         try {
           const response = await fetch("/api/stripe/create-checkout", {
@@ -263,6 +265,7 @@ export function useSubscription() {
               successUrl: window.location.origin + "/payment-success",
               cancelUrl: window.location.origin + "/pricing",
               checkoutId: checkoutId, // Pass checkoutId to API for tracking
+              ...(promotionCodeId && { promotionCodeId }), // Include promotion code if provided
             }),
             signal,
           });
