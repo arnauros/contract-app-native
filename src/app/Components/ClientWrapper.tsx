@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
-import { Toaster } from "react-hot-toast";
 
 // Dynamic import with no SSR to avoid hydration errors
 const ClientApp = dynamic(() => import("@/app/Components/ClientApp"), {
@@ -22,7 +21,6 @@ export default function ClientWrapper({
   return (
     <>
       <ClientApp>{children}</ClientApp>
-      <Toaster position="top-center" />
       <div id="modal-root" />
     </>
   );

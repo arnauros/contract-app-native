@@ -304,30 +304,17 @@ export default function Dashboard() {
                 subscriptionSnapshot.docs[0].data() as UserSubscription;
               setSubscription(subscriptionData);
             } else {
-              // No subscription found, assume free tier
-              setSubscription({
-                customerId: "free-tier",
-                subscriptionId: "free-tier",
-                tier: "free",
-                status: "active",
-                currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-                cancelAtPeriodEnd: false,
-              });
+              // No subscription found - don't create a fake active one
+              console.log("No active subscription found for user:", user.uid);
+              setSubscription(null);
             }
           };
 
           fetchSubscription();
         } catch (subscriptionError) {
           console.error("Error fetching subscription:", subscriptionError);
-          // Set a default subscription as fallback
-          setSubscription({
-            customerId: "free-tier",
-            subscriptionId: "free-tier",
-            tier: "free",
-            status: "active",
-            currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-            cancelAtPeriodEnd: false,
-          });
+          // Don't set a default subscription as fallback
+          setSubscription(null);
         }
       }
     } catch (error) {

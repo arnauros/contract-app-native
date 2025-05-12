@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { FadeContainer, FadeDiv, FadeSpan } from "./Fade";
-import GameOfLife from "./HeroBackground";
 
 export function Hero() {
   return (
@@ -52,9 +51,6 @@ export function Hero() {
             See how fast it works →
           </Link>
         </FadeDiv>
-        <div className="absolute inset-0 -z-10 flex items-center justify-center">
-          <GameOfLife />
-        </div>
       </FadeContainer>
     </section>
   );

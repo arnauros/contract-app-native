@@ -59,24 +59,9 @@ export function SubscriptionStatus() {
               // Increment error counter
               setErrorCount((prev) => prev + 1);
 
-              // Special handling for permission errors
+              // Log permission errors but don't create fake subscriptions
               if (firestoreError.code === "permission-denied") {
-                console.log(
-                  "Permission error, using development-friendly fallback"
-                );
-
-                // In development, provide a fallback subscription object
-                if (isLocalDevelopment()) {
-                  setSubscription({
-                    status: "active",
-                    tier: "pro",
-                    customerId: user.uid,
-                    subscriptionId: "dev-mode",
-                    currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-                    cancelAtPeriodEnd: false,
-                  });
-                  return;
-                }
+                console.log("Permission error fetching subscription");
               }
 
               setError(firestoreError);

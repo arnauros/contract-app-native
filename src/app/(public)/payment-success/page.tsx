@@ -11,6 +11,7 @@ declare global {
     CHECKOUT_LOCK_CLEARED?: boolean;
     CHECKOUT_CLEARED_ON_MOUNT?: boolean;
     GLOBAL_CHECKOUT_LOCK?: boolean;
+    GLOBAL_REDIRECT_IN_PROGRESS?: boolean;
   }
 }
 
@@ -37,6 +38,7 @@ export default function PaymentSuccessPage() {
       "checkout_price_id",
       "checkout_timestamp",
       "last_checkout_error",
+      "last_checkout_redirect_time", // Clear the redirect tracking
     ];
 
     checkoutFlags.forEach((flag) => {
@@ -52,10 +54,16 @@ export default function PaymentSuccessPage() {
       window.CHECKOUT_LOCK_CLEARED = true;
       window.CHECKOUT_CLEARED_ON_MOUNT = true;
 
-      // Reset the global lock if it exists in this context
+      // Reset the global locks if they exist in this context
       if ("GLOBAL_CHECKOUT_LOCK" in window) {
         console.log("Resetting window.GLOBAL_CHECKOUT_LOCK");
         window.GLOBAL_CHECKOUT_LOCK = false;
+      }
+
+      // Reset the SubscriptionGuard redirect flag
+      if ("GLOBAL_REDIRECT_IN_PROGRESS" in window) {
+        console.log("Resetting window.GLOBAL_REDIRECT_IN_PROGRESS");
+        window.GLOBAL_REDIRECT_IN_PROGRESS = false;
       }
     }
 

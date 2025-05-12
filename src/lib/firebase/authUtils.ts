@@ -173,7 +173,9 @@ export const subscribeToAuthChanges = (
 export const isAdmin = (email: string | null | undefined): boolean => {
   if (!email) return false;
 
+  // Update the admin emails list to only include authorized admin emails
   const ADMIN_EMAILS = ["arnauros22@gmail.com", "admin@example.com"];
 
-  return ADMIN_EMAILS.includes(email);
+  // Make sure hello@arnau.design is not treated as admin
+  return ADMIN_EMAILS.includes(email.toLowerCase());
 };

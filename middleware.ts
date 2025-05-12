@@ -27,13 +27,6 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const hostname = request.headers.get("host") || "";
 
-  // Always redirect from app.localhost to localhost in development
-  if (env.isDevelopment && hostname.startsWith("app.")) {
-    const newUrl = new URL(request.url);
-    newUrl.host = hostname.replace("app.", "");
-    return NextResponse.redirect(newUrl);
-  }
-
   // Allow access to static assets and API routes
   if (ALWAYS_ACCESSIBLE.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next();

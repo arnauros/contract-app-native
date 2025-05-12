@@ -60,6 +60,7 @@
     "firebase-admin": "^13.0.1",
     "formidable": "^3.5.2",
     "framer-motion": "^12.7.5",
+    "gsap": "^3.13.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.455.0",
     "micro": "^10.0.1",

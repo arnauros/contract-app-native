@@ -10,7 +10,6 @@ import FeatureDivider from "@/components/solar/FeatureDivider";
 import { SocialProof } from "@/components/solar/SocialProof";
 import { CallToAction } from "@/components/solar/CallToAction";
 import VerticalLines from "@/components/solar/VerticalLines";
-import GameOfLife from "@/components/solar/HeroBackground";
 import BentoFeatures from "@/components/solar/BentoFeatures";
 
 export default function LandingPage() {
@@ -37,10 +36,7 @@ export default function LandingPage() {
 
   return (
     <main className="relative mx-auto flex flex-col overflow-x-hidden">
-      <div className="pt-32 relative">
-        <div className="absolute inset-0 -z-10">
-          <GameOfLife />
-        </div>
+      <div className="pt-32 relative bg-gray-50">
         <VerticalLines />
         <Hero />
       </div>
