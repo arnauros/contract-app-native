@@ -1,49 +1,93 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Explicitly set the directory structure
-  distDir: ".next",
+import webpack from "webpack";
 
-  // Define experimental features
-  experimental: {
-    // appDir is now the default in Next.js 15+ so we can remove it
-    turbo: {
-      rules: {
-        // Enable environment variables in Turbopack
-        environment: ["NEXT_PUBLIC_*"],
-      },
-    },
+const nextConfig = {
+  // Enable webpack 5 features
+  reactStrictMode: true,
+  transpilePackages: ["firebase-admin"],
+  env: {
+    // Stripe Configuration - Using actual values from env
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+
+    // Stripe Price IDs - Using values from sample-seed.json
+    STRIPE_MONTHLY_PRICE_ID: "price_1RM311EAkEk7AeWQBKwfeYxy", // Monthly price ID
+    STRIPE_YEARLY_PRICE_ID: "price_1RLht5EAkEk7AeWQgRQmeWcF", // Yearly price ID
   },
 
-  // Ensure proper HTML generation
-  reactStrictMode: true,
-  poweredByHeader: false,
+  // Configure asset prefix for proper static file loading with subdomains
+  assetPrefix: process.env.NODE_ENV === "development" ? undefined : undefined,
 
-  // Add proper static asset handling
-  output: "standalone",
+  // Configure base path
+  basePath: "",
 
-  // Add proper CSS asset handling
-  optimizeFonts: true,
-
-  // Disable automatic redirect for trailing slashes
-  trailingSlash: false,
-
-  // Add hostname support to ensure correct domain routing
-  // This is important for handling subdomain and localhost variants
-  skipMiddlewareUrlNormalize: true,
-  skipTrailingSlashRedirect: true,
-
-  // Remove static assetPrefix to allow dynamic port detection
-  // Next.js will automatically use the correct port
-  assetPrefix: undefined,
-
-  // Ensure proper static files serving
+  // Update images configuration for domains
   images: {
     domains: ["localhost", "app.localhost"],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
   },
 
-  // Enable cross-origin isolation for better security
-  crossOrigin: "anonymous",
+  // Allow Stripe checkout in localhost development
+  async headers() {
+    return [
+      {
+        source: "/api/stripe/:path*",
+        headers: [
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+        ],
+      },
+      // Add CORS headers for all static assets
+      {
+        source: "/_next/:path*",
+        headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
+      },
+    ];
+  },
+
+  // Configure webpack for Node.js built-in modules
+  webpack: (config, { isServer }) => {
+    // Only apply polyfills in client-side browser bundles
+    if (!isServer) {
+      // Fix the node: scheme by using externals config
+      config.externals = [
+        ...(config.externals || []),
+        (context, request, callback) => {
+          // Handle node: protocol imports
+          if (request.startsWith("node:")) {
+            const moduleName = request.slice(5);
+            return callback(null, `commonjs ${moduleName}`);
+          }
+          callback();
+        },
+      ];
+
+      // Set up module replacements
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        path: false,
+        stream: "stream-browserify",
+        buffer: "buffer",
+        util: "util",
+        process: "process/browser",
+      };
+
+      // Add needed globals
+      config.plugins.push(
+        new webpack.ProvidePlugin({
+          process: "process/browser",
+          Buffer: ["buffer", "Buffer"],
+        })
+      );
+    }
+
+    return config;
+  },
 };
 
 export default nextConfig;

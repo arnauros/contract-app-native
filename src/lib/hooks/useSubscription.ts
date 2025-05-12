@@ -67,7 +67,7 @@ export function useSubscription() {
         body: JSON.stringify({
           userId: userId,
           priceId: priceId,
-          successUrl: window.location.origin + "/dashboard",
+          successUrl: window.location.origin + "/payment-success",
           cancelUrl: window.location.origin + "/pricing",
         }),
       });

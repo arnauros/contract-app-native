@@ -18,6 +18,17 @@ const publicRoutes = [
 // Debug routes that are always accessible in development mode
 const devAccessibleRoutes = ["/dashboard", "/test-subscription"];
 
+// Helper function to check if the path matches a route pattern correctly
+function isPathMatchingRoute(pathname: string, route: string): boolean {
+  if (route === "/") {
+    // For root path, only match exact "/"
+    return pathname === "/";
+  }
+
+  // Check if it's an exact match or a subpath (e.g., /route/subpath)
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, isDevelopment, error, loggedIn } = useAuth();
   const router = useRouter();
@@ -41,9 +52,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       console.log("Public routes:", publicRoutes);
       console.log(
         "Is public route:",
-        publicRoutes.some((route) =>
-          (pathname || "").toLowerCase().startsWith(route.toLowerCase())
-        )
+        publicRoutes.some((route) => isPathMatchingRoute(pathname || "", route))
       );
     }
 
@@ -58,14 +67,14 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
     // Check if the current path is a public route
     const isPublicRoute = publicRoutes.some((route) =>
-      (pathname || "").toLowerCase().startsWith(route.toLowerCase())
+      isPathMatchingRoute(pathname || "", route)
     );
 
     // Check if the route should be accessible in development mode
     const isDevAccessibleRoute =
       isDevelopment &&
       devAccessibleRoutes.some((route) =>
-        (pathname || "").toLowerCase().startsWith(route.toLowerCase())
+        isPathMatchingRoute(pathname || "", route)
       );
 
     // Always allow access to public routes

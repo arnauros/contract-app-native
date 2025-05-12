@@ -97,7 +97,9 @@ export async function POST(req: Request) {
         },
       ],
       mode: "subscription",
-      success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+      success_url:
+        successUrl ||
+        `${process.env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
       metadata: {
         firebaseUID: userId,

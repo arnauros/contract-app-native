@@ -6,11 +6,13 @@ import { getAuth } from "firebase-admin/auth";
  * @returns void
  */
 export function initAdmin() {
+  // If already initialized, return
   if (getApps().length > 0) {
-    // Already initialized
+    console.log("Firebase Admin already initialized");
     return;
   }
 
+  // Check for service account key
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     throw new Error(
       "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set"
@@ -54,11 +56,16 @@ export function initAdmin() {
       serviceAccount.project_id
     );
 
-    initializeApp({
-      credential: cert(serviceAccount),
-    });
-
-    console.log("Firebase Admin successfully initialized");
+    // Initialize the app with the service account credentials
+    try {
+      initializeApp({
+        credential: cert(serviceAccount),
+      });
+      console.log("Firebase Admin successfully initialized");
+    } catch (error) {
+      console.error("Error initializing Firebase Admin app:", error);
+      throw error;
+    }
   } catch (error) {
     console.error("Firebase Admin initialization error:", error);
     if (error instanceof SyntaxError) {
@@ -70,7 +77,12 @@ export function initAdmin() {
   }
 }
 
-// Auto-initialize on import
-initAdmin();
+// Try to initialize on import but don't crash if it fails
+// Better to handle this in specific components/middleware that need it
+try {
+  initAdmin();
+} catch (error) {
+  console.error("Failed to auto-initialize Firebase Admin:", error);
+}
 
 export const adminAuth = getAuth();

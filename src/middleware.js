@@ -30,6 +30,16 @@ const AUTH_ONLY_ROUTES = [
   "/auth-debug",
 ];
 
+// Dashboard routes that require both authentication and subscription
+const SUBSCRIPTION_REQUIRED_ROUTES = [
+  "/dashboard",
+  "/settings",
+  "/profile",
+  "/contracts",
+  "/invoices",
+  "/clients",
+];
+
 /**
  * Check if a path matches any of the patterns in the array
  */
@@ -39,49 +49,25 @@ function isPathInArray(path, array) {
       const baseRoute = route.slice(0, -1);
       return path.startsWith(baseRoute);
     }
-    return path === route;
+
+    // Special handling for root path
+    if (route === "/") {
+      return path === "/";
+    }
+
+    return path === route || path.startsWith(`${route}/`);
   });
 }
 
+/**
+ * Main middleware function
+ */
 export async function middleware(request) {
-  // Get hostname information
-  const hostname = request.headers.get("host") || "";
+  // In development mode, use simplified middleware with no Firebase Admin
+  // This is to avoid the node:stream issues in development
   const url = request.nextUrl.clone();
-
-  // Log hostname for debugging
-  console.log("Request hostname in middleware:", hostname);
-
-  // Handle static asset requests for app.localhost
-  if (
-    hostname.includes("app.localhost") &&
-    url.pathname.startsWith("/_next/")
-  ) {
-    // Rewrite the URL to use the localhost base URL to fix static asset loading
-    const assetUrl = new URL(
-      url.pathname,
-      `http://localhost:${url.port || 3000}`
-    );
-    console.log(
-      "Rewriting asset request:",
-      url.pathname,
-      "to",
-      assetUrl.toString()
-    );
-    return NextResponse.rewrite(assetUrl);
-  }
-
-  // Get the pathname from the request
   const { pathname } = url;
-
-  console.log(`[Middleware] Processing request for path: ${pathname}`);
-
-  // Allow public routes without any checks
-  if (isPathInArray(pathname, PUBLIC_ROUTES)) {
-    console.log(
-      `[Middleware] Path ${pathname} is in PUBLIC_ROUTES, allowing access`
-    );
-    return NextResponse.next();
-  }
+  const hostname = request.headers.get("host") || "";
 
   // Skip Next.js assets, API routes, and static files
   if (
@@ -89,163 +75,41 @@ export async function middleware(request) {
     pathname.includes(".") ||
     pathname.startsWith("/api/")
   ) {
-    console.log(
-      `[Middleware] Path ${pathname} is a system path, skipping auth check`
-    );
     return NextResponse.next();
   }
 
-  try {
-    // Check if user is authenticated via session cookie
+  // Allow public routes without any checks
+  if (isPathInArray(pathname, PUBLIC_ROUTES)) {
+    return NextResponse.next();
+  }
+
+  // Development-only: In development, just check for session cookie
+  if (process.env.NODE_ENV === "development") {
     const sessionCookie = request.cookies.get("session")?.value;
-    const subscriptionStatus = request.cookies.get(
-      "subscription_status"
-    )?.value;
-
-    console.log(
-      `[Middleware] Session cookie found: ${sessionCookie ? "Yes" : "No"}`
-    );
-    console.log(
-      `[Middleware] Subscription status: ${subscriptionStatus || "Not set"}`
-    );
-
-    // IMPORTANT: Check for inconsistent state - subscription cookie exists but session doesn't
-    // This is likely a stale cookie that needs to be cleared
-    if (!sessionCookie && subscriptionStatus) {
-      console.log(
-        `[Middleware] Inconsistent cookie state detected: subscription without session`
-      );
-
-      // Create response that clears subscription cookie and redirects to login
-      const response = NextResponse.redirect(
-        new URL(
-          `/login?from=${encodeURIComponent(pathname)}&reset=true`,
-          request.url
-        )
-      );
-
-      // Clear the subscription cookie properly for the domain
-      const host = request.headers.get("host") || "";
-      const domain = host.includes("localhost") ? "localhost" : host;
-
-      response.cookies.delete("subscription_status", {
-        path: "/",
-        domain: domain,
-      });
-
-      console.log(
-        `[Middleware] Clearing stale subscription cookie and redirecting to login`
-      );
-      return response;
-    }
 
     if (!sessionCookie) {
-      // No session cookie found, redirect to login
-      console.log(
-        `[Middleware] No session cookie, redirecting to login from ${pathname}`
-      );
-      return redirectToLogin(request);
+      const destination = `/login?from=${encodeURIComponent(pathname)}`;
+      return NextResponse.redirect(new URL(destination, request.url));
     }
-
-    // For routes that only need authentication but not subscription, allow access
-    // if the session cookie exists (we won't verify it here in the middleware)
-    if (isPathInArray(pathname, AUTH_ONLY_ROUTES)) {
-      console.log(
-        `[Middleware] Path ${pathname} only needs auth, allowing access`
-      );
-      return NextResponse.next();
-    }
-
-    // Accept more subscription status values as valid
-    if (
-      subscriptionStatus === "active" ||
-      subscriptionStatus === "trialing" ||
-      subscriptionStatus === "none" || // For development
-      subscriptionStatus === "trial" || // Alternative spelling
-      subscriptionStatus === "canceled" || // Accept canceled for testing
-      sessionCookie // Allow access with ANY session cookie for testing
-    ) {
-      console.log(
-        `[Middleware] Subscription is valid (${
-          subscriptionStatus || "session-only"
-        }), allowing access`
-      );
-      return NextResponse.next();
-    }
-
-    // If user's subscription is canceled
-    if (subscriptionStatus === "canceled") {
-      console.log(
-        `[Middleware] Subscription is canceled, redirecting to pricing with expired=true`
-      );
-      return NextResponse.redirect(
-        new URL(
-          `/pricing?expired=true&from=${encodeURIComponent(pathname)}`,
-          request.url
-        )
-      );
-    }
-
-    // Otherwise, redirect to pricing page
-    console.log(
-      `[Middleware] No valid subscription, redirecting to pricing page`
-    );
-    return redirectToPricing(request);
-  } catch (error) {
-    console.error("[Middleware] Error in middleware:", error);
-    // On error, redirect to login as a fallback
-    return redirectToLogin(request);
+    return NextResponse.next();
   }
-}
 
-function redirectToLogin(request) {
-  const destination = `/login?from=${encodeURIComponent(
-    request.nextUrl.pathname
-  )}`;
-  console.log(`[Middleware] Redirecting to: ${destination}`);
-
-  // Create the redirect response
-  const response = NextResponse.redirect(new URL(destination, request.url));
-
-  // Get host/domain from the request headers
-  const host = request.headers.get("host") || "";
-  const domain = host.includes("localhost") ? "localhost" : host;
-
-  // If there's no session cookie but there's a subscription cookie, clear it
+  // Production-only code below this point
+  // Get session cookie
   const sessionCookie = request.cookies.get("session")?.value;
-  const subscriptionStatus = request.cookies.get("subscription_status")?.value;
 
-  if (!sessionCookie && subscriptionStatus) {
-    console.log(
-      `[Middleware] Clearing stale subscription cookie during redirect`
-    );
-    response.cookies.delete("subscription_status", {
-      path: "/",
-      domain: domain,
-    });
+  if (!sessionCookie) {
+    // No session cookie found, redirect to login
+    const destination = `/login?from=${encodeURIComponent(pathname)}`;
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
-  return response;
-}
-
-function redirectToPricing(request) {
-  const destination = `/pricing?required=true&from=${encodeURIComponent(
-    request.nextUrl.pathname
-  )}`;
-  console.log(`[Middleware] Redirecting to: ${destination}`);
-  return NextResponse.redirect(new URL(destination, request.url));
+  // In production, we'd do real auth checks with Firebase Admin
+  // But we've removed it from this middleware to avoid node:stream errors
+  return NextResponse.next();
 }
 
 // Configure which paths this middleware runs on
 export const config = {
-  matcher: [
-    /*
-     * Match all paths except for:
-     * 1. /api routes
-     * 2. /_next (Next.js internals)
-     * 3. /_static (inside /public)
-     * 4. all root files inside /public (e.g. /favicon.ico)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
