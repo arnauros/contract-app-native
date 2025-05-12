@@ -8,7 +8,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import { initFirebase } from "@/lib/firebase/init";
+import { initFirebase } from "@/lib/firebase/firebase";
 import { doc, updateDoc, getFirestore } from "firebase/firestore";
 
 interface ImageUploaderProps {
@@ -85,9 +85,9 @@ export default function ImageUploader({
       setIsUploading(true);
 
       // Initialize Firebase
-      const app = initFirebase();
-      const storage = getStorage(app);
-      const db = getFirestore(app);
+      const { app: firebaseApp } = initFirebase();
+      const storage = getStorage(firebaseApp);
+      const db = getFirestore(firebaseApp);
 
       // Create unique file name
       const timestamp = Date.now();
@@ -139,9 +139,9 @@ export default function ImageUploader({
 
     try {
       // Initialize Firebase
-      const app = initFirebase();
-      const storage = getStorage(app);
-      const db = getFirestore(app);
+      const { app: firebaseApp } = initFirebase();
+      const storage = getStorage(firebaseApp);
+      const db = getFirestore(firebaseApp);
 
       // Update Firestore to remove the image URL
       const contractRef = doc(db, "contracts", contractId);

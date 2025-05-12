@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, initializeFirebase } from "@/lib/firebase/config";
-import { collection, addDoc, doc, serverTimestamp } from "firebase/firestore";
+import { initFirebase } from "@/lib/firebase";
+import {
+  collection,
+  addDoc,
+  doc,
+  serverTimestamp,
+  getFirestore,
+  Firestore,
+} from "firebase/firestore";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,11 +34,9 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    // Ensure Firebase is initialized
-    const { db: firestore } = initializeFirebase();
-    if (!firestore) {
-      throw new Error("Firebase database not initialized");
-    }
+    // Initialize Firebase
+    const { app } = initFirebase();
+    const firestore = getFirestore(app);
 
     // Add to Firestore
     const contractRef = doc(firestore, "contracts", contractId);

@@ -14,25 +14,33 @@ export default function GameOfLife() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set fixed canvas dimensions to match reference
-    canvas.width = 1500;
-    canvas.height = 600;
+    // Set responsive canvas dimensions
+    const updateCanvasSize = () => {
+      const container = canvas.parentElement;
+      if (container) {
+        canvas.width = container.clientWidth;
+        canvas.height = Math.min(600, window.innerHeight * 0.6);
+      }
+    };
+
+    updateCanvasSize();
+    window.addEventListener("resize", updateCanvasSize);
 
     let animationFrameId: number;
-    const cellSize = 20; // Cell size for proper dot spacing
+    const cellSize = 8; // Smaller cells for better performance
     const cols = Math.floor(canvas.width / cellSize);
     const rows = Math.floor(canvas.height / cellSize);
-    const transitionSpeed = 0.04; // Controls fade speed
+    const transitionSpeed = 0.08; // Smoother transitions
 
-    // Create initial grid with dots
+    // Create initial grid with fewer dots
     let grid: Grid = Array(rows)
       .fill(null)
       .map(() =>
         Array(cols)
           .fill(null)
           .map(() => ({
-            alive: Math.random() > 0.85, // Fewer initial dots
-            opacity: Math.random() > 0.85 ? 0.5 : 0,
+            alive: Math.random() > 0.9, // Even fewer initial dots (10%)
+            opacity: Math.random() > 0.9 ? 0.4 : 0,
           }))
       );
 
@@ -49,7 +57,11 @@ export default function GameOfLife() {
       return sum;
     };
 
-    const draw = () => {
+    // Track time for updates to reduce computation frequency
+    let lastUpdateTime = 0;
+    const updateInterval = 200; // Milliseconds between game-of-life updates
+
+    const draw = (timestamp: number) => {
       // Clear with white background
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -58,8 +70,8 @@ export default function GameOfLife() {
       for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
           const cell = grid[i][j];
-          if (cell.alive && cell.opacity < 0.5) {
-            cell.opacity = Math.min(cell.opacity + transitionSpeed, 0.5);
+          if (cell.alive && cell.opacity < 0.4) {
+            cell.opacity = Math.min(cell.opacity + transitionSpeed, 0.4);
           } else if (!cell.alive && cell.opacity > 0) {
             cell.opacity = Math.max(cell.opacity - transitionSpeed, 0);
           }
@@ -70,7 +82,7 @@ export default function GameOfLife() {
             ctx.arc(
               j * cellSize + cellSize / 2,
               i * cellSize + cellSize / 2,
-              1, // Smaller dots to match reference
+              1, // Small dots
               0,
               Math.PI * 2
             );
@@ -79,11 +91,18 @@ export default function GameOfLife() {
         }
       }
 
-      // Update cell states based on Conway's Game of Life rules
-      if (Math.random() > 0.8) {
-        // Only update occasionally
+      // Only update cell states occasionally to reduce CPU load
+      if (timestamp - lastUpdateTime > updateInterval) {
+        lastUpdateTime = timestamp;
+
         const next = grid.map((row, i) =>
           row.map((cell, j) => {
+            // Only compute neighbors for cells that are alive or have alive neighbors
+            // This dramatically reduces calculations for sparse grids
+            if (!cell.alive && Math.random() > 0.05) {
+              return cell; // 95% of dead cells stay unchanged
+            }
+
             const neighbors = countNeighbors(grid, i, j);
             const willBeAlive = cell.alive
               ? neighbors >= 2 && neighbors <= 3
@@ -97,21 +116,20 @@ export default function GameOfLife() {
         grid = next;
       }
 
-      setTimeout(() => {
-        animationFrameId = requestAnimationFrame(draw);
-      }, 125); // Match reference animation timing
+      animationFrameId = requestAnimationFrame(draw);
     };
 
-    draw();
+    draw(0);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", updateCanvasSize);
     };
   }, []);
 
   return (
-    <div className="mask pointer-events-none overflow-hidden select-none">
-      <canvas ref={canvasRef} width="1500" height="600" />
+    <div className="mask pointer-events-none overflow-hidden select-none w-full h-full">
+      <canvas ref={canvasRef} className="w-full" />
     </div>
   );
 }

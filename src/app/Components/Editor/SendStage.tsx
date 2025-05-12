@@ -1,8 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { debounce } from "lodash";
 import {
+  PaperAirplaneIcon,
+  ArrowRightIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import {
+  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ShareIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
-} from "@heroicons/react/24/outline";
+} from "@heroicons/react/24/solid";
 import { toast } from "react-hot-toast";
 import {
   getFunctions,
@@ -10,12 +21,13 @@ import {
   connectFunctionsEmulator,
 } from "firebase/functions";
 import { getAuth } from "firebase/auth";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { v4 as uuidv4 } from "uuid";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/index";
 import { generatePreviewToken } from "@/lib/firebase/token";
 import { useRouter } from "next/navigation";
+import ShareModal from "./ShareModal";
 
 // Add this for debugging - set to false to hide debug buttons
 const SHOW_DEBUG_BUTTONS = false;

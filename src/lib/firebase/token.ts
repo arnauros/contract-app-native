@@ -5,13 +5,20 @@ import {
   updateDoc,
   increment,
   Firestore,
+  getFirestore,
 } from "firebase/firestore";
-import { db } from "./config";
+import { db as firebaseDb, initFirebase } from "./firebase";
 import { Contract, ViewTracking } from "./types";
 import { toast } from "react-hot-toast";
 
 // Ensure db is not null
-const firestore = db as Firestore;
+let firestore: Firestore;
+if (firebaseDb) {
+  firestore = firebaseDb;
+} else {
+  const { app } = initFirebase();
+  firestore = getFirestore(app);
+}
 
 export const ContractAccessError = {
   TOKEN_EXPIRED: "TOKEN_EXPIRED",

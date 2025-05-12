@@ -147,7 +147,7 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
             >
               {loading ? "Creating account..." : "Sign up"}
             </button>
@@ -161,7 +161,7 @@ export default function SignUpPage() {
                 ? `?returnUrl=${encodeURIComponent(returnUrl)}`
                 : ""
             }`}
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-orange-600 hover:text-orange-500"
           >
             Already have an account? Sign in
           </Link>

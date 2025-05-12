@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 import { AuthContext } from "../context/AuthProvider";
 import { User } from "firebase/auth";
 
@@ -8,20 +8,12 @@ import { User } from "firebase/auth";
 export function useAuth() {
   const authContext = useContext(AuthContext);
 
-  // Debug output
-  useEffect(() => {
-    console.log("useAuth hook state:", {
-      user: !!authContext.user,
-      loading: authContext.loading,
-    });
-  }, [authContext.user, authContext.loading]);
-
   return {
     user: authContext.user,
     loading: authContext.loading,
     error: authContext.error,
-    isDevelopment: authContext.isDevelopment,
     loggedIn: authContext.loggedIn,
+    isAdmin: authContext.isAdmin,
   };
 }
 

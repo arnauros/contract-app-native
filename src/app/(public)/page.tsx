@@ -11,6 +11,7 @@ import { SocialProof } from "@/components/solar/SocialProof";
 import { CallToAction } from "@/components/solar/CallToAction";
 import VerticalLines from "@/components/solar/VerticalLines";
 import GameOfLife from "@/components/solar/HeroBackground";
+import BentoFeatures from "@/components/solar/BentoFeatures";
 
 export default function LandingPage() {
   const [debugInfo, setDebugInfo] = useState({
@@ -36,48 +37,52 @@ export default function LandingPage() {
 
   return (
     <main className="relative mx-auto flex flex-col overflow-x-hidden">
-      <div className="pt-56 relative">
+      <div className="pt-32 relative">
         <div className="absolute inset-0 -z-10">
           <GameOfLife />
         </div>
         <VerticalLines />
         <Hero />
       </div>
-      <div className="mt-56 px-6 xl:px-0">
+      <div className="mt-24 px-6 xl:px-0">
         <ProblemSolution />
       </div>
-      <FeatureDivider className="my-24 max-w-6xl" />
-      <div className="mt-24 px-6 xl:px-0">
+      <FeatureDivider className="my-16 max-w-6xl" />
+      <div className="mt-16 px-6 xl:px-0">
+        <BentoFeatures />
+      </div>
+      <FeatureDivider className="my-16 max-w-6xl" />
+      <div className="mt-16 px-6 xl:px-0">
         <HowItWorks />
       </div>
-      <FeatureDivider className="my-24 max-w-6xl" />
-      <div className="mt-24 px-6 xl:px-0">
+      <FeatureDivider className="my-16 max-w-6xl" />
+      <div className="mt-16 px-6 xl:px-0">
         <WhoItsFor />
       </div>
-      <FeatureDivider className="my-24 max-w-6xl" />
-      <div className="mt-24 mb-32 px-6 xl:px-0">
+      <FeatureDivider className="my-16 max-w-6xl" />
+      <div className="mt-16 mb-24 px-6 xl:px-0">
         <SocialProof />
       </div>
-      <div className="mt-16 mb-48 px-6 xl:px-0">
+      <div className="mt-16 mb-32 px-6 xl:px-0">
         <CallToAction />
       </div>
 
-      <div className="flex justify-center mt-10 gap-4 flex-wrap">
+      <div className="flex justify-center mb-16 gap-4 flex-wrap">
         <a
           href="/login"
-          className="px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="px-6 py-3 text-base font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
         >
           Sign in
         </a>
         <Link
           href="/pricing"
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
         >
           View Pricing
         </Link>
         <Link
           href="/test-flow"
-          className="px-4 py-2 text-sm font-medium text-indigo-600 bg-white border border-indigo-600 rounded-md hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="px-4 py-2 text-sm font-medium text-orange-600 bg-white border border-orange-600 rounded-md hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
         >
           Test Subscription Flow
         </Link>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getFirestore, doc, updateDoc } from "firebase/firestore";
-import { initFirebase } from "@/lib/firebase/init";
+import { initFirebase } from "@/lib/firebase/firebase";
 
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // Initialize Firebase
-    const app = initFirebase();
+    const { app } = initFirebase();
     const db = getFirestore(app);
 
     // Update contract status and client info in Firestore
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       `,
     });
 
-    return NextResponse.json({ success: true, messageId: email.id });
+    return NextResponse.json({ success: true, messageId: email.data?.id });
   } catch (error) {
     console.error("Failed to send email:", error);
     return NextResponse.json(

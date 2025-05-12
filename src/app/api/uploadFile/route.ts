@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { initFirebase } from "@/lib/firebase/init";
+import { initFirebase } from "@/lib/firebase/firebase";
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     // Initialize Firebase
-    const app = initFirebase();
+    const { app } = initFirebase();
     const storage = getStorage(app);
 
     // Create a unique file name

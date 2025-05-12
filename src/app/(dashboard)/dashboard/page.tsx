@@ -7,7 +7,7 @@ import { app, db } from "@/lib/firebase/firebase";
 import DashboardStats from "@/app/Components/DashboardStats";
 import CommentFeed from "@/app/Components/CommentFeed";
 import useRecentComments from "@/lib/hooks/useRecentComments";
-import { useDomain } from "@/lib/hooks/useDomain";
+import { isLocalDevelopment } from "@/lib/utils";
 import {
   collection,
   query,
@@ -113,7 +113,6 @@ const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => {
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { isLocalDevelopment } = useDomain();
   const [stats, setStats] = useState({
     total: 0,
     pendingClient: 0,
@@ -290,7 +289,7 @@ export default function Dashboard() {
       setActivityData(activityData);
 
       // Fetch subscription data (if in local development)
-      if (isLocalDevelopment) {
+      if (isLocalDevelopment()) {
         try {
           const fetchSubscription = async () => {
             const subscriptionsRef = collection(firestore, "subscriptions");
@@ -461,14 +460,14 @@ export default function Dashboard() {
       </div>
 
       {/* Add subscription status component */}
-      {isLocalDevelopment && (
+      {isLocalDevelopment() && (
         <div className="mb-8">
           <SubscriptionStatus />
         </div>
       )}
 
       {/* Show upgrade banner for free tier users */}
-      {isLocalDevelopment && subscription?.tier === "free" && (
+      {isLocalDevelopment() && subscription?.tier === "free" && (
         <div className="mb-8 bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-bold mb-2">Upgrade to Pro</h3>
           <p className="mb-4">
@@ -511,7 +510,7 @@ export default function Dashboard() {
       </div>
 
       {/* Limit maximum contracts for free tier */}
-      {isLocalDevelopment &&
+      {isLocalDevelopment() &&
         subscription?.tier === "free" &&
         stats.total >= 3 && (
           <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">

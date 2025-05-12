@@ -1,13 +1,9 @@
 // Export Firebase initialization and instances
-export { initFirebase } from "./init";
-import { getFirestore } from "firebase/firestore";
-import { initFirebase } from "./init";
+import { app, db, auth, initFirebase } from "./firebase";
 
-// Initialize Firebase and export instances
-const app = initFirebase();
-export const db = getFirestore(app);
+// Re-export Firebase instances
+export { app, db, auth, initFirebase };
 
 // Export other Firebase-related functionality
-export * from "./auth";
 export * from "./firestore";
 export * from "./types";

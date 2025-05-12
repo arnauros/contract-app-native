@@ -38,7 +38,7 @@ import {
   handleAccessError,
 } from "@/lib/firebase/token";
 import { doc, updateDoc, Firestore } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { db } from "@/lib/firebase";
 import {
   CommentBox,
   CommentList,

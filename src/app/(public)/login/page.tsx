@@ -5,6 +5,7 @@ import { signIn } from "@/lib/firebase/authUtils";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import { errorHandler } from "@/lib/utils";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -27,48 +28,21 @@ export default function LoginPage() {
       const result = await signIn(email, password);
 
       if (result.error) {
-        const errorMsg = result.error.message || "Authentication failed";
-        setErrorMessage(errorMsg);
-        toast.error(errorMsg);
+        setErrorMessage(result.error.message);
         setLoading(false);
         return;
       }
 
-      if (result.user) {
-        // Get token for session
-        const idToken = await result.user.getIdToken();
+      // Success - the session is created automatically in the auth service
+      toast.success("Logged in successfully!");
 
-        // Create session
-        const response = await fetch("/api/auth/session", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ token: idToken }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            `Session creation failed: ${errorData.error || "Unknown error"}`
-          );
-        }
-
-        toast.success("Logged in successfully!");
-
-        // Redirect after successful login
-        setTimeout(() => {
-          router.push(returnUrl);
-        }, 500);
-      }
+      // Redirect after successful login
+      setTimeout(() => {
+        router.push(returnUrl);
+      }, 500);
     } catch (error) {
-      console.error("Login error:", error);
-      const errorMsg =
-        error instanceof Error
-          ? error.message
-          : "Failed to login. Please try again.";
-      setErrorMessage(errorMsg);
-      toast.error(errorMsg);
+      const appError = errorHandler.handle(error, "login page");
+      setErrorMessage(appError.message);
     } finally {
       setLoading(false);
     }
@@ -126,7 +100,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
@@ -140,7 +114,7 @@ export default function LoginPage() {
                 ? `?returnUrl=${encodeURIComponent(returnUrl)}`
                 : ""
             }`}
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-orange-600 hover:text-orange-500"
           >
             Don't have an account? Sign up
           </Link>

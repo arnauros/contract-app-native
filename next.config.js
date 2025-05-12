@@ -12,8 +12,8 @@ const nextConfig = {
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 
     // Stripe Price IDs - Using values from sample-seed.json
-    STRIPE_MONTHLY_PRICE_ID: "price_1RM311EAkEk7AeWQBKwfeYxy", // Monthly price ID
-    STRIPE_YEARLY_PRICE_ID: "price_1RLht5EAkEk7AeWQgRQmeWcF", // Yearly price ID
+    STRIPE_MONTHLY_PRICE_ID: "price_1RLht5EAkEk7AeWQgRQmeWcF", // Monthly price ID
+    STRIPE_YEARLY_PRICE_ID: "price_1RM311EAkEk7AeWQBKwfeYxy", // Yearly price ID
   },
 
   // Configure asset prefix for proper static file loading with subdomains

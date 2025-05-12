@@ -33,9 +33,9 @@ export const getStripe = () => {
 // Price IDs with better error handling
 export const STRIPE_PRICE_IDS = {
   MONTHLY:
-    process.env.STRIPE_MONTHLY_PRICE_ID || "price_1RM311EAkEk7AeWQBKwfeYxy",
+    process.env.STRIPE_MONTHLY_PRICE_ID || "price_1RLht5EAkEk7AeWQgRQmeWcF",
   YEARLY:
-    process.env.STRIPE_YEARLY_PRICE_ID || "price_1RLht5EAkEk7AeWQgRQmeWcF",
+    process.env.STRIPE_YEARLY_PRICE_ID || "price_1RM311EAkEk7AeWQBKwfeYxy",
 };
 
 // Validate price IDs

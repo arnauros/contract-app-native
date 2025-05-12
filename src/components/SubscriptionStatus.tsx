@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { UserSubscription } from "@/lib/stripe/config";
 import { getFirestore, doc, onSnapshot } from "firebase/firestore";
-import { useDomain } from "@/lib/hooks/useDomain";
+import { isLocalDevelopment } from "@/lib/utils";
 import { app } from "@/lib/firebase/firebase";
 
 export function SubscriptionStatus() {
@@ -17,7 +17,7 @@ export function SubscriptionStatus() {
     null
   );
   const [error, setError] = useState<Error | null>(null);
-  const { isLocalDevelopment } = useDomain();
+  const [errorCount, setErrorCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -32,131 +32,155 @@ export function SubscriptionStatus() {
         return;
       }
 
-      const unsubscribe = onSnapshot(
-        doc(db, "users", user.uid),
-        (docSnapshot) => {
-          try {
-            const data = docSnapshot.data();
-            setSubscription(data?.subscription || null);
-          } catch (err) {
-            console.error("Error processing subscription data:", err);
-            setError(err instanceof Error ? err : new Error("Unknown error"));
-          }
-        },
-        (firestoreError) => {
-          console.error("Error fetching subscription:", firestoreError);
-          setError(firestoreError);
-        }
-      );
-
-      return () => {
+      // Use a try-catch pattern for more robust error handling
+      const fetchSubscription = async () => {
         try {
-          unsubscribe();
-        } catch (err) {
-          console.error("Error unsubscribing from snapshot:", err);
+          // Monitor user document for subscription changes
+          const unsubscribe = onSnapshot(
+            doc(db, "users", user.uid),
+            (docSnapshot) => {
+              try {
+                const data = docSnapshot.data();
+                setSubscription(data?.subscription || null);
+                // Reset error state if successful
+                setError(null);
+                setErrorCount(0);
+              } catch (err) {
+                console.error("Error processing subscription data:", err);
+                setError(
+                  err instanceof Error ? err : new Error("Unknown error")
+                );
+                setErrorCount((prev) => prev + 1);
+              }
+            },
+            (firestoreError) => {
+              console.error("Error fetching subscription:", firestoreError);
+
+              // Increment error counter
+              setErrorCount((prev) => prev + 1);
+
+              // Special handling for permission errors
+              if (firestoreError.code === "permission-denied") {
+                console.log(
+                  "Permission error, using development-friendly fallback"
+                );
+
+                // In development, provide a fallback subscription object
+                if (isLocalDevelopment()) {
+                  setSubscription({
+                    status: "active",
+                    tier: "pro",
+                    customerId: user.uid,
+                    subscriptionId: "dev-mode",
+                    currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
+                    cancelAtPeriodEnd: false,
+                  });
+                  return;
+                }
+              }
+
+              setError(firestoreError);
+            }
+          );
+
+          return () => {
+            try {
+              unsubscribe();
+            } catch (err) {
+              console.error("Error unsubscribing from snapshot:", err);
+            }
+          };
+        } catch (outerError) {
+          console.error("Error setting up subscription listener:", outerError);
+          setError(
+            outerError instanceof Error
+              ? outerError
+              : new Error("Unknown error")
+          );
+          setErrorCount((prev) => prev + 1);
         }
       };
+
+      fetchSubscription();
     } catch (err) {
       console.error("Error setting up subscription listener:", err);
       setError(err instanceof Error ? err : new Error("Unknown error"));
+      setErrorCount((prev) => prev + 1);
     }
   }, [user]);
 
-  // Handle errors
-  if (error || subscriptionError) {
+  // Display error state if multiple attempts have failed
+  if (error && errorCount > 2) {
     return (
-      <div className="rounded-lg bg-red-50 p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg
-              className="h-5 w-5 text-red-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">
-              Subscription service error
-            </h3>
-            <div className="mt-2 text-sm text-red-700">
-              <p>
-                Unable to load subscription information. Please try again later.
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="text-center py-2 px-4 rounded-full bg-red-100 text-red-800 text-sm inline-flex items-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 mr-1"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
+        </svg>
+        Error checking subscription status
       </div>
     );
   }
 
-  // Don't render anything if not in local development or user not authenticated
-  if (!isLocalDevelopment || !user) {
-    return null;
+  // Loading state
+  if (loading || !subscription) {
+    return null; // Hide component while loading
   }
 
-  // Show the free tier message if no subscription
-  if (!subscription) {
+  // Subscription active
+  if (
+    subscription?.status === "active" ||
+    subscription?.status === "trialing"
+  ) {
     return (
-      <div className="rounded-lg bg-yellow-50 p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg
-              className="h-5 w-5 text-yellow-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-800">
-              No active subscription
-            </h3>
-            <div className="mt-2 text-sm text-yellow-700">
-              <p>Subscribe to access premium features.</p>
-            </div>
-          </div>
-        </div>
+      <div className="text-center py-2 px-4 rounded-full bg-green-100 text-green-800 text-sm inline-flex items-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 mr-1"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+        Active subscription
       </div>
     );
   }
 
+  // Inactive subscription
   return (
-    <div className="rounded-lg bg-white shadow">
-      <div className="px-4 py-5 sm:p-6">
-        <h3 className="text-lg font-medium leading-6 text-gray-900">
-          Subscription Status
-        </h3>
-        <div className="mt-2 max-w-xl text-sm text-gray-500">
-          <p>
-            Your subscription is currently{" "}
-            <span className="font-medium text-gray-900">
-              {subscription.status}
-            </span>
-            .
-          </p>
-        </div>
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={openCustomerPortal}
-            disabled={loading}
-            className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "Manage Subscription"}
-          </button>
-        </div>
-      </div>
+    <div className="text-center py-2 px-4 rounded-full bg-yellow-100 text-yellow-800 text-sm inline-flex items-center">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 mr-1"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      Inactive subscription
     </div>
   );
 }

@@ -11,6 +11,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-04-30.basil",
 });
 
+// Track active checkout sessions to prevent duplicates
+const ACTIVE_CHECKOUTS = new Set<string>();
+
 export async function POST(req: Request) {
   try {
     // Check hostname with better detection for local development
@@ -37,7 +40,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const { userId, priceId, successUrl, cancelUrl } = await req.json();
+    const { userId, priceId, successUrl, cancelUrl, checkoutId } =
+      await req.json();
 
     if (!userId || !priceId) {
       return NextResponse.json(
@@ -46,8 +50,26 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check for duplicate checkout requests
+    const requestId = checkoutId || `${userId}_${priceId}_${Date.now()}`;
+    if (ACTIVE_CHECKOUTS.has(requestId)) {
+      console.log(`Duplicate checkout detected: ${requestId}`);
+      return NextResponse.json(
+        { error: "A checkout is already in progress" },
+        { status: 409 }
+      );
+    }
+
+    // Add to active checkouts
+    ACTIVE_CHECKOUTS.add(requestId);
+
+    // Set a timeout to remove from active checkouts after 5 minutes
+    setTimeout(() => {
+      ACTIVE_CHECKOUTS.delete(requestId);
+    }, 5 * 60 * 1000);
+
     console.log(
-      `Creating checkout session for user: ${userId}, price: ${priceId}`
+      `Creating checkout session for user: ${userId}, price: ${priceId}, checkout ID: ${requestId}`
     );
 
     // Get user from Firestore
@@ -84,6 +106,15 @@ export async function POST(req: Request) {
         });
     }
 
+    // Track the checkout in Firestore to prevent duplicates
+    await db.collection("stripe_checkouts").doc(requestId).set({
+      userId,
+      priceId,
+      timestamp: new Date(),
+      status: "pending",
+      customerId,
+    });
+
     // Create a checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -97,17 +128,29 @@ export async function POST(req: Request) {
       mode: "subscription",
       success_url:
         successUrl ||
-        `${process.env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
+        `${process.env.NEXT_PUBLIC_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&checkout_id=${requestId}`,
+      cancel_url:
+        cancelUrl ||
+        `${process.env.NEXT_PUBLIC_APP_URL}/pricing?checkout_canceled=true&checkout_id=${requestId}`,
       metadata: {
         firebaseUID: userId,
+        checkoutId: requestId,
+        timestamp: Date.now().toString(),
       },
+    });
+
+    // Update the checkout record with the session ID
+    await db.collection("stripe_checkouts").doc(requestId).update({
+      sessionId: session.id,
+      sessionCreatedAt: new Date(),
+      status: "created",
     });
 
     // Return the session ID and URL
     return NextResponse.json({
       sessionId: session.id,
       url: session.url,
+      checkoutId: requestId,
     });
   } catch (error) {
     console.error("Error creating checkout session:", error);

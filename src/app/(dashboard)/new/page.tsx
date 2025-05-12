@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { saveContract } from "@/lib/firebase/firestore";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";

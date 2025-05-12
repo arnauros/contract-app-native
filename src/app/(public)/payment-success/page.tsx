@@ -5,6 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import Link from "next/link";
 
+// Declare global types and variables
+declare global {
+  interface Window {
+    CHECKOUT_LOCK_CLEARED?: boolean;
+    CHECKOUT_CLEARED_ON_MOUNT?: boolean;
+    GLOBAL_CHECKOUT_LOCK?: boolean;
+  }
+}
+
 export default function PaymentSuccessPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -12,8 +21,57 @@ export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get("session_id");
   const [subscriptionConfirmed, setSubscriptionConfirmed] = useState(false);
+  const [cleanupPerformed, setCleanupPerformed] = useState(false);
+
+  // Function to thoroughly clear all checkout flags
+  const thoroughCleanup = () => {
+    console.log("Performing thorough checkout flag cleanup");
+
+    // Clear all localStorage flags
+    const checkoutFlags = [
+      "checkout_in_progress",
+      "subscription_intent",
+      "last_checkout_attempt",
+      "checkout_start_time",
+      "checkout_session_id",
+      "checkout_price_id",
+      "checkout_timestamp",
+      "last_checkout_error",
+    ];
+
+    checkoutFlags.forEach((flag) => {
+      if (localStorage.getItem(flag)) {
+        console.log(`Clearing localStorage flag: ${flag}`);
+        localStorage.removeItem(flag);
+      }
+    });
+
+    // Clear global variables if they exist
+    if (typeof window !== "undefined") {
+      // Set the cleared flags
+      window.CHECKOUT_LOCK_CLEARED = true;
+      window.CHECKOUT_CLEARED_ON_MOUNT = true;
+
+      // Reset the global lock if it exists in this context
+      if ("GLOBAL_CHECKOUT_LOCK" in window) {
+        console.log("Resetting window.GLOBAL_CHECKOUT_LOCK");
+        window.GLOBAL_CHECKOUT_LOCK = false;
+      }
+    }
+
+    setCleanupPerformed(true);
+  };
 
   useEffect(() => {
+    // Immediately perform cleanup when component mounts
+    thoroughCleanup();
+
+    // Set a recurring interval to keep checking and clearing flags
+    // This helps ensure that even if new flags are set somehow, they get cleared
+    const cleanupInterval = setInterval(() => {
+      thoroughCleanup();
+    }, 10000); // Check every 10 seconds while on this page
+
     // If user is not authenticated, redirect to login
     if (!authLoading && !user) {
       router.push("/login");
@@ -32,8 +90,19 @@ export default function PaymentSuccessPage() {
         router.push("/dashboard");
       }, 5000);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        clearInterval(cleanupInterval);
+
+        // Do one final cleanup before unmounting
+        thoroughCleanup();
+      };
     }
+
+    return () => {
+      clearInterval(cleanupInterval);
+      thoroughCleanup();
+    };
   }, [user, authLoading, router, sessionId]);
 
   if (authLoading) {

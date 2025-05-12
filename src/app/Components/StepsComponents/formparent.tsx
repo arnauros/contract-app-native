@@ -7,7 +7,7 @@ import ThirdStage from "./thirdstage";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { saveContract } from "@/lib/firebase/firestore";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import toast from "react-hot-toast";
 import { doc, getFirestore } from "firebase/firestore";
 import { collection } from "firebase/firestore";

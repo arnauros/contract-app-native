@@ -13,7 +13,7 @@ import {
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { debounce } from "lodash";
 import { saveContractAudit, getContractAudit } from "@/lib/firebase/firestore";
-import { useAuth } from "@/lib/context/AuthContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 import {
   doc,
   getDoc,
@@ -22,7 +22,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { toast } from "react-hot-toast";
-import { initializeFirebase } from "@/lib/firebase/config";
+import { initFirebase } from "@/lib/firebase/firebase";
 
 interface AuditIssue {
   type: "Enhancement" | "Protection" | "Clarity" | "Communication";

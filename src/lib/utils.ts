@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, parseISO } from "date-fns";
+import toast from "react-hot-toast";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -52,4 +53,205 @@ export const staggerContainer = (
       },
     },
   };
+};
+
+// Centralized environment configuration
+export const env = {
+  // Environment detection
+  isDevelopment: process.env.NODE_ENV === "development",
+  isProduction: process.env.NODE_ENV === "production",
+  isTest: process.env.NODE_ENV === "test",
+
+  // Application URLs
+  appUrl: process.env.NEXT_PUBLIC_APP_URL || "",
+
+  // Feature flags
+  enableDebugLogging: process.env.NODE_ENV === "development",
+};
+
+// Browser-only utility to get domain information
+export const getDomainInfo = () => {
+  if (typeof window === "undefined") {
+    return {
+      isLocalhost: false,
+      hostname: "",
+      port: "",
+      protocol: "",
+      baseUrl: "",
+    };
+  }
+
+  const { hostname, port, protocol } = window.location;
+  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+  const baseUrl = `${protocol}//${hostname}${port ? `:${port}` : ""}`;
+
+  return {
+    isLocalhost,
+    hostname,
+    port,
+    protocol,
+    baseUrl,
+  };
+};
+
+// Helper to check if we're in a local development environment
+export const isLocalDevelopment = () => {
+  if (typeof window === "undefined") return env.isDevelopment;
+  return env.isDevelopment && getDomainInfo().isLocalhost;
+};
+
+// Helper to create a full URL with the current domain
+export const createUrl = (path: string): string => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (typeof window === "undefined") {
+    return env.appUrl + normalizedPath;
+  }
+
+  return getDomainInfo().baseUrl + normalizedPath;
+};
+
+// Standard error types for the application
+export enum ErrorType {
+  AUTH = "auth",
+  SUBSCRIPTION = "subscription",
+  API = "api",
+  NETWORK = "network",
+  DATABASE = "database",
+  VALIDATION = "validation",
+  UNKNOWN = "unknown",
+}
+
+// Standard error interface
+export interface AppError {
+  type: ErrorType;
+  message: string;
+  originalError?: Error | unknown;
+  code?: string;
+}
+
+// Centralized error handling
+export const errorHandler = {
+  // Log an error to the console
+  log: (error: AppError | Error | unknown, context?: string) => {
+    if (env.enableDebugLogging) {
+      console.error(
+        `[Error${context ? ` - ${context}` : ""}]`,
+        error instanceof Error ? error.message : error
+      );
+
+      if (error instanceof Error && error.stack) {
+        console.error("Stack trace:", error.stack);
+      }
+    }
+  },
+
+  // Show an error toast to the user
+  notify: (error: AppError | Error | unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" &&
+          error &&
+          "message" in error &&
+          typeof error.message === "string"
+        ? error.message
+        : "An unexpected error occurred";
+
+    toast.error(message);
+    return message;
+  },
+
+  // Handle an error (log it and notify user)
+  handle: (error: Error | unknown, context?: string): AppError => {
+    // Convert to standard AppError format
+    const appError: AppError =
+      error instanceof Error
+        ? {
+            type: ErrorType.UNKNOWN,
+            message: error.message,
+            originalError: error,
+          }
+        : {
+            type: ErrorType.UNKNOWN,
+            message: "An unexpected error occurred",
+            originalError: error,
+          };
+
+    // Log the error
+    errorHandler.log(appError, context);
+
+    // Notify the user (if in browser)
+    if (typeof window !== "undefined") {
+      errorHandler.notify(appError);
+    }
+
+    return appError;
+  },
+
+  // Parse Firebase error codes to user-friendly messages
+  parseFirebaseError: (error: any): AppError => {
+    let message = "An authentication error occurred";
+    let type = ErrorType.AUTH;
+    let code = "";
+
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      typeof error.code === "string"
+    ) {
+      code = error.code;
+
+      // Parse common Firebase error codes
+      if (error.code.startsWith("auth/")) {
+        type = ErrorType.AUTH;
+
+        switch (error.code) {
+          case "auth/invalid-credential":
+            message =
+              "Invalid email or password. Please check your credentials and try again.";
+            break;
+          case "auth/user-not-found":
+            message =
+              "No account found with this email. Please check your email or sign up.";
+            break;
+          case "auth/wrong-password":
+            message = "Incorrect password. Please try again.";
+            break;
+          case "auth/email-already-in-use":
+            message =
+              "This email is already registered. Please log in or use a different email.";
+            break;
+          case "auth/network-request-failed":
+            message = "Network error. Please check your internet connection.";
+            type = ErrorType.NETWORK;
+            break;
+          case "auth/too-many-requests":
+            message = "Too many failed login attempts. Please try again later.";
+            break;
+          default:
+            message = error.message || "Authentication error";
+        }
+      } else if (error.code.startsWith("firestore/")) {
+        type = ErrorType.DATABASE;
+        message = error.message || "Database error";
+      } else if (error.code.startsWith("storage/")) {
+        type = ErrorType.DATABASE;
+        message = error.message || "Storage error";
+      } else if (error.code.startsWith("functions/")) {
+        type = ErrorType.API;
+        message = error.message || "API error";
+      }
+    } else if (error instanceof Error) {
+      message = error.message;
+    }
+
+    return {
+      type,
+      message,
+      code,
+      originalError: error,
+    };
+  },
 };

@@ -2,48 +2,24 @@
 
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  getFirestore,
-  doc,
-  getDoc,
-} from "firebase/firestore";
+import { useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { useDomain } from "@/lib/hooks/useDomain";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { STRIPE_PRICE_IDS } from "@/lib/stripe/config";
+import { errorHandler } from "@/lib/utils";
 
-// Email addresses that are allowed to bypass the subscription check
-const BYPASS_EMAILS = [
-  "arnauros22@gmail.com", // Add your development email here
-  "admin@example.com", // Example admin email
-];
-
-export function SubscriptionGuard({
-  children,
-  bypassInDevelopment = true, // Allow bypassing in development mode
-}: {
-  children: React.ReactNode;
-  bypassInDevelopment?: boolean;
-}) {
-  const { user, loading, isDevelopment } = useAuth();
+export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading, isAdmin } = useAuth();
   const router = useRouter();
-  const { isLocalDevelopment } = useDomain();
-  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
-  const [checkingSubscription, setCheckingSubscription] = useState(true);
+  const {
+    isActive,
+    loading: subscriptionLoading,
+    error,
+    createCheckoutSession,
+  } = useSubscription();
 
-  // Check if this is a special user that can bypass subscription checks
-  const isSpecialUser = user && BYPASS_EMAILS.includes(user.email || "");
-
-  // Check if we're in development mode and should bypass
-  const shouldBypassCheck =
-    (bypassInDevelopment && isDevelopment) || isSpecialUser;
-
-  // Check subscription status
   useEffect(() => {
-    if (loading) return; // Wait for auth to load
+    if (authLoading || subscriptionLoading) return;
 
     // If no user, redirect to login
     if (!user) {
@@ -51,105 +27,51 @@ export function SubscriptionGuard({
       return;
     }
 
-    // If we should bypass the check, skip the verification
-    if (shouldBypassCheck) {
-      console.log(
-        `Bypassing subscription check for ${user.email} (${
-          isSpecialUser ? "special user" : "development mode"
-        })`
-      );
-      setHasSubscription(true);
-      setCheckingSubscription(false);
+    // If admin or has active subscription, allow access
+    if (isAdmin || isActive) {
       return;
     }
 
-    // Check subscription status
-    const checkSubscription = async () => {
-      try {
-        const db = getFirestore();
-        if (!db) {
-          console.error("Firestore not initialized");
-          return false;
-        }
+    // If error occurred, show error and redirect to pricing
+    if (error) {
+      toast.error(
+        "Error checking subscription status. Redirecting to pricing."
+      );
+      router.push("/pricing");
+      return;
+    }
 
-        // First check if the user has admin role
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists() && userDoc.data().role === "admin") {
-          console.log(
-            `User ${user.email} has admin role, bypassing subscription check`
-          );
-          setHasSubscription(true);
-          setCheckingSubscription(false);
-          return true;
-        }
+    // No active subscription, redirect to checkout
+    toast.error("You need an active subscription to access this content");
+    redirectToCheckout();
+  }, [
+    user,
+    authLoading,
+    subscriptionLoading,
+    isActive,
+    error,
+    router,
+    isAdmin,
+  ]);
 
-        // Check for active subscription
-        const subscriptionsRef = collection(
-          db,
-          "customers",
-          user.uid,
-          "subscriptions"
-        );
-        const q = query(
-          subscriptionsRef,
-          where("status", "in", ["trialing", "active"])
-        );
-        const snapshot = await getDocs(q);
-
-        // Also check user's subscription in users collection (backup)
-        const usersRef = collection(db, "users");
-        const userQuery = query(usersRef, where("uid", "==", user.uid));
-        const userSnapshot = await getDocs(userQuery);
-
-        let subscriptionFound = false;
-
-        // Check if subscription exists in subscriptions collection
-        if (!snapshot.empty) {
-          subscriptionFound = true;
-        }
-
-        // Or check if user has subscription data
-        if (!subscriptionFound && !userSnapshot.empty) {
-          const userData = userSnapshot.docs[0].data();
-          if (
-            userData.subscription &&
-            userData.subscription.status === "active"
-          ) {
-            subscriptionFound = true;
-          }
-        }
-
-        console.log(
-          `Subscription check for ${user.email}: ${
-            subscriptionFound ? "Active" : "Not active"
-          }`
-        );
-
-        setHasSubscription(subscriptionFound);
-        setCheckingSubscription(false);
-
-        if (!subscriptionFound) {
-          toast.error("You need an active subscription to access this page");
-          router.push("/pricing");
-        }
-
-        return subscriptionFound;
-      } catch (error) {
-        console.error("Error checking subscription:", error);
-        setCheckingSubscription(false);
-        setHasSubscription(false);
-        toast.error("Error checking subscription status");
-        router.push("/pricing");
-        return false;
+  // Function to redirect user directly to Stripe checkout
+  const redirectToCheckout = async () => {
+    try {
+      if (!user) {
+        router.push("/login");
+        return;
       }
-    };
 
-    checkSubscription();
-  }, [user, loading, router, shouldBypassCheck, isSpecialUser]);
+      // Use the centralized checkout function instead of duplicating logic
+      await createCheckoutSession(STRIPE_PRICE_IDS.MONTHLY);
+    } catch (error) {
+      errorHandler.handle(error, "SubscriptionGuard.redirectToCheckout");
+      router.push("/pricing");
+    }
+  };
 
   // Show loading state
-  if (loading || checkingSubscription) {
+  if (authLoading || subscriptionLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -160,8 +82,8 @@ export function SubscriptionGuard({
     );
   }
 
-  // If subscription is valid, render children
-  if (hasSubscription) {
+  // If subscription is valid or admin, render children
+  if (isActive || isAdmin) {
     return <>{children}</>;
   }
 
