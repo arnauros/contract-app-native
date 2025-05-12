@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 
-export default function SimpleLoginPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,18 +30,45 @@ export default function SimpleLoginPage() {
         const errorMsg = result.error.message || "Authentication failed";
         setErrorMessage(errorMsg);
         toast.error(errorMsg);
-      } else if (result.user) {
+        setLoading(false);
+        return;
+      }
+
+      if (result.user) {
+        // Get token for session
+        const idToken = await result.user.getIdToken();
+
+        // Create session
+        const response = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token: idToken }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            `Session creation failed: ${errorData.error || "Unknown error"}`
+          );
+        }
+
         toast.success("Logged in successfully!");
 
-        // Simple redirect after successful login
+        // Redirect after successful login
         setTimeout(() => {
           router.push(returnUrl);
         }, 500);
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMessage("Failed to login. Please try again.");
-      toast.error("Failed to login. Please try again.");
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : "Failed to login. Please try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

@@ -101,8 +101,7 @@ export function initFirebase() {
         console.log("Firebase Auth initialized successfully");
 
         // Check if anonymous auth is disabled by environment variable
-        const disableAnonymousAuth =
-          process.env.NEXT_PUBLIC_DISABLE_ANONYMOUS_AUTH === "true";
+        const disableAnonymousAuth = true; // Always disable anonymous auth
 
         // Only attempt anonymous authentication if not disabled
         if (

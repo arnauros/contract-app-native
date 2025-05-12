@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Define public paths that don't require authentication
-const PUBLIC_PATHS = [
-  "/",
-  "/login",
-  "/signup",
-  "/pricing",
-  "/subscribe",
-  "/test-config",
-  "/auth-debug",
-  "/test-flow",
-  "/test-client-login",
-];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/pricing", "/subscribe"];
 
 // Dashboard routes that require authentication
 const PROTECTED_ROUTES = [

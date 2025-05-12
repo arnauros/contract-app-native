@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { adminAuth } from "@/lib/firebase/admin";
 
 export async function POST(request: Request) {
+  console.log("Session API called");
   try {
     const { token } = await request.json();
 
@@ -11,16 +12,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No token provided" }, { status: 400 });
     }
 
+    console.log("Token received, length:", token.length);
+
     // Verify the ID token
     try {
+      console.log("Verifying token with Firebase Admin...");
       const decodedToken = await adminAuth.verifyIdToken(token);
       console.log("Token verified for user:", decodedToken.uid);
 
       // Create session cookie
+      console.log("Creating session cookie...");
       const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
       const sessionCookie = await adminAuth.createSessionCookie(token, {
         expiresIn,
       });
+      console.log("Session cookie created, length:", sessionCookie.length);
 
       // Set cookie
       const response = NextResponse.json({ status: "success" });
@@ -38,10 +44,12 @@ export async function POST(request: Request) {
       return response;
     } catch (error: any) {
       console.error("Token verification failed:", error);
+      console.error("Error details:", error.code, error.message);
       return NextResponse.json(
         {
           error: "Invalid authentication token",
           details: error?.message || "Unknown error",
+          code: error?.code,
         },
         { status: 401 }
       );

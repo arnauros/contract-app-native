@@ -128,6 +128,16 @@ export const adminAuth = (() => {
           uid: "mock-user-id",
           email: "mock@example.com",
         }),
+        createSessionCookie: async (
+          token: string,
+          options: { expiresIn: number }
+        ) => {
+          console.log(
+            "Mock createSessionCookie called with token:",
+            token?.slice(0, 10) + "..."
+          );
+          return "mock-session-cookie-" + Date.now();
+        },
         // Add other methods as needed
       };
     }
@@ -142,6 +152,16 @@ export const adminAuth = (() => {
           uid: "mock-user-id",
           email: "mock@example.com",
         }),
+        createSessionCookie: async (
+          token: string,
+          options: { expiresIn: number }
+        ) => {
+          console.log(
+            "Mock createSessionCookie called with token:",
+            token?.slice(0, 10) + "..."
+          );
+          return "mock-session-cookie-" + Date.now();
+        },
         // Add other methods as needed
       };
     }

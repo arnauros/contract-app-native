@@ -4,8 +4,9 @@ import {
   query,
   where,
   getDocs,
+  Firestore,
 } from "firebase/firestore";
-import { initializeFirebase } from "@/lib/firebase/config";
+import { app, db, initFirebase } from "@/lib/firebase/firebase";
 
 /**
  * Checks if a user has an active subscription
@@ -17,18 +18,24 @@ export const checkUserSubscription = async (
 ): Promise<boolean> => {
   try {
     // Initialize Firebase if not already done
-    const { app } = initializeFirebase();
-    if (!app) {
-      console.error("Firebase app not initialized");
+    initFirebase();
+
+    // Use the existing db instance if available
+    let firestore: Firestore | null = db;
+
+    // If db is not available, try to get a new instance if app is available
+    if (!firestore && app) {
+      firestore = getFirestore(app);
+    }
+
+    if (!firestore) {
+      console.error("Firebase Firestore not initialized");
       return false;
     }
 
-    // Get Firestore
-    const db = getFirestore(app);
-
     // Query for active subscriptions
     const subscriptionsRef = collection(
-      db,
+      firestore,
       "customers",
       userId,
       "subscriptions"
@@ -64,18 +71,24 @@ export const checkUserSubscription = async (
 export const getUserSubscriptions = async (userId: string) => {
   try {
     // Initialize Firebase if not already done
-    const { app } = initializeFirebase();
-    if (!app) {
-      console.error("Firebase app not initialized");
+    initFirebase();
+
+    // Use the existing db instance if available
+    let firestore: Firestore | null = db;
+
+    // If db is not available, try to get a new instance if app is available
+    if (!firestore && app) {
+      firestore = getFirestore(app);
+    }
+
+    if (!firestore) {
+      console.error("Firebase Firestore not initialized");
       return [];
     }
 
-    // Get Firestore
-    const db = getFirestore(app);
-
     // Query for all user subscriptions
     const subscriptionsRef = collection(
-      db,
+      firestore,
       "customers",
       userId,
       "subscriptions"

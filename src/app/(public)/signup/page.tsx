@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp } from "@/lib/firebase/authUtils";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { app, db } from "@/lib/firebase/firebase";
+import { app } from "@/lib/firebase/firebase";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -62,7 +62,10 @@ export default function SignUpPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to create session");
+          const errorData = await response.json();
+          throw new Error(
+            `Failed to create session: ${errorData.error || "Unknown error"}`
+          );
         }
 
         toast.success("Account created successfully!");

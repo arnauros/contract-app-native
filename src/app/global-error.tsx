@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export default function GlobalError({
   error,
@@ -9,35 +11,23 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    // Log the error to an error reporting service
-    console.error("Global error:", error);
-  }, [error]);
-
   return (
-    <html>
+    <html lang="en" className={inter.className}>
       <body>
-        <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
-          <div className="max-w-md">
-            <h1 className="text-4xl font-bold text-red-600 mb-4">
-              Something went wrong!
-            </h1>
-
-            {process.env.NODE_ENV === "development" && (
-              <div className="mb-6 p-4 bg-red-50 rounded-lg text-left">
-                <p className="text-sm font-medium text-gray-900 mb-2">
-                  Global Error details:
-                </p>
-                <pre className="text-xs text-red-800 whitespace-pre-wrap overflow-auto max-h-40 p-2 bg-red-100 rounded">
-                  {error.message}
-                </pre>
-              </div>
-            )}
-
-            <div className="flex justify-center mt-4">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
+          <div className="max-w-md w-full bg-white shadow-lg rounded-lg overflow-hidden">
+            <div className="bg-red-600 px-6 py-4">
+              <h1 className="text-white text-xl font-semibold">
+                Application Error
+              </h1>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-gray-700 mb-6">
+                A critical error has occurred. Please try refreshing the page.
+              </p>
               <button
-                onClick={reset}
-                className="px-5 py-2 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                onClick={() => reset()}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
               >
                 Try again
               </button>
