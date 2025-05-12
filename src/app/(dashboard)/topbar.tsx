@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Modal from "@/app/Components/Modal";
 import { toast } from "react-hot-toast";
 import { FiMenu } from "react-icons/fi";
@@ -9,6 +9,7 @@ import { useSidebar } from "@/lib/context/SidebarContext";
 import { getSignatures } from "@/lib/firebase/firestore";
 import UsersDisplay from "@/app/Components/UsersDisplay";
 import useActiveUsers from "@/lib/hooks/useActiveUsers";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 interface TopbarProps {
   pathname: string;
@@ -20,55 +21,48 @@ export default function Topbar({ pathname }: TopbarProps) {
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
+  const { loggedIn } = useAuth();
 
   // Get active users for current contract
   const contractId = params?.id as string;
   const { activeUsers } = useActiveUsers(contractId);
 
+  // Memoize handleStageChange to prevent recreating it on each render
+  const handleStageChange = useCallback((e: CustomEvent) => {
+    const newStage = e.detail;
+    const contractId = window.location.pathname.split("/").pop();
+
+    if (contractId) {
+      // Check for contract content
+      const savedContent = localStorage.getItem(
+        `contract-content-${contractId}`
+      );
+      const hasContent =
+        savedContent && JSON.parse(savedContent).blocks?.length > 0;
+
+      // Only allow non-edit stages if we have content
+      if (!hasContent && newStage !== "edit") {
+        toast.error("Please create your contract before proceeding");
+        const event = new CustomEvent("stageChange", { detail: "edit" });
+        window.dispatchEvent(event);
+        return;
+      }
+    }
+
+    console.log("🎭 Stage change:", newStage);
+    setCurrentStage(newStage);
+  }, []);
+
   // Simple stage management with debounce and content check
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const handleStageChange = (e: CustomEvent) => {
-      const newStage = e.detail;
-      const contractId = window.location.pathname.split("/").pop();
-
-      // Clear any pending stage changes
-      clearTimeout(timeoutId);
-
-      // Debounce stage changes to prevent rapid transitions
-      timeoutId = setTimeout(() => {
-        if (contractId) {
-          // Check for contract content
-          const savedContent = localStorage.getItem(
-            `contract-content-${contractId}`
-          );
-          const hasContent =
-            savedContent && JSON.parse(savedContent).blocks?.length > 0;
-
-          // Only allow non-edit stages if we have content
-          if (!hasContent && newStage !== "edit") {
-            toast.error("Please create your contract before proceeding");
-            const event = new CustomEvent("stageChange", { detail: "edit" });
-            window.dispatchEvent(event);
-            return;
-          }
-        }
-
-        console.log("🎭 Stage change:", newStage);
-        setCurrentStage(newStage);
-      }, 100);
-    };
-
     window.addEventListener("stageChange", handleStageChange as EventListener);
     return () => {
       window.removeEventListener(
         "stageChange",
         handleStageChange as EventListener
       );
-      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [handleStageChange]);
 
   // Simple navigation rules with debounce
   const handleBackClick = () => {
@@ -90,6 +84,15 @@ export default function Topbar({ pathname }: TopbarProps) {
   const handleNext = async () => {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
+
+    // Check for authentication first
+    if (!loggedIn) {
+      // Redirect to login, saving the return path
+      window.location.href = `/login?returnUrl=${encodeURIComponent(
+        window.location.pathname
+      )}`;
+      return;
+    }
 
     // Check for contract content first
     const savedContent = localStorage.getItem(`contract-content-${contractId}`);

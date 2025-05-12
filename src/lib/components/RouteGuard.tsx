@@ -1,171 +1,47 @@
 "use client";
 
 import { useAuth } from "@/lib/hooks/useAuth";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect } from "react";
 
-// Define public routes that don't require authentication
-const publicRoutes = [
-  "/",
-  "/pricing",
-  "/login",
-  "/signup",
-  "/auth-debug",
-  "/test-flow",
-  "/test-client-login",
-];
-
-// Debug routes that are always accessible in development mode
-const devAccessibleRoutes = ["/dashboard", "/test-subscription"];
-
-// Helper function to check if the path matches a route pattern correctly
-function isPathMatchingRoute(pathname: string, route: string): boolean {
-  if (route === "/") {
-    // For root path, only match exact "/"
-    return pathname === "/";
-  }
-
-  // Check if it's an exact match or a subpath (e.g., /route/subpath)
-  return pathname === route || pathname.startsWith(`${route}/`);
-}
-
+// RouteGuard component is simplified to just show loading state
+// Route protection is now fully handled by middleware.ts
 export function RouteGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading, isDevelopment, error, loggedIn } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  const [isRouteAuthorized, setIsRouteAuthorized] = useState(false);
-  const [authCheckComplete, setAuthCheckComplete] = useState(false);
 
+  // Simple debug logging
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Debug logging
-      console.log("⚡ ROUTE GUARD DEBUG ⚡");
-      console.log("Current URL:", window.location.href);
-      console.log("Current hostname:", window.location.hostname);
-      console.log("Current pathname:", pathname);
-      console.log("Auth state:", {
-        user: user ? `${user.email} (${user.uid})` : null,
-        loading,
-        loggedIn,
-        isDevelopment,
-      });
-      console.log("Public routes:", publicRoutes);
-      console.log(
-        "Is public route:",
-        publicRoutes.some((route) => isPathMatchingRoute(pathname || "", route))
-      );
-    }
+    console.log("RouteGuard: ", { user: !!user, loading });
+  }, [user, loading]);
 
-    // Don't make auth decisions while still loading
+  // IMPORTANT: If loading is taking longer than 5 seconds, proceed anyway
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     if (loading) {
-      console.log("Auth still loading, deferring route guard decision");
-      return;
+      timeoutId = setTimeout(() => {
+        console.log("RouteGuard: Loading timeout exceeded, proceeding anyway");
+      }, 5000);
     }
 
-    // Mark that we've completed the authentication check
-    setAuthCheckComplete(true);
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [loading]);
 
-    // Check if the current path is a public route
-    const isPublicRoute = publicRoutes.some((route) =>
-      isPathMatchingRoute(pathname || "", route)
-    );
-
-    // Check if the route should be accessible in development mode
-    const isDevAccessibleRoute =
-      isDevelopment &&
-      devAccessibleRoutes.some((route) =>
-        isPathMatchingRoute(pathname || "", route)
-      );
-
-    // Always allow access to public routes
-    if (isPublicRoute) {
-      console.log("Public route - allowing access without auth check");
-      setIsRouteAuthorized(true);
-      return;
-    }
-
-    // In development mode, allow access to dev-accessible routes
-    if (isDevAccessibleRoute) {
-      console.log("Development mode - allowing access to:", pathname);
-      setIsRouteAuthorized(true);
-      return;
-    }
-
-    // For non-public routes, require authentication
-    if (!user && !loggedIn) {
-      console.log("Unauthorized access - redirecting to login");
-      // Add the current path as the return URL
-      const loginPath = `/login?returnUrl=${encodeURIComponent(
-        pathname || "/"
-      )}`;
-      router.push(loginPath);
-      return;
-    }
-
-    // If user is authenticated and trying to access login/signup, redirect to dashboard
-    if (
-      (user || loggedIn) &&
-      (pathname === "/login" || pathname === "/signup")
-    ) {
-      console.log("Authenticated user on auth page - redirecting to dashboard");
-      router.push("/dashboard");
-      return;
-    }
-
-    console.log("Route authorized for authenticated user");
-    setIsRouteAuthorized(true);
-  }, [user, loading, pathname, router, isDevelopment, error, loggedIn]);
-
-  // Show loading state while auth is being checked
-  if (loading || !authCheckComplete) {
+  // Show a simple loading spinner for a maximum of 2 seconds
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // If there's an auth error, show it (except in development mode)
-  if (error && !isDevelopment) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-lg text-red-600 max-w-md p-6 bg-red-50 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-2">Authentication Error</h2>
-          <p>{error.message}</p>
-          <button
-            onClick={() => router.push("/login")}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // If the route is authorized, render children
-  if (isRouteAuthorized) {
-    return <>{children}</>;
-  }
-
-  // This should rarely be reached, but it's a fallback
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="text-center">
-        <p className="text-lg mb-2">Checking authorization...</p>
-        <p className="text-sm text-gray-500">
-          If you're not redirected soon,{" "}
-          <button
-            onClick={() => router.push("/login")}
-            className="text-blue-600 underline"
-          >
-            click here to log in
-          </button>
-        </p>
-      </div>
-    </div>
-  );
+  // Route protection happens in middleware.ts, so we just render children here
+  return <>{children}</>;
 }

@@ -23,8 +23,6 @@ export async function POST(req: Request) {
     const isLocalDevelopment =
       hostname.includes("localhost") ||
       hostname.includes("127.0.0.1") ||
-      hostname.includes("app.local") ||
-      (isDev && hostname.match(/app\.localhost:\d+/)) ||
       (isDev && hostname.match(/localhost:\d+/));
 
     // In development, allow all hostnames

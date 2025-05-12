@@ -113,7 +113,7 @@ const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => {
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { isAppLocal } = useDomain();
+  const { isLocalDevelopment } = useDomain();
   const [stats, setStats] = useState({
     total: 0,
     pendingClient: 0,
@@ -140,212 +140,222 @@ export default function Dashboard() {
   // Add a flag to disable comments functionality
   const COMMENTS_ENABLED = false;
 
+  // Simplified auth check and data loading
   useEffect(() => {
-    if (!loading && !user) {
+    // Debug output
+    console.log("Dashboard auth state:", { user: !!user, loading });
+
+    // If not logged in and not loading, redirect to login
+    if (!user && !loading) {
+      console.log("User not authenticated, redirecting to login");
       router.push("/login");
     }
-  }, [user, loading, router]);
 
-  useEffect(() => {
-    const fetchContractData = async () => {
-      if (!user || !db) {
-        console.log("No user or db:", { user, db });
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        console.log("Fetching contracts for user:", user.uid);
-        const contractsRef = collection(db as Firestore, "contracts");
-        const userContracts = query(contractsRef, orderBy("createdAt", "desc"));
-
-        const querySnapshot = await getDocs(userContracts);
-        console.log("Found contracts:", querySnapshot.size);
-
-        let stats = {
-          total: 0,
-          pendingClient: 0,
-          pendingMe: 0,
-          completed: 0,
-        };
-
-        const contractsList: Contract[] = [];
-        const activityMap = new Map<string, number>();
-
-        // Process each contract
-        for (const docSnapshot of querySnapshot.docs) {
-          try {
-            const data = docSnapshot.data();
-            console.log("Contract data:", { id: docSnapshot.id, ...data });
-
-            // Only include contracts for the current user
-            if (data.userId === user.uid) {
-              // Get signatures for this contract
-              const designerSignatureRef = doc(
-                db as Firestore,
-                "contracts",
-                docSnapshot.id,
-                "signatures",
-                "designer"
-              );
-              const clientSignatureRef = doc(
-                db as Firestore,
-                "contracts",
-                docSnapshot.id,
-                "signatures",
-                "client"
-              );
-
-              let designerSignature;
-              let clientSignature;
-
-              try {
-                [designerSignature, clientSignature] = await Promise.all([
-                  getDoc(designerSignatureRef),
-                  getDoc(clientSignatureRef),
-                ]);
-              } catch (signatureError) {
-                console.error("Error fetching signatures:", signatureError);
-                designerSignature = { exists: () => false };
-                clientSignature = { exists: () => false };
-              }
-
-              const contract: Contract = {
-                ...data,
-                id: docSnapshot.id,
-                createdAt: data.createdAt || Timestamp.now(),
-                updatedAt: data.updatedAt || Timestamp.now(),
-                content: data.content || {},
-                status: data.status || "draft",
-                mySignature: designerSignature.exists(),
-                clientSignature: clientSignature.exists(),
-              };
-
-              stats.total++;
-
-              // Determine contract status based on signatures
-              if (designerSignature.exists() && clientSignature.exists()) {
-                stats.completed++;
-                contract.status = "signed";
-              } else if (designerSignature.exists()) {
-                stats.pendingClient++;
-                contract.status = "pending";
-              } else {
-                stats.pendingMe++;
-                contract.status = "draft";
-              }
-
-              contractsList.push(contract);
-
-              // Track activity for the graph
-              const date = contract.createdAt.toDate().toLocaleDateString();
-              activityMap.set(date, (activityMap.get(date) || 0) + 1);
-            }
-          } catch (contractError) {
-            console.error("Error processing contract:", contractError);
-            // Continue processing other contracts
-          }
-        }
-
-        console.log("Processed contracts:", {
-          total: contractsList.length,
-          stats,
-        });
-
-        // Prepare activity graph data
-        const dates = Array.from(activityMap.keys()).sort();
-        const activityData = {
-          labels: dates,
-          datasets: [
-            {
-              label: "Contracts Created",
-              data: dates.map((date) => activityMap.get(date) || 0),
-              borderColor: "rgb(59, 130, 246)",
-              backgroundColor: "rgba(59, 130, 246, 0.5)",
-            },
-          ],
-        };
-
-        setStats(stats);
-        setContracts(contractsList);
-        setIsLoading(false);
-        setActivityData(activityData);
-
-        // Fetch subscription data (if on app.local)
-        if (isAppLocal) {
-          try {
-            const fetchSubscription = async () => {
-              const subscriptionsRef = collection(
-                db as Firestore,
-                "subscriptions"
-              );
-              const userSubscriptions = query(
-                subscriptionsRef,
-                where("userId", "==", user.uid)
-              );
-
-              const subscriptionSnapshot = await getDocs(userSubscriptions);
-              if (!subscriptionSnapshot.empty) {
-                const subscriptionData =
-                  subscriptionSnapshot.docs[0].data() as UserSubscription;
-                setSubscription(subscriptionData);
-              } else {
-                // No subscription found, assume free tier
-                setSubscription({
-                  customerId: "free-tier",
-                  subscriptionId: "free-tier",
-                  tier: "free",
-                  status: "active",
-                  currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-                  cancelAtPeriodEnd: false,
-                });
-              }
-            };
-
-            fetchSubscription();
-          } catch (subscriptionError) {
-            console.error("Error fetching subscription:", subscriptionError);
-            // Set a default subscription as fallback
-            setSubscription({
-              customerId: "free-tier",
-              subscriptionId: "free-tier",
-              tier: "free",
-              status: "active",
-              currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-              cancelAtPeriodEnd: false,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching contract data:", error);
-        toast.error("Failed to load contracts. Please try again later.");
-        setIsLoading(false);
-        // Set default values to ensure UI doesn't break
-        setStats({
-          total: 0,
-          pendingClient: 0,
-          pendingMe: 0,
-          completed: 0,
-        });
-        setContracts([]);
-        setActivityData({
-          labels: [],
-          datasets: [
-            {
-              label: "Contracts Created",
-              data: [],
-              borderColor: "rgb(59, 130, 246)",
-              backgroundColor: "rgba(59, 130, 246, 0.5)",
-            },
-          ],
-        });
-      }
-    };
-
-    if (!loading && user) {
+    // If authenticated, load data
+    if (user && !loading) {
+      console.log("User authenticated, fetching data");
       fetchContractData();
     }
-  }, [user, loading, db, isAppLocal]);
+  }, [user, loading]);
+
+  const fetchContractData = async () => {
+    if (!user || !db) {
+      console.log("No user or db:", { user, db });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log("Fetching contracts for user:", user.uid);
+      const firestore = db as unknown as Firestore;
+      const contractsRef = collection(firestore, "contracts");
+
+      // Filter contracts by the current user's ID to ensure proper permissions
+      const userContracts = query(
+        contractsRef,
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc")
+      );
+
+      const querySnapshot = await getDocs(userContracts);
+      console.log("Found contracts:", querySnapshot.size);
+
+      let stats = {
+        total: 0,
+        pendingClient: 0,
+        pendingMe: 0,
+        completed: 0,
+      };
+
+      const contractsList: Contract[] = [];
+      const activityMap = new Map<string, number>();
+
+      // Process each contract
+      for (const docSnapshot of querySnapshot.docs) {
+        try {
+          const data = docSnapshot.data();
+          console.log("Contract data:", { id: docSnapshot.id, ...data });
+
+          // Only include contracts for the current user (redundant with where clause but kept for safety)
+          if (data.userId === user.uid) {
+            // Get signatures for this contract
+            const designerSignatureRef = doc(
+              firestore,
+              "contracts",
+              docSnapshot.id,
+              "signatures",
+              "designer"
+            );
+            const clientSignatureRef = doc(
+              firestore,
+              "contracts",
+              docSnapshot.id,
+              "signatures",
+              "client"
+            );
+
+            let designerSignature;
+            let clientSignature;
+
+            try {
+              [designerSignature, clientSignature] = await Promise.all([
+                getDoc(designerSignatureRef),
+                getDoc(clientSignatureRef),
+              ]);
+            } catch (signatureError) {
+              console.error("Error fetching signatures:", signatureError);
+              designerSignature = { exists: () => false };
+              clientSignature = { exists: () => false };
+            }
+
+            const contract: Contract = {
+              ...data,
+              id: docSnapshot.id,
+              createdAt: data.createdAt || Timestamp.now(),
+              updatedAt: data.updatedAt || Timestamp.now(),
+              content: data.content || {},
+              status: data.status || "draft",
+              mySignature: designerSignature.exists(),
+              clientSignature: clientSignature.exists(),
+            };
+
+            stats.total++;
+
+            // Determine contract status based on signatures
+            if (designerSignature.exists() && clientSignature.exists()) {
+              stats.completed++;
+              contract.status = "signed";
+            } else if (designerSignature.exists()) {
+              stats.pendingClient++;
+              contract.status = "pending";
+            } else {
+              stats.pendingMe++;
+              contract.status = "draft";
+            }
+
+            contractsList.push(contract);
+
+            // Track activity for the graph
+            const date = contract.createdAt.toDate().toLocaleDateString();
+            activityMap.set(date, (activityMap.get(date) || 0) + 1);
+          }
+        } catch (contractError) {
+          console.error("Error processing contract:", contractError);
+          // Continue processing other contracts
+        }
+      }
+
+      console.log("Processed contracts:", {
+        total: contractsList.length,
+        stats,
+      });
+
+      // Prepare activity graph data
+      const dates = Array.from(activityMap.keys()).sort();
+      const activityData = {
+        labels: dates,
+        datasets: [
+          {
+            label: "Contracts Created",
+            data: dates.map((date) => activityMap.get(date) || 0),
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.5)",
+          },
+        ],
+      };
+
+      setStats(stats);
+      setContracts(contractsList);
+      setIsLoading(false);
+      setActivityData(activityData);
+
+      // Fetch subscription data (if in local development)
+      if (isLocalDevelopment) {
+        try {
+          const fetchSubscription = async () => {
+            const subscriptionsRef = collection(firestore, "subscriptions");
+            const userSubscriptions = query(
+              subscriptionsRef,
+              where("userId", "==", user.uid)
+            );
+
+            const subscriptionSnapshot = await getDocs(userSubscriptions);
+            if (!subscriptionSnapshot.empty) {
+              const subscriptionData =
+                subscriptionSnapshot.docs[0].data() as UserSubscription;
+              setSubscription(subscriptionData);
+            } else {
+              // No subscription found, assume free tier
+              setSubscription({
+                customerId: "free-tier",
+                subscriptionId: "free-tier",
+                tier: "free",
+                status: "active",
+                currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
+                cancelAtPeriodEnd: false,
+              });
+            }
+          };
+
+          fetchSubscription();
+        } catch (subscriptionError) {
+          console.error("Error fetching subscription:", subscriptionError);
+          // Set a default subscription as fallback
+          setSubscription({
+            customerId: "free-tier",
+            subscriptionId: "free-tier",
+            tier: "free",
+            status: "active",
+            currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
+            cancelAtPeriodEnd: false,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching contract data:", error);
+      toast.error("Failed to load contracts. Please try again later.");
+      setIsLoading(false);
+      // Set default values to ensure UI doesn't break
+      setStats({
+        total: 0,
+        pendingClient: 0,
+        pendingMe: 0,
+        completed: 0,
+      });
+      setContracts([]);
+      setActivityData({
+        labels: [],
+        datasets: [
+          {
+            label: "Contracts Created",
+            data: [],
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.5)",
+          },
+        ],
+      });
+    }
+  };
 
   // Add a subscription tracking effect
   useEffect(() => {
@@ -421,10 +431,11 @@ export default function Dashboard() {
     }
   };
 
-  if (loading || isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+        <p className="ml-2">Loading...</p>
       </div>
     );
   }
@@ -450,14 +461,14 @@ export default function Dashboard() {
       </div>
 
       {/* Add subscription status component */}
-      {isAppLocal && (
+      {isLocalDevelopment && (
         <div className="mb-8">
           <SubscriptionStatus />
         </div>
       )}
 
       {/* Show upgrade banner for free tier users */}
-      {isAppLocal && subscription?.tier === "free" && (
+      {isLocalDevelopment && subscription?.tier === "free" && (
         <div className="mb-8 bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-bold mb-2">Upgrade to Pro</h3>
           <p className="mb-4">
@@ -500,25 +511,27 @@ export default function Dashboard() {
       </div>
 
       {/* Limit maximum contracts for free tier */}
-      {isAppLocal && subscription?.tier === "free" && stats.total >= 3 && (
-        <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <FiAlertCircle className="h-5 w-5 text-yellow-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">
-                You've reached the maximum number of contracts for the free
-                tier.
-                <Link href="/pricing" className="font-medium underline ml-1">
-                  Upgrade to Pro
-                </Link>
-                to create unlimited contracts.
-              </p>
+      {isLocalDevelopment &&
+        subscription?.tier === "free" &&
+        stats.total >= 3 && (
+          <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <FiAlertCircle className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  You've reached the maximum number of contracts for the free
+                  tier.
+                  <Link href="/pricing" className="font-medium underline ml-1">
+                    Upgrade to Pro
+                  </Link>
+                  to create unlimited contracts.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Overview Section */}
       <div className="mb-8">

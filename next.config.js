@@ -24,7 +24,14 @@ const nextConfig = {
 
   // Update images configuration for domains
   images: {
-    domains: ["localhost", "app.localhost"],
+    domains: ["localhost"],
+  },
+
+  // Redirect configuration
+  async rewrites() {
+    return {
+      beforeFiles: [],
+    };
   },
 
   // Allow Stripe checkout in localhost development

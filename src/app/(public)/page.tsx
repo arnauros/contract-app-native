@@ -62,7 +62,13 @@ export default function LandingPage() {
         <CallToAction />
       </div>
 
-      <div className="flex justify-center mt-10 gap-4">
+      <div className="flex justify-center mt-10 gap-4 flex-wrap">
+        <a
+          href="/login"
+          className="px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Sign in
+        </a>
         <Link
           href="/pricing"
           className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"

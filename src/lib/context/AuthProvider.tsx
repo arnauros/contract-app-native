@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import { createContext, useEffect, useState, ReactNode } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { auth, initFirebase } from "../firebase/firebase";
 import { toast } from "react-hot-toast";
@@ -36,7 +30,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
   const [isDevelopment, setIsDevelopment] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [authInitAttempts, setAuthInitAttempts] = useState(0);
+
+  // IMPORTANT: Add a timeout to stop loading after 5 seconds no matter what
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.log("AuthProvider: Force stopping loading after timeout");
+        setLoading(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     // Check if we're in development mode
@@ -47,96 +52,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.location.hostname === "127.0.0.1");
 
     setIsDevelopment(isDevEnvironment);
-    console.log(
-      "Environment:",
-      isDevEnvironment ? "development" : "production"
-    );
 
+    // Initialize Firebase (simplified)
     try {
-      // Initialize Firebase if needed
-      const { app, auth: authInstance } = initFirebase();
+      // Initialize Firebase
+      initFirebase();
 
-      if (!app || !authInstance) {
-        console.warn("Firebase not properly initialized in AuthProvider");
-        setAuthInitAttempts((prev) => prev + 1);
-
-        if (isDevEnvironment) {
-          // In development, we can proceed without Firebase
-          console.log("In development mode, continuing without Firebase");
-          setLoading(false);
-          return;
-        }
-
-        // In production, try again for up to 3 attempts, then show an error
-        if (authInitAttempts >= 3) {
-          throw new Error(
-            "Firebase failed to initialize after multiple attempts"
-          );
-        }
-
-        // Try again in 2 seconds
-        const retryTimer = setTimeout(() => {
-          console.log(
-            `Retrying Firebase initialization (attempt ${authInitAttempts + 1})`
-          );
-          setLoading(true);
-        }, 2000);
-
-        return () => clearTimeout(retryTimer);
+      if (!auth) {
+        console.warn("Firebase auth not initialized");
+        setLoading(false);
+        return;
       }
 
+      // Set up auth state listener
       console.log("Setting up auth state listener");
       const unsubscribe = onAuthStateChanged(
-        authInstance,
+        auth,
         (user) => {
+          console.log("Auth state changed:", !!user);
           setUser(user);
           setLoggedIn(!!user);
           setLoading(false);
-          setError(null);
-
-          if (user) {
-            console.log(`User authenticated: ${user.email} (${user.uid})`);
-          } else {
-            console.log("No authenticated user");
-          }
         },
-        (authError) => {
-          console.error("Auth state change error:", authError);
-          setError(authError as Error);
+        (error) => {
+          console.error("Auth error:", error);
+          setError(error as Error);
           setLoading(false);
-          setLoggedIn(false);
-
-          if (typeof window !== "undefined") {
-            toast.error("Authentication error: " + authError.message);
-          }
         }
       );
 
-      return () => {
-        console.log("Cleaning up auth state listener");
-        unsubscribe();
-      };
+      return unsubscribe;
     } catch (err) {
-      console.error("Error in AuthProvider:", err);
+      console.error("Auth initialization error:", err);
       setError(err as Error);
       setLoading(false);
-
-      if (typeof window !== "undefined") {
-        toast.error("Authentication initialization error");
-      }
+      toast.error("Authentication system failed to initialize");
     }
-  }, [authInitAttempts]);
+  }, []);
 
-  const contextValue = {
-    user,
-    loading,
-    loggedIn,
-    isDevelopment,
-    error,
-  };
+  // Debug output
+  useEffect(() => {
+    console.log("AuthProvider state:", {
+      user: !!user,
+      loading,
+      loggedIn,
+    });
+  }, [user, loading, loggedIn]);
 
   return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+    <AuthContext.Provider
+      value={{ user, loading, loggedIn, isDevelopment, error }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
 }
 

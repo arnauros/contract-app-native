@@ -1,30 +1,27 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect } from "react";
 import { AuthContext } from "../context/AuthProvider";
 import { User } from "firebase/auth";
 
-// Custom hook for auth data
+// Simplified useAuth hook - direct pass-through to context values
 export function useAuth() {
   const authContext = useContext(AuthContext);
-  const [stableLoggedIn, setStableLoggedIn] = useState(
-    !authContext.loading && !!authContext.user
-  );
 
-  // Ensure stable logged-in state to prevent UI flickers
+  // Debug output
   useEffect(() => {
-    if (!authContext.loading) {
-      setStableLoggedIn(!!authContext.user);
-    }
-  }, [authContext.loading, authContext.user]);
+    console.log("useAuth hook state:", {
+      user: !!authContext.user,
+      loading: authContext.loading,
+    });
+  }, [authContext.user, authContext.loading]);
 
   return {
     user: authContext.user,
     loading: authContext.loading,
     error: authContext.error,
     isDevelopment: authContext.isDevelopment,
-    // Use the stable logged-in state to prevent flickering
-    loggedIn: stableLoggedIn,
+    loggedIn: authContext.loggedIn,
   };
 }
 

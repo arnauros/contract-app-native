@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Next.js Localhost Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+      }
+      h2 {
+        color: #444;
+        margin-top: 25px;
+      }
+      .link-container {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 15px 0;
+      }
+      a {
+        display: block;
+        color: #0070f3;
+        text-decoration: none;
+        margin: 10px 0;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      a:hover {
+        color: #0051c2;
+        text-decoration: underline;
+      }
+      .status {
+        margin-left: 10px;
+        font-size: 14px;
+      }
+      .status.success {
+        color: green;
+      }
+      .status.error {
+        color: red;
+      }
+      .instructions {
+        background-color: #fffaf0;
+        border-left: 4px solid #ffa94d;
+        padding: 15px;
+        margin: 20px 0;
+      }
+      code {
+        background-color: #f1f1f1;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Next.js Localhost Test Links</h1>
+
+    <div class="instructions">
+      <p>
+        <strong>Instructions:</strong> Use these links to test your Next.js
+        application's routing and subdomain handling. Click each link to see if
+        it resolves correctly. The links open in a new tab.
+      </p>
+      <p>If you see 404 errors, make sure:</p>
+      <ol>
+        <li>
+          Your hosts file has entries for <code>127.0.0.1 localhost</code> and
+          <code>127.0.0.1 app.localhost</code>
+        </li>
+        <li>Your Next.js server is running with <code>npm run dev</code></li>
+        <li>
+          The middleware.ts file is correctly handling the subdomain routing
+        </li>
+        <li>
+          The dashboard page exists at
+          <code>src/app/(dashboard)/dashboard/page.tsx</code>
+        </li>
+      </ol>
+    </div>
+
+    <h2>Main Domain Links</h2>
+    <div class="link-container">
+      <a href="http://localhost:3000" target="_blank">http://localhost:3000</a>
+      <a href="http://localhost:3000/login" target="_blank"
+        >http://localhost:3000/login</a
+      >
+      <a href="http://localhost:3000/signup" target="_blank"
+        >http://localhost:3000/signup</a
+      >
+      <a href="http://localhost:3000/pricing" target="_blank"
+        >http://localhost:3000/pricing</a
+      >
+    </div>
+
+    <h2>App Subdomain Links</h2>
+    <div class="link-container">
+      <a href="http://app.localhost:3000" target="_blank"
+        >http://app.localhost:3000</a
+      >
+      <a href="http://app.localhost:3000/dashboard" target="_blank"
+        >http://app.localhost:3000/dashboard</a
+      >
+      <a href="http://app.localhost:3000/profile" target="_blank"
+        >http://app.localhost:3000/profile</a
+      >
+      <a href="http://app.localhost:3000/settings" target="_blank"
+        >http://app.localhost:3000/settings</a
+      >
+    </div>
+
+    <h2>Alternative URLs (IP Address)</h2>
+    <div class="link-container">
+      <a href="http://127.0.0.1:3000" target="_blank">http://127.0.0.1:3000</a>
+      <a href="http://127.0.0.1:3000/dashboard" target="_blank"
+        >http://127.0.0.1:3000/dashboard</a
+      >
+    </div>
+
+    <script>
+      // You could add JavaScript to automatically check each link's status
+      // This is a simple example that could be expanded
+      document.addEventListener("DOMContentLoaded", function () {
+        const links = document.querySelectorAll("a");
+
+        links.forEach((link) => {
+          const statusSpan = document.createElement("span");
+          statusSpan.className = "status";
+          link.appendChild(statusSpan);
+
+          // Only for demonstration - in a real app, you would use fetch to check if links are valid
+          // This is simplified and doesn't actually fetch the URLs for security reasons
+          statusSpan.textContent = "(Click to test)";
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -6,8 +6,12 @@ import {
   FirebaseOptions,
   FirebaseApp,
 } from "firebase/app";
-import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getAuth, Auth, signInAnonymously } from "firebase/auth";
+import {
+  getFirestore,
+  Firestore,
+  enableIndexedDbPersistence,
+} from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Firebase configuration
@@ -23,30 +27,40 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 // Global instances
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
+let firebaseApp: FirebaseApp | null = null;
+let firebaseAuth: Auth | null = null;
+let firebaseDb: Firestore | null = null;
 let initializationAttempted = false;
 
 // Initialize Firebase only once
 export function initFirebase() {
-  if (app && auth && db) {
-    return { app, auth, db };
+  if (firebaseApp && firebaseAuth && firebaseDb) {
+    return firebaseApp;
   }
 
   if (initializationAttempted && process.env.NODE_ENV !== "development") {
     console.warn("Firebase initialization already attempted and failed");
-    return { app, auth, db };
+    return firebaseApp;
   }
 
   initializationAttempted = true;
 
   try {
+    // Log Firebase config values for debugging (without showing actual values)
+    console.log("Firebase config available:", {
+      apiKey: firebaseConfig.apiKey ? "✓" : "✗",
+      authDomain: firebaseConfig.authDomain ? "✓" : "✗",
+      projectId: firebaseConfig.projectId ? "✓" : "✗",
+      storageBucket: firebaseConfig.storageBucket ? "✓" : "✗",
+      messagingSenderId: firebaseConfig.messagingSenderId ? "✓" : "✗",
+      appId: firebaseConfig.appId ? "✓" : "✗",
+    });
+
     // Check for existing Firebase app
     const existingApps = getApps();
     if (existingApps.length > 0) {
       console.log("Using existing Firebase app");
-      app = existingApps[0];
+      firebaseApp = existingApps[0];
     } else {
       // Validate the Firebase configuration
       const requiredKeys = ["apiKey", "authDomain", "projectId"];
@@ -67,7 +81,7 @@ export function initFirebase() {
           process.env.NODE_ENV === "development"
         ) {
           console.warn("Creating mock Firebase app for development");
-          return { app: null, auth: null, db: null };
+          return null;
         } else {
           throw new Error(
             "Firebase configuration is invalid or missing required fields"
@@ -76,48 +90,83 @@ export function initFirebase() {
       }
 
       // Initialize the Firebase app
-      app = initializeApp(firebaseConfig);
+      firebaseApp = initializeApp(firebaseConfig);
       console.log("Firebase app initialized successfully");
     }
 
     // Initialize services
-    if (app) {
+    if (firebaseApp) {
       try {
-        auth = getAuth(app);
+        firebaseAuth = getAuth(firebaseApp);
         console.log("Firebase Auth initialized successfully");
+
+        // Check if anonymous auth is disabled by environment variable
+        const disableAnonymousAuth =
+          process.env.NEXT_PUBLIC_DISABLE_ANONYMOUS_AUTH === "true";
+
+        // Only attempt anonymous authentication if not disabled
+        if (
+          !disableAnonymousAuth &&
+          firebaseAuth &&
+          !firebaseAuth.currentUser
+        ) {
+          console.log("Attempting anonymous sign-in...");
+          signInAnonymously(firebaseAuth).catch((error) => {
+            // Don't treat this as a fatal error
+            console.warn("Anonymous sign-in failed:", error.message);
+          });
+        } else if (disableAnonymousAuth) {
+          console.log("Anonymous authentication is disabled by configuration");
+        }
       } catch (error) {
         console.error("Failed to initialize Firebase Auth:", error);
-        auth = null;
+        firebaseAuth = null;
       }
 
       try {
-        db = getFirestore(app);
+        firebaseDb = getFirestore(firebaseApp);
         console.log("Firebase Firestore initialized successfully");
+
+        // Enable offline persistence if supported
+        if (typeof window !== "undefined") {
+          enableIndexedDbPersistence(firebaseDb).catch((err) => {
+            if (err.code === "failed-precondition") {
+              console.warn("Persistence failed: Multiple tabs open");
+            } else if (err.code === "unimplemented") {
+              console.warn("Persistence not available in this browser");
+            } else {
+              console.error("Persistence error:", err);
+            }
+          });
+        }
       } catch (error) {
         console.error("Failed to initialize Firebase Firestore:", error);
-        db = null;
+        firebaseDb = null;
       }
 
       try {
-        getStorage(app);
+        getStorage(firebaseApp);
         console.log("Firebase Storage initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Firebase Storage:", error);
       }
     }
 
-    return { app, auth, db };
+    return firebaseApp;
   } catch (error) {
     console.error("❌ Error initializing Firebase:", error);
-    app = null;
-    auth = null;
-    db = null;
+    firebaseApp = null;
+    firebaseAuth = null;
+    firebaseDb = null;
 
-    return { app, auth, db };
+    return null;
   }
 }
 
 // Initialize on import
 initFirebase();
 
-export { app, auth, db };
+// Export instances for use throughout the app
+export const app = firebaseApp;
+export const auth = firebaseAuth;
+export const db = firebaseDb;

@@ -24,14 +24,10 @@ export interface ActiveUser {
 export default function useActiveUsers(contractId?: string) {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
 
-  // Return empty array if users should be hidden
-  if (!SHOW_USERS) {
-    return { activeUsers: [] };
-  }
-
   // Simulate fetching active users
   useEffect(() => {
-    if (!contractId) return;
+    // Return early if users should be hidden or no contractId
+    if (!SHOW_USERS || !contractId) return;
 
     console.log("Fetching active users for contract:", contractId);
 
@@ -57,31 +53,37 @@ export default function useActiveUsers(contractId?: string) {
     const interval = setInterval(() => {
       // Simulate user activity changes occasionally
       if (Math.random() > 0.7) {
-        const shouldAdd = Math.random() > 0.5 && activeUsers.length < 10;
+        // Use a safer state update approach that doesn't depend on the current state
+        setActiveUsers((prev) => {
+          const shouldAdd = Math.random() > 0.5 && prev.length < 10;
 
-        if (shouldAdd) {
-          // Add a new user
-          const newUser = {
-            id: `user-${Math.random().toString(36).substring(2, 9)}`,
-            avatar:
-              AVATAR_PATHS[Math.floor(Math.random() * AVATAR_PATHS.length)],
-            name: `User ${activeUsers.length + 1}`,
-            joinedAt: new Date(),
-          };
+          if (shouldAdd) {
+            // Add a new user
+            const newUser = {
+              id: `user-${Math.random().toString(36).substring(2, 9)}`,
+              avatar:
+                AVATAR_PATHS[Math.floor(Math.random() * AVATAR_PATHS.length)],
+              name: `User ${prev.length + 1}`,
+              joinedAt: new Date(),
+            };
 
-          setActiveUsers((prev) => [...prev, newUser]);
-          console.log("New user joined:", newUser.name);
-        } else if (activeUsers.length > 1) {
-          // Remove a random user
-          const indexToRemove = Math.floor(Math.random() * activeUsers.length);
-          setActiveUsers((prev) => prev.filter((_, i) => i !== indexToRemove));
-          console.log("User left the session");
-        }
+            console.log("New user joined:", newUser.name);
+            return [...prev, newUser];
+          } else if (prev.length > 1) {
+            // Remove a random user
+            const indexToRemove = Math.floor(Math.random() * prev.length);
+            console.log("User left the session");
+            return prev.filter((_, i) => i !== indexToRemove);
+          }
+
+          return prev;
+        });
       }
     }, 10000); // Check every 10 seconds
 
     return () => clearInterval(interval);
-  }, [contractId]);
+  }, [contractId]); // Only re-run when contractId changes
 
-  return { activeUsers };
+  // Return the active users or empty array if users should be hidden
+  return { activeUsers: SHOW_USERS ? activeUsers : [] };
 }

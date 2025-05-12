@@ -17,7 +17,7 @@ export function SubscriptionStatus() {
     null
   );
   const [error, setError] = useState<Error | null>(null);
-  const { isAppLocal } = useDomain();
+  const { isLocalDevelopment } = useDomain();
 
   useEffect(() => {
     if (!user) return;
@@ -95,8 +95,8 @@ export function SubscriptionStatus() {
     );
   }
 
-  // Don't render anything if not on app.local or user not authenticated
-  if (!isAppLocal || !user) {
+  // Don't render anything if not in local development or user not authenticated
+  if (!isLocalDevelopment || !user) {
     return null;
   }
 

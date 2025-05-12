@@ -5,6 +5,7 @@ import Topbar from "@/app/(dashboard)/topbar";
 import Sidebar from "@/app/(dashboard)/sidebar";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { FirebaseError } from "firebase/app";
 
 export default function ClientLayout({
   children,
@@ -23,8 +24,22 @@ export default function ClientLayout({
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       console.error("Unhandled promise rejection:", event.reason);
 
-      // Show a toast notification for the error
-      toast.error("Something went wrong");
+      // Special handling for Firebase errors
+      if (event.reason instanceof FirebaseError) {
+        const fbError = event.reason as FirebaseError;
+        console.error("Firebase error code:", fbError.code);
+
+        if (fbError.code === "permission-denied") {
+          toast.error(
+            "Firebase permissions error. Please check your authentication."
+          );
+        } else {
+          toast.error(`Firebase error: ${fbError.message}`);
+        }
+      } else {
+        // Show a generic toast notification for other errors
+        toast.error("Something went wrong");
+      }
 
       // Prevent the default browser behavior
       event.preventDefault();
