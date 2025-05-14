@@ -33,7 +33,7 @@ import ShareModal from "./ShareModal";
 const SHOW_DEBUG_BUTTONS = false;
 
 interface SendStageProps {
-  onSend?: () => void;
+  onSend?: (clientName: string, clientEmail: string) => void;
   title: string;
 }
 
@@ -98,7 +98,7 @@ export function SendStage({ onSend, title }: SendStageProps) {
       toast.success("Contract sent successfully!");
 
       if (onSend) {
-        onSend();
+        onSend(clientName, clientEmail);
       }
     } catch (err) {
       console.error("Error sending contract:", err);

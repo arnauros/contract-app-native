@@ -240,12 +240,14 @@ export default function ViewPage() {
       try {
         if (!id) return;
         console.log("🔍 Loading contract:", id);
+        console.log("🔑 Token provided:", token ? "Yes" : "No");
 
         // Get contract from Firestore
         const result = await getContract(id as string);
         console.log("📄 Contract result:", result);
 
         if (result.error) {
+          console.error("❌ Error getting contract:", result.error);
           if (
             typeof result.error === "string" &&
             result.error.includes("BLOCKED_BY_CLIENT")
@@ -257,6 +259,7 @@ export default function ViewPage() {
 
         const contract = result.contract;
         if (!contract) {
+          console.error("❌ Contract not found");
           throw ContractAccessError.CONTRACT_NOT_FOUND;
         }
 
@@ -275,19 +278,40 @@ export default function ViewPage() {
         let isPreview = false;
 
         if (token) {
+          console.log("🔐 Validating token:", token);
           try {
             const validation = await validateContractToken(id, token);
             hasValidToken = validation.isValid;
             isPreview = validation.isPreview;
             console.log("🎟️ Token validation:", { hasValidToken, isPreview });
           } catch (error) {
+            console.error("❌ Token validation error:", error);
             if (error === ContractAccessError.TOKEN_EXPIRED) {
+              console.log("⏰ Token expired");
               throw ContractAccessError.TOKEN_EXPIRED;
+            } else if (error === ContractAccessError.TOKEN_INVALID) {
+              console.log("❌ Token invalid");
+              // Only throw if not signed and not owner
+              if (!isOwner && contract.status !== "signed") {
+                throw ContractAccessError.TOKEN_INVALID;
+              }
+            } else {
+              console.error("Unknown token validation error:", error);
             }
           }
+        } else {
+          console.log("🔒 No token provided, checking other access methods");
         }
 
+        // Log access determination
+        console.log("🔓 Access determination:", {
+          isOwner,
+          hasValidToken,
+          contractStatus: contract.status,
+        });
+
         if (isOwner || hasValidToken || contract.status === "signed") {
+          console.log("✅ Access granted");
           setIsAuthorized(true);
           setGeneratedContent(contract.content);
 
@@ -884,14 +908,23 @@ export default function ViewPage() {
   };
 
   const handleViewActivity = async () => {
+    console.log("📊 handleViewActivity: Starting view tracking");
     try {
       const contractId = window.location.pathname.split("/").pop();
-      if (!contractId) return;
+      if (!contractId) {
+        console.log("⚠️ handleViewActivity: No contract ID found in URL");
+        return;
+      }
+      console.log(`📊 handleViewActivity: Found contract ID ${contractId}`);
 
+      // Get client IP (will use api.ipify.org or fall back to "anonymous")
       const ipAddress = await getClientIP();
+      console.log(`📊 handleViewActivity: Using IP address: ${ipAddress}`);
+
       const currentDate = new Date().toISOString();
 
       try {
+        console.log("📊 handleViewActivity: Updating contract status");
         await updateContractStatus(contractId, {
           lastViewedAt: currentDate,
           metadata: {
@@ -900,9 +933,15 @@ export default function ViewPage() {
             lastActivity: currentDate,
           },
         });
+        console.log(
+          "✅ handleViewActivity: Successfully updated contract status"
+        );
       } catch (error) {
         // Silently handle blocked requests - this is non-critical functionality
-        console.warn("Failed to update view activity:", error);
+        console.warn(
+          "⚠️ handleViewActivity: Failed to update contract status:",
+          error
+        );
       }
 
       setContractState((prev) => ({
@@ -913,30 +952,44 @@ export default function ViewPage() {
           lastActivity: currentDate,
         },
       }));
+      console.log("✅ handleViewActivity: Updated local contract state");
     } catch (error) {
-      console.warn("Failed to track view activity:", error);
+      console.warn(
+        "🔴 handleViewActivity: Failed to track view activity:",
+        error
+      );
     }
   };
 
   // Track view activity on mount and periodically
   useEffect(() => {
+    console.log("🔄 Setting up view activity tracking");
     const trackActivity = async () => {
+      console.log("🔄 Running periodic view activity tracking");
       await handleViewActivity();
     };
     trackActivity();
     const interval = setInterval(trackActivity, 5 * 60 * 1000); // Every 5 minutes
-    return () => clearInterval(interval);
+    return () => {
+      console.log("🧹 Cleaning up view activity tracking");
+      clearInterval(interval);
+    };
   }, []);
 
   // Helper function to get client IP
   const getClientIP = async () => {
+    console.log("🌐 getClientIP: Attempting to get client IP address");
     try {
+      console.log("🌐 getClientIP: Trying api.ipify.org endpoint");
+      // Added to CSP in next.config.js, should work now
       const response = await fetch("https://api.ipify.org?format=json");
       const data = await response.json();
+      console.log("✅ getClientIP: Successfully retrieved IP address");
       return data.ip;
     } catch (error) {
-      console.error("Failed to get IP:", error);
-      return "unknown";
+      console.error("🔴 getClientIP: Error fetching IP:", error);
+      console.log("🔄 getClientIP: Falling back to anonymous IP tracking");
+      return "anonymous"; // Fallback if the API call fails
     }
   };
 

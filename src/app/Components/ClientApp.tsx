@@ -70,8 +70,7 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
         pathname.startsWith("/Contracts/") ||
         pathname === "/profile" ||
         pathname === "/new" ||
-        pathname === "/store" ||
-        pathname.startsWith("/view/"))
+        pathname === "/store")
   ).current;
 
   // Log whether this route requires subscription - only log once

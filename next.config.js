@@ -52,7 +52,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             // Allow all connections for debugging purposes
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com; connect-src 'self' https://*.stripe.com https://*.googleapis.com https://*.firebase.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com; frame-src 'self' https://*.stripe.com; img-src 'self' data: https://*.stripe.com https://www.google.com https://*.googleapis.com; style-src 'self' 'unsafe-inline';",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com; connect-src 'self' https://*.stripe.com https://*.googleapis.com https://*.firebase.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://*.cloudfunctions.net https://api.ipify.org; frame-src 'self' https://*.stripe.com; img-src 'self' data: https://*.stripe.com https://www.google.com https://*.googleapis.com; style-src 'self' 'unsafe-inline';",
           },
         ],
       },

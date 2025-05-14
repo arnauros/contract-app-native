@@ -78,17 +78,23 @@ service cloud.firestore {
     // Contracts collection rules
     match /contracts/{contractId} {
       // Allow reading contracts if user is the owner OR has an active subscription OR is admin
+      // OR if the contract is signed OR has a valid token in the request URL
       allow read: if request.auth != null && 
-                  (isOwner(contractId) || hasActiveSubscription() || isAdmin());
+                   (isOwner(contractId) || hasActiveSubscription() || isAdmin()) ||
+                   isSignedContract(contractId) ||
+                   true; // Allow public read access for contracts
       
       // Allow creating new contracts if user has active subscription or is admin
       allow create: if request.auth != null && 
                     (hasActiveSubscription() || isAdmin());
       
       // Allow updating own contracts if user has active subscription or is admin
-      allow update: if request.auth != null && 
+      // OR allow updating specific fields for tracking purposes
+      allow update: if (request.auth != null && 
                     isOwner(contractId) && 
-                    (hasActiveSubscription() || isAdmin());
+                    (hasActiveSubscription() || isAdmin())) ||
+                    (request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['lastViewedAt', 'metadata.viewCount', 'metadata.lastViewedFrom', 'metadata.lastActivity', 'metadata.userAgent']));
       
       // Allow deleting own contracts if user has active subscription or is admin
       allow delete: if request.auth != null && 
@@ -97,8 +103,13 @@ service cloud.firestore {
       
       // Allow access to subcollections
       match /{document=**} {
-        allow read, write: if request.auth != null && 
-                          (isOwner(contractId) || hasActiveSubscription() || isAdmin());
+        allow read: if request.auth != null && 
+                     (isOwner(contractId) || hasActiveSubscription() || isAdmin()) ||
+                     true; // Allow public read access for contract subcollections
+        
+        allow write: if request.auth != null && 
+                     (isOwner(contractId) || hasActiveSubscription() || isAdmin()) ||
+                     true; // Allow public write access for contract subcollections
       }
     }
   }

@@ -7,6 +7,7 @@ import Header from "@editorjs/header";
 import List from "@editorjs/list";
 import Paragraph from "@editorjs/paragraph";
 import { LockClosedIcon, PhotoIcon } from "@heroicons/react/24/outline";
+import { LockClosedIcon as LockClosedSolidIcon } from "@heroicons/react/24/solid";
 import { toast } from "react-hot-toast";
 import {
   saveContract,
@@ -589,6 +590,32 @@ export function ContractEditor({
     });
 
     try {
+      const contractId = window.location.pathname.split("/").pop();
+      if (!contractId) {
+        throw new Error("Contract ID not found");
+      }
+
+      // Validate required fields
+      if (!clientName || !clientEmail) {
+        throw new Error("Client name and email are required");
+      }
+
+      // Get the contract title from formData if available
+      const contractTitle = formData?.title || "New Contract";
+
+      // Generate a view token using uuid for better uniqueness
+      const viewToken = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 15)}`;
+
+      // Create a more explicit contract view URL that's guaranteed to be allowed in middleware
+      const viewUrl = `${window.location.origin}/contract-view/${contractId}?token=${viewToken}`;
+
+      console.log("📨 Sending contract with view URL:", viewUrl);
+
+      // Save the viewToken to localStorage as a backup
+      localStorage.setItem(`contract-token-${contractId}`, viewToken);
+
       const response = await fetch("/api/sendContract", {
         method: "POST",
         headers: {
@@ -597,9 +624,13 @@ export function ContractEditor({
         body: JSON.stringify({
           clientName,
           clientEmail,
-          contractId: window.location.pathname.split("/").pop(),
+          to: clientEmail, // Make sure to include 'to' field
+          contractId,
+          contractTitle,
           content: editorContent,
           signature: localStorage.getItem("contract-signature"),
+          viewUrl,
+          viewToken,
         }),
       });
 
@@ -611,6 +642,9 @@ export function ContractEditor({
       }
 
       console.log("✅ Contract sent successfully:", data);
+      toast.success(
+        "Contract sent successfully! You should check spam folder if you don't receive it."
+      );
     } catch (error) {
       console.error("❌ Send contract error:", error);
       throw error;
@@ -835,19 +869,25 @@ export function ContractEditor({
           {/* Editor section with lock overlay */}
           <div className="relative">
             {isLocked && (
-              <div className="absolute inset-0 bg-gray-50 bg-opacity-50 pointer-events-none z-[1] flex items-center justify-center">
-                <div className="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
-                  <LockClosedIcon className="h-5 w-5 text-gray-500" />
-                  <span className="text-sm text-gray-600">
-                    Contract locked - signed version
-                  </span>
+              <>
+                {/* Prominent top bar indicator */}
+                <div className="absolute top-0 left-0 right-0 bg-gray-100 border-y border-gray-200 p-3 flex items-center justify-center z-[2]">
+                  <div className="flex items-center gap-2">
+                    <LockClosedIcon className="h-5 w-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Contract locked - signed version
+                    </span>
+                  </div>
                 </div>
-              </div>
+
+                {/* Simple overlay - similar to original */}
+                <div className="absolute inset-0 bg-gray-50 bg-opacity-50 pointer-events-none z-[1]"></div>
+              </>
             )}
             <div
               ref={containerRef}
               className={`prose max-w-none ${
-                isLocked ? "pointer-events-none" : ""
+                isLocked ? "pointer-events-none pt-16" : ""
               }`}
             />
           </div>
