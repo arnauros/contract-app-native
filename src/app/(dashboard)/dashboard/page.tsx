@@ -46,6 +46,7 @@ import toast from "react-hot-toast";
 import { SubscriptionStatus } from "@/components/SubscriptionStatus";
 import Link from "next/link";
 import { UserSubscription } from "@/lib/stripe/config";
+import DebugClaims from "@/app/Components/DebugClaims";
 
 ChartJS.register(
   CategoryScale,
@@ -732,6 +733,18 @@ export default function Dashboard() {
           />
         </section>
       )}
+
+      {/* Debug section - temporary */}
+      <div className="mb-8 p-4 border border-orange-300 bg-orange-50 rounded-lg">
+        <h2 className="text-lg font-semibold text-orange-700 mb-2">
+          Troubleshooting: Firebase Permissions
+        </h2>
+        <p className="mb-4 text-orange-700">
+          If you're seeing "Missing or insufficient permissions" errors, use the
+          buttons below to reset your authentication claims.
+        </p>
+        <DebugClaims />
+      </div>
     </div>
   );
 }

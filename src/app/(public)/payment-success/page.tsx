@@ -21,8 +21,13 @@ export default function PaymentSuccessPage() {
   const [redirecting, setRedirecting] = useState(false);
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get("session_id");
+  const checkoutId = searchParams?.get("checkout_id");
+  const [verificationAttempted, setVerificationAttempted] = useState(false);
   const [subscriptionConfirmed, setSubscriptionConfirmed] = useState(false);
   const [cleanupPerformed, setCleanupPerformed] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null
+  );
 
   // Function to thoroughly clear all checkout flags
   const thoroughCleanup = () => {
@@ -70,6 +75,89 @@ export default function PaymentSuccessPage() {
     setCleanupPerformed(true);
   };
 
+  // Function to verify the payment status with Stripe
+  const verifyPaymentStatus = async (sid: string) => {
+    try {
+      console.log(`Verifying payment session: ${sid}`);
+
+      const response = await fetch("/api/stripe/verify-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ sessionId: sid }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Session verification failed:", errorText);
+        setVerificationError(`Failed to verify session: ${response.status}`);
+        return false;
+      }
+
+      const data = await response.json();
+      console.log("Session verification result:", data);
+
+      // If the payment is verified, set subscription as confirmed
+      if (data.verified || data.isSubscriptionActive) {
+        setSubscriptionConfirmed(true);
+        return true;
+      }
+
+      // As a fallback, check the user's subscription directly
+      return checkUserSubscription();
+    } catch (error) {
+      console.error("Error verifying payment status:", error);
+      setVerificationError(
+        `Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      // Try fallback verification
+      return checkUserSubscription();
+    } finally {
+      setVerificationAttempted(true);
+    }
+  };
+
+  // Fallback: check user's subscription status directly from Firestore
+  const checkUserSubscription = async () => {
+    if (!user) return false;
+
+    try {
+      console.log("Performing fallback subscription check for user:", user.uid);
+
+      const response = await fetch("/api/stripe/verify-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+
+      if (!response.ok) {
+        console.error(
+          "Subscription verification failed:",
+          await response.text()
+        );
+        return false;
+      }
+
+      const data = await response.json();
+      console.log("User subscription status:", data);
+
+      if (data.isActive) {
+        console.log("Confirmed active subscription via fallback check");
+        setSubscriptionConfirmed(true);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error in fallback subscription check:", error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Immediately perform cleanup when component mounts
     thoroughCleanup();
@@ -86,32 +174,54 @@ export default function PaymentSuccessPage() {
       return;
     }
 
-    // When user is authenticated, set redirecting after a delay
-    // This gives time for the Stripe webhook to process the subscription
-    if (!authLoading && user) {
+    // When user is authenticated, attempt to verify the session
+    if (!authLoading && user && sessionId && !verificationAttempted) {
       console.log("Payment completed with session ID:", sessionId);
 
-      // Set a timeout to redirect after 5 seconds
-      // The Stripe webhook should update the subscription in Firestore
+      // Verify the payment status with Stripe
+      verifyPaymentStatus(sessionId).then((verified) => {
+        if (verified) {
+          console.log(
+            "Payment successfully verified, redirecting to dashboard shortly"
+          );
+          // Set a timeout to redirect after successful verification
+          const timer = setTimeout(() => {
+            setRedirecting(true);
+            router.push("/dashboard");
+          }, 3000);
+
+          return () => clearTimeout(timer);
+        } else {
+          console.warn(
+            "Payment verification failed. Not redirecting to dashboard."
+          );
+        }
+      });
+    } else if (!authLoading && user && !sessionId && !verificationAttempted) {
+      // Handle case where session ID is missing
+      console.warn(
+        "Session ID is missing from URL. Payment might not be properly tracked."
+      );
+      setVerificationError(
+        "Session ID is missing. Your payment might still be processing."
+      );
+      setVerificationAttempted(true);
+
+      // Still redirect after a delay, but log the issue
       const timer = setTimeout(() => {
+        console.log("Redirecting to dashboard despite missing session ID");
         setRedirecting(true);
         router.push("/dashboard");
       }, 5000);
 
-      return () => {
-        clearTimeout(timer);
-        clearInterval(cleanupInterval);
-
-        // Do one final cleanup before unmounting
-        thoroughCleanup();
-      };
+      return () => clearTimeout(timer);
     }
 
     return () => {
       clearInterval(cleanupInterval);
       thoroughCleanup();
     };
-  }, [user, authLoading, router, sessionId]);
+  }, [user, authLoading, router, sessionId, verificationAttempted]);
 
   if (authLoading) {
     return (
@@ -149,6 +259,12 @@ export default function PaymentSuccessPage() {
           successfully.
         </p>
 
+        {verificationError && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+            {verificationError}
+          </div>
+        )}
+
         {redirecting ? (
           <div>
             <p className="text-sm text-gray-500 mb-4">
@@ -159,10 +275,26 @@ export default function PaymentSuccessPage() {
         ) : (
           <div>
             <p className="text-sm text-gray-500 mb-4">
-              Your subscription is being processed. You'll be redirected
-              shortly...
+              {subscriptionConfirmed
+                ? "Your subscription is confirmed. You'll be redirected shortly..."
+                : "Your subscription is being processed. You'll be redirected shortly..."}
             </p>
             <div className="animate-pulse rounded-full h-2 w-32 bg-indigo-600 mx-auto"></div>
+          </div>
+        )}
+
+        {/* Debug info (only visible in development) */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mt-8 text-left text-xs text-gray-400 border-t pt-4">
+            <p>Debug Info:</p>
+            <p>Session ID: {sessionId || "none"}</p>
+            <p>Checkout ID: {checkoutId || "none"}</p>
+            <p>
+              Verification attempted: {verificationAttempted ? "yes" : "no"}
+            </p>
+            <p>
+              Subscription confirmed: {subscriptionConfirmed ? "yes" : "no"}
+            </p>
           </div>
         )}
       </div>

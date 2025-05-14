@@ -102,28 +102,66 @@ export function useSubscription() {
           throw new Error("Firestore not initialized");
         }
 
-        // Check for active subscriptions
-        const subscriptionsRef = collection(
-          db,
-          "customers",
-          user.uid,
-          "subscriptions"
-        );
-        const q = query(
-          subscriptionsRef,
-          where("status", "in", ["trialing", "active"])
-        );
-        const snapshot = await getDocs(q);
+        // First approach: Check for active subscriptions in the subscriptions subcollection
+        let isActive = false;
+        let subscriptions: any[] = [];
 
-        // Get all subscriptions for detailed info
-        const allSubscriptions = await getDocs(subscriptionsRef);
-        const subscriptions = allSubscriptions.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        try {
+          const subscriptionsRef = collection(
+            db,
+            "customers",
+            user.uid,
+            "subscriptions"
+          );
+          const q = query(
+            subscriptionsRef,
+            where("status", "in", ["trialing", "active"])
+          );
+          const snapshot = await getDocs(q);
+
+          // Get all subscriptions for detailed info
+          const allSubscriptions = await getDocs(subscriptionsRef);
+          subscriptions = allSubscriptions.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          isActive = !snapshot.empty;
+        } catch (subError) {
+          console.warn("Error checking subscriptions subcollection:", subError);
+          // Continue to fallback approach
+        }
+
+        // Second approach (fallback): Check user document for subscription field
+        if (!isActive) {
+          try {
+            console.log("Checking user document for subscription status");
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              if (userData?.subscription) {
+                const status = userData.subscription.status;
+                isActive = status === "active" || status === "trialing";
+
+                if (isActive) {
+                  console.log("Found active subscription in user document");
+                  // Add the subscription from user doc to the list
+                  subscriptions.push({
+                    id: userData.subscription.subscriptionId || "unknown",
+                    status: userData.subscription.status,
+                    ...userData.subscription,
+                  });
+                }
+              }
+            }
+          } catch (userDocError) {
+            console.error("Error checking user document:", userDocError);
+            // If both approaches fail, we'll return not active
+          }
+        }
 
         setSubscriptionStatus({
-          isActive: !snapshot.empty,
+          isActive,
           subscriptions,
           loading: false,
           error: null,
@@ -228,9 +266,6 @@ export function useSubscription() {
         setLoading(true);
         setError(null);
 
-        // Don't show loading toast here - it's confusing to users
-        // toast.loading("Preparing checkout...");
-
         // Create a new abort controller for this request
         abortControllerRef.current = new AbortController();
         const { signal } = abortControllerRef.current;
@@ -251,73 +286,110 @@ export function useSubscription() {
               window.GLOBAL_CHECKOUT_LOCK = false;
             }
           }
-        }, 30000);
+        }, 30000); // 30 second timeout
 
+        // Better error handling for production
         try {
+          // Validate inputs before sending to server
+          if (!priceId || !priceId.startsWith("price_")) {
+            throw new Error("Invalid price ID format");
+          }
+
+          // Prepare the request with the user's information
+          const requestBody = {
+            userId: user.uid,
+            priceId,
+            checkoutId,
+            ...(promotionCodeId && { promotionCodeId }),
+          };
+
+          console.log("Sending checkout request with payload:", requestBody);
+
+          // Make the API request to create a checkout session
           const response = await fetch("/api/stripe/create-checkout", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              userId: user.uid,
-              priceId: priceId,
-              successUrl: window.location.origin + "/payment-success",
-              cancelUrl: window.location.origin + "/pricing",
-              checkoutId: checkoutId, // Pass checkoutId to API for tracking
-              ...(promotionCodeId && { promotionCodeId }), // Include promotion code if provided
-            }),
+            body: JSON.stringify(requestBody),
             signal,
           });
 
-          // Clear the timeout
+          // Clear the timeout since we got a response
           clearTimeout(timeoutId);
 
+          // Throw error on non-200 responses
           if (!response.ok) {
-            const errorData = await response
-              .json()
-              .catch(() => ({ error: "Failed to parse error response" }));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(
+              errorData.error || `Server error: ${response.status}`
+            );
           }
 
-          const { url } = await response.json();
+          // Process the successful response
+          const { url, sessionId } = await response.json();
+
+          // Guard against missing URL
           if (!url) {
-            throw new Error("No checkout URL returned from the API");
+            throw new Error("No checkout URL returned from server");
           }
 
-          toast.dismiss();
-          toast.success("Redirecting to Stripe checkout...");
+          // Log before redirect for debugging
+          console.log(
+            `Redirecting to Stripe checkout: ${url.substring(0, 50)}...`
+          );
 
-          // Store the checkout ID for verification on return
-          localStorage.setItem("checkout_session_id", checkoutId);
+          // Store the session ID in localStorage for post-payment verification
+          localStorage.setItem("checkout_session_id", sessionId);
+          localStorage.setItem("checkout_price_id", priceId);
 
-          // Wait a brief moment before redirecting to ensure toasts are visible
-          setTimeout(() => {
-            window.location.href = url;
-          }, 500);
-        } catch (fetchError) {
+          // Redirect the user to Stripe Checkout
+          window.location.href = url;
+
+          // Return true to indicate success
+          return true;
+        } catch (error: any) {
+          // Clear the timeout if there was an error
           clearTimeout(timeoutId);
-          throw fetchError;
+
+          // Handle errors and clean up
+          console.error("Error creating checkout session:", error);
+
+          // Improve error handling and reporting
+          const appError = errorHandler.handle(error, "createCheckoutSession");
+          setError(appError.message);
+
+          // Show user-friendly error
+          toast.error(
+            appError.message || "Failed to start checkout. Please try again."
+          );
+
+          // Clean up locks and state
+          setLoading(false);
+          localStorage.removeItem("checkout_in_progress");
+          localStorage.removeItem("checkout_start_time");
+          CHECKOUT_IN_PROGRESS = false;
+          ACTIVE_CHECKOUT_IDS.delete(checkoutId);
+
+          if (typeof window !== "undefined") {
+            window.GLOBAL_CHECKOUT_LOCK = false;
+          }
+
+          // Re-throw for upstream handlers
+          throw error;
         }
       } catch (err) {
+        // Final error catching and reporting
         const appError = errorHandler.handle(err, "createCheckoutSession");
         setError(appError.message);
-        toast.dismiss();
-        toast.error(`Checkout error: ${appError.message}`);
-
-        // Clear all checkout flags and locks in case of error
-        localStorage.removeItem("checkout_in_progress");
-        localStorage.removeItem("checkout_start_time");
-        CHECKOUT_IN_PROGRESS = false;
-
-        if (typeof window !== "undefined") {
-          window.GLOBAL_CHECKOUT_LOCK = false;
-        }
+        setLoading(false);
+        return false;
       } finally {
+        // Always reset the loading state
         setLoading(false);
       }
     },
-    [user]
+    [user, clearStaleCheckoutFlags]
   );
 
   // Customer portal access

@@ -17,8 +17,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function hasCustomToken() {
-      return request.auth != null && request.auth.token != null && request.auth.token.token != null;
+    function hasActiveSubscription() {
+      // First check custom claims from auth token
+      let hasActiveClaim = request.auth != null && 
+                          (request.auth.token.subscriptionStatus == "active" || 
+                           request.auth.token.subscriptionStatus == "trialing" ||
+                           (request.auth.token.subscriptionTier == "pro" && request.auth.token.subscriptionStatus != "canceled"));
+      
+      // If no active claim, try to check user document
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let hasActiveDoc = userData != null && 
+                        userData.subscription != null && 
+                        (userData.subscription.status == "active" || 
+                         userData.subscription.status == "trialing");
+                        
+      return hasActiveClaim || hasActiveDoc;
+    }
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.isAdmin == true;
     }
 
     function isSignedContract(contractId) {
@@ -30,11 +47,11 @@ service cloud.firestore {
       // Allow users to read and write their own documents
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Allow admins to read all user documents (you can customize this as needed)
-      // allow read: if request.auth != null && request.auth.token.admin == true;
+      // Allow admins to read all user documents
+      allow read: if isAdmin();
     }
 
-    // Customers collection rules - Fixed to properly handle subscription checks
+    // Customers collection rules
     match /customers/{userId} {
       // Allow users to read their own customer documents
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -58,23 +75,30 @@ service cloud.firestore {
       }
     }
 
-    // Contracts collection rules - TEMPORARY MORE PERMISSIVE FOR DEBUGGING
+    // Contracts collection rules
     match /contracts/{contractId} {
-      // Allow reading all contracts for any authenticated user for debugging
-      allow read: if request.auth != null;
+      // Allow reading contracts if user is the owner OR has an active subscription OR is admin
+      allow read: if request.auth != null && 
+                  (isOwner(contractId) || hasActiveSubscription() || isAdmin());
       
-      // Allow creating new contracts
-      allow create: if request.auth != null;
+      // Allow creating new contracts if user has active subscription or is admin
+      allow create: if request.auth != null && 
+                    (hasActiveSubscription() || isAdmin());
       
-      // Allow updating own contracts or any contract in development mode
-      allow update: if request.auth != null;
+      // Allow updating own contracts if user has active subscription or is admin
+      allow update: if request.auth != null && 
+                    isOwner(contractId) && 
+                    (hasActiveSubscription() || isAdmin());
       
-      // Allow deleting own contracts
-      allow delete: if request.auth != null;
+      // Allow deleting own contracts if user has active subscription or is admin
+      allow delete: if request.auth != null && 
+                    isOwner(contractId) && 
+                    (hasActiveSubscription() || isAdmin());
       
       // Allow access to subcollections
       match /{document=**} {
-        allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null && 
+                          (isOwner(contractId) || hasActiveSubscription() || isAdmin());
       }
     }
   }

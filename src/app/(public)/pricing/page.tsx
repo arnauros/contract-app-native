@@ -425,6 +425,7 @@ export default function PricingPage() {
           interval === "monthly"
             ? STRIPE_PRICE_IDS.MONTHLY
             : STRIPE_PRICE_IDS.YEARLY;
+        console.log("Using price ID:", priceId);
 
         // Generate a unique checkout ID
         const checkoutId = generateCheckoutId(user.uid, priceId);
@@ -434,19 +435,89 @@ export default function PricingPage() {
 
         try {
           // Show processing feedback
-          toast.loading("Preparing your checkout...");
+          const loadingToast = toast.loading("Preparing your checkout...");
 
           // Call the subscription service to create checkout
-          await createCheckoutSession(priceId, promoCode || undefined);
+          const success = await createCheckoutSession(
+            priceId,
+            promoCode || undefined
+          );
 
-          // If we got here without redirect, something went wrong
-          console.log("Expected redirect didn't happen - clearing flags");
-          clearAllCheckoutFlags();
-          // Clear promo code from storage
-          localStorage.removeItem("promo_code");
-        } catch (error) {
+          // Dismiss the loading toast
+          toast.dismiss(loadingToast);
+
+          // If createCheckoutSession returns false, there was an error
+          if (success === false) {
+            console.warn("Checkout creation returned false");
+            clearAllCheckoutFlags();
+            setRedirecting(false);
+            setSubscriptionError("Checkout creation failed. Please try again.");
+            return;
+          }
+
+          // Success is truthy but no redirect happened - we should still clear flags
+          // This is a fallback for very rare cases
+          setTimeout(() => {
+            // If we're still on the page after 5 seconds, something went wrong
+            if (
+              typeof window !== "undefined" &&
+              window.location.pathname.includes("/pricing")
+            ) {
+              console.log("Expected redirect didn't happen - clearing flags");
+              clearAllCheckoutFlags();
+              // Clear promo code from storage
+              localStorage.removeItem("promo_code");
+
+              // Show a generic error message if no redirect happened but no error was thrown
+              setSubscriptionError(
+                "Checkout session creation failed. Please try again later."
+              );
+              setRedirecting(false);
+            }
+          }, 5000);
+        } catch (error: any) {
           console.error("Failed to start checkout:", error);
-          toast.error("Failed to start checkout. Please try again later.");
+
+          // Display a more user-friendly error message based on the error
+          let errorMessage =
+            "Failed to start checkout. Please try again later.";
+
+          // Handle specific error types
+          if (error.message && typeof error.message === "string") {
+            // Strip out any sensitive information before displaying
+            const sanitizedError = error.message
+              .replace(/sk_[a-zA-Z0-9_]+/g, "[REDACTED]") // Strip API keys
+              .replace(
+                /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+                "[EMAIL REDACTED]"
+              ); // Strip emails
+
+            // Check for common error patterns
+            if (
+              sanitizedError.includes("price_id") ||
+              sanitizedError.includes("Price")
+            ) {
+              errorMessage =
+                "Invalid pricing configuration. Please contact support.";
+            } else if (
+              sanitizedError.includes("customer") ||
+              sanitizedError.includes("Customer")
+            ) {
+              errorMessage =
+                "Customer account issue. Please try again or contact support.";
+            } else if (sanitizedError.includes("API")) {
+              errorMessage =
+                "Service connection issue. Please try again later.";
+            } else {
+              // Use the sanitized error message if it seems safe
+              errorMessage = sanitizedError;
+            }
+          }
+
+          // Use the subscription error state for displaying in the UI
+          setSubscriptionError(errorMessage);
+          toast.error(errorMessage);
+
           setRedirecting(false);
           clearAllCheckoutFlags();
         }

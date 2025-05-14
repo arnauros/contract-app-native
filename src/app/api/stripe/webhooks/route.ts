@@ -34,16 +34,41 @@ export async function POST(req: Request) {
     // Verify webhook signature
     let event: Stripe.Event;
     try {
+      console.log("Verifying webhook signature...");
+
+      if (!webhookSecret) {
+        console.error("STRIPE_WEBHOOK_SECRET is not configured!");
+        return NextResponse.json(
+          { error: "Webhook secret is not configured" },
+          { status: 500 }
+        );
+      }
+
+      if (!signature) {
+        console.error("No Stripe signature found in request headers");
+        return NextResponse.json(
+          { error: "No Stripe signature found" },
+          { status: 400 }
+        );
+      }
+
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      console.log("Webhook signature verified successfully");
     } catch (err) {
       console.error("Webhook signature verification failed:", err);
       return NextResponse.json(
-        { error: "Webhook signature verification failed" },
+        {
+          error: "Webhook signature verification failed",
+          details: (err as Error).message,
+        },
         { status: 400 }
       );
     }
 
-    console.log(`Webhook received: ${event.type}`);
+    console.log(`Webhook received: ${event.type}`, {
+      eventId: event.id,
+      created: new Date(event.created * 1000).toISOString(),
+    });
 
     const db = getFirestore();
     const auth = getAuth();
@@ -54,6 +79,12 @@ export async function POST(req: Request) {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+
+        console.log(`Processing subscription event ${event.type}:`, {
+          subscriptionId: subscription.id,
+          customerId,
+          status: subscription.status,
+        });
 
         // Get user from Firestore using customer ID
         const userQuery = await db
@@ -82,22 +113,17 @@ export async function POST(req: Request) {
           updatedAt: new Date(),
         };
 
+        console.log(
+          `Updating subscription for user ${userId}:`,
+          subscriptionData
+        );
+
         // Update subscription data in Firestore
         await db.collection("users").doc(userId).update(updateData);
 
-        // Update custom claims for access control
-        const customClaims = {
-          subscriptionStatus: subscription.status,
-          subscriptionTier: "pro",
-          stripeCustomerId: customerId,
-          subscriptionId: subscription.id,
-        };
+        // Log the update confirmation
+        console.log(`Successfully updated subscription for user ${userId}`);
 
-        await auth.setCustomUserClaims(userId, customClaims);
-
-        console.log(
-          `Updated subscription for user ${userId} to ${subscription.status}`
-        );
         break;
       }
 
@@ -134,8 +160,13 @@ export async function POST(req: Request) {
           updatedAt: new Date(),
         });
 
-        // Update custom claims to remove pro status
+        // Get existing claims first
+        const userRecord = await auth.getUser(userId);
+        const existingClaims = userRecord.customClaims || {};
+
+        // Update custom claims to remove pro status but preserve other claims
         await auth.setCustomUserClaims(userId, {
+          ...existingClaims,
           subscriptionStatus: "canceled",
           subscriptionTier: "free",
         });
@@ -146,10 +177,23 @@ export async function POST(req: Request) {
 
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId;
+        const userId =
+          session.metadata?.userId || session.metadata?.firebaseUID;
+
+        console.log(`Processing checkout.session.completed event:`, {
+          sessionId: session.id,
+          userId,
+          customerId: session.customer,
+          hasSubscription: !!session.subscription,
+          mode: session.mode,
+          metadata: session.metadata,
+        });
 
         if (!userId) {
-          console.error("No userId in session metadata");
+          console.error("No userId in session metadata", {
+            metadata: session.metadata,
+            sessionId: session.id,
+          });
           return NextResponse.json(
             { error: "No userId in session metadata" },
             { status: 400 }
@@ -164,32 +208,100 @@ export async function POST(req: Request) {
 
         // Get the subscription that was created
         if (!session.subscription) {
-          console.error("No subscription in session");
+          console.error("No subscription in session", {
+            sessionId: session.id,
+          });
           break;
         }
 
+        // Track subscription data at the outer scope
+        let subscriptionData: UserSubscription | null = null;
+
         // Update user's subscription status
-        const subscription = await stripe.subscriptions.retrieve(
-          session.subscription as string
-        );
+        try {
+          console.log(`Retrieving subscription: ${session.subscription}`);
+          const subscription = await stripe.subscriptions.retrieve(
+            session.subscription as string
+          );
 
-        const subscriptionData = getSubscriptionData(subscription);
+          console.log(`Subscription retrieved:`, {
+            subscriptionId: subscription.id,
+            status: subscription.status,
+            customerId: subscription.customer,
+          });
 
-        await db.collection("users").doc(userId).update({
-          subscription: subscriptionData,
-          checkoutCompleted: true,
-          updatedAt: new Date(),
-        });
+          subscriptionData = getSubscriptionData(subscription);
+          console.log(
+            `Updating user ${userId} subscription in Firestore:`,
+            subscriptionData
+          );
 
-        // Update custom claims
-        await auth.setCustomUserClaims(userId, {
-          subscriptionStatus: subscription.status,
-          subscriptionTier: "pro",
-          stripeCustomerId: session.customer as string,
-          subscriptionId: subscription.id,
-        });
+          // Get the user document first to verify it exists
+          const userDoc = await db.collection("users").doc(userId).get();
+          if (!userDoc.exists) {
+            console.error(`User document not found for ID: ${userId}`);
+            return NextResponse.json(
+              { error: "User not found" },
+              { status: 404 }
+            );
+          }
 
-        console.log(`Completed checkout for user ${userId}`);
+          // Update the user document with subscription data
+          await db.collection("users").doc(userId).update({
+            subscription: subscriptionData,
+            checkoutCompleted: true,
+            updatedAt: new Date(),
+          });
+          console.log(
+            `✅ Successfully updated user ${userId} with subscription data`
+          );
+
+          // Update custom claims
+          try {
+            // Get existing claims first
+            const userRecord = await auth.getUser(userId);
+            const existingClaims = userRecord.customClaims || {};
+
+            // Update custom claims, preserving existing ones
+            await auth.setCustomUserClaims(userId, {
+              ...existingClaims,
+              subscriptionStatus: subscription.status,
+              subscriptionTier: "pro",
+              stripeCustomerId: session.customer as string,
+              subscriptionId: subscription.id,
+            });
+            console.log(`✅ Successfully updated user ${userId} custom claims`);
+          } catch (claimsError) {
+            console.error(
+              `Failed to update custom claims for user ${userId}:`,
+              claimsError
+            );
+          }
+
+          // Double-check that the subscription was properly stored
+          const updatedUser = await db.collection("users").doc(userId).get();
+          const updatedData = updatedUser.data();
+          console.log(`User after update:`, {
+            hasSubscription: !!updatedData?.subscription,
+            subscriptionStatus: updatedData?.subscription?.status,
+            isActive:
+              updatedData?.subscription?.status === "active" ||
+              updatedData?.subscription?.status === "trialing",
+          });
+
+          console.log(`Completed checkout for user ${userId}`);
+        } catch (subError) {
+          console.error(
+            `Error processing subscription for checkout.session.completed:`,
+            subError
+          );
+          // If we failed to retrieve or process the subscription, return error
+          return NextResponse.json(
+            { error: "Failed to process subscription" },
+            { status: 500 }
+          );
+        }
+
         break;
       }
 

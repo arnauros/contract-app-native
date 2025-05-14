@@ -84,3 +84,10 @@ try {
 export const app = firebaseApp;
 export const auth = firebaseAuth;
 export const db = firebaseDb;
+
+// Let's add a quick debug log to see what's exported
+console.log("Firebase module exports:", {
+  auth: auth ? true : false,
+  db: db ? true : false,
+  app: app ? true : false,
+});

@@ -1,5 +1,8 @@
 import { loadStripe } from "@stripe/stripe-js";
 
+// Define Stripe API version for consistency across the app
+export const STRIPE_API_VERSION = "2025-04-30.basil";
+
 // Initialize Stripe with your publishable key
 export const getStripe = () => {
   const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -33,9 +36,9 @@ export const getStripe = () => {
 // Price IDs with better error handling
 export const STRIPE_PRICE_IDS = {
   MONTHLY:
-    process.env.STRIPE_MONTHLY_PRICE_ID || "price_1RLht5EAkEk7AeWQgRQmeWcF",
+    process.env.STRIPE_MONTHLY_PRICE_ID || "price_1RM2jgEAkEk7AeWQsfwaHtwb",
   YEARLY:
-    process.env.STRIPE_YEARLY_PRICE_ID || "price_1RM311EAkEk7AeWQBKwfeYxy",
+    process.env.STRIPE_YEARLY_PRICE_ID || "price_1RM2jgEAkEk7AeWQsfwaHtwb",
 };
 
 // Validate price IDs

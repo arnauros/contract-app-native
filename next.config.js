@@ -11,9 +11,16 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 
-    // Stripe Price IDs - Using values from sample-seed.json
-    STRIPE_MONTHLY_PRICE_ID: "price_1RLht5EAkEk7AeWQgRQmeWcF", // Monthly price ID
-    STRIPE_YEARLY_PRICE_ID: "price_1RM311EAkEk7AeWQBKwfeYxy", // Yearly price ID
+    // Stripe Price IDs - Using TEST mode IDs from the environment variables
+    STRIPE_MONTHLY_PRICE_ID:
+      process.env.STRIPE_MONTHLY_PRICE_ID || "price_1RM2jgEAkEk7AeWQsfwaHtwb", // Test mode monthly price
+    STRIPE_YEARLY_PRICE_ID:
+      process.env.STRIPE_YEARLY_PRICE_ID || "price_1RM2jgEAkEk7AeWQsfwaHtwb", // Test mode yearly price
+  },
+
+  // Server runtime configuration
+  serverRuntimeConfig: {
+    port: 3000,
   },
 
   // Configure asset prefix for proper static file loading with subdomains
@@ -37,6 +44,18 @@ const nextConfig = {
   // Allow Stripe checkout in localhost development
   async headers() {
     return [
+      {
+        // Add Content-Security-Policy header for the entire site
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            // Allow all connections for debugging purposes
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com; connect-src 'self' https://*.stripe.com https://*.googleapis.com https://*.firebase.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com; frame-src 'self' https://*.stripe.com; img-src 'self' data: https://*.stripe.com https://www.google.com https://*.googleapis.com; style-src 'self' 'unsafe-inline';",
+          },
+        ],
+      },
       {
         source: "/api/stripe/:path*",
         headers: [
