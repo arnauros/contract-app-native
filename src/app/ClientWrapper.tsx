@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { initFirebase } from "@/lib/firebase/firebase";
 
 // Global cleanup function to reset checkout state
 const resetCheckoutState = () => {
@@ -41,6 +42,46 @@ const resetCheckoutState = () => {
   }
 };
 
+// Configure CORS for Firebase Storage
+const configureCORS = () => {
+  if (typeof window === "undefined") return;
+
+  // This will ensure Firebase is initialized with our CORS fixes
+  initFirebase();
+
+  // Add a custom response handler for CORS preflight requests
+  const originalXHROpen = XMLHttpRequest.prototype.open;
+
+  // Override with type-safe implementation
+  XMLHttpRequest.prototype.open = function (
+    method: string,
+    url: string | URL,
+    async: boolean = true,
+    username?: string | null,
+    password?: string | null
+  ) {
+    // Add event listener to handle CORS issues
+    if (
+      typeof url === "string" &&
+      url.includes("firebasestorage.googleapis.com")
+    ) {
+      this.addEventListener("error", function () {
+        console.warn("CORS error detected on Firebase Storage XHR:", url);
+      });
+    }
+
+    // Call the original method with correct types
+    return originalXHROpen.call(
+      this,
+      method,
+      url,
+      async,
+      username || null,
+      password || null
+    );
+  };
+};
+
 export default function ClientWrapper({
   children,
 }: {
@@ -48,9 +89,10 @@ export default function ClientWrapper({
 }) {
   const pathname = usePathname();
 
-  // Reset checkout state on first load
+  // Reset checkout state on first load and configure CORS
   useEffect(() => {
     resetCheckoutState();
+    configureCORS();
   }, []);
 
   // Also reset checkout state when navigating between major sections

@@ -8,6 +8,7 @@ import { FirebaseError } from "firebase/app";
 import Cookies from "js-cookie";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { toast } from "react-hot-toast";
+import { synchronizeSubscriptionCookie } from "@/lib/utils/cookieSynchronizer";
 
 export default function SubscriptionDebug() {
   const { user, loading } = useAuth();
@@ -137,6 +138,29 @@ export default function SubscriptionDebug() {
             className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
           >
             Fix Subscription
+          </button>
+
+          <button
+            onClick={async () => {
+              try {
+                if (!user) {
+                  toast.error("You need to be logged in to fix cookies");
+                  return;
+                }
+
+                const idTokenResult = await user.getIdTokenResult(true);
+                synchronizeSubscriptionCookie(idTokenResult.claims);
+                toast.success("Cookie updated successfully");
+                setRefreshCount((prev) => prev + 1);
+              } catch (error) {
+                console.error("Failed to fix cookie:", error);
+                toast.error("Failed to fix cookie");
+              }
+            }}
+            disabled={isLoading}
+            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
+          >
+            Fix Cookie
           </button>
         </div>
       </div>

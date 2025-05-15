@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { UserSubscription } from "@/lib/stripe/config";
+import { cookies } from "next/headers";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -11,6 +12,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 // Webhook secret from environment variables
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+// Helper function to set subscription cookie
+const createResponseWithCookie = (data: any, subscriptionStatus: string) => {
+  const response = NextResponse.json(data);
+
+  // Set the cookie in the response headers
+  response.cookies.set("subscription_status", subscriptionStatus, {
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+
+  return response;
+};
 
 // Helper to extract subscription data safely
 const getSubscriptionData = (subscription: any): UserSubscription => {
@@ -124,7 +141,11 @@ export async function POST(req: Request) {
         // Log the update confirmation
         console.log(`Successfully updated subscription for user ${userId}`);
 
-        break;
+        // Return response with cookie
+        return createResponseWithCookie(
+          { received: true, status: subscription.status },
+          subscription.status
+        );
       }
 
       case "customer.subscription.deleted": {
@@ -172,7 +193,12 @@ export async function POST(req: Request) {
         });
 
         console.log(`Canceled subscription for user ${userId}`);
-        break;
+
+        // Return response with canceled cookie
+        return createResponseWithCookie(
+          { received: true, status: "canceled" },
+          "canceled"
+        );
       }
 
       case "checkout.session.completed": {
@@ -290,6 +316,14 @@ export async function POST(req: Request) {
           });
 
           console.log(`Completed checkout for user ${userId}`);
+
+          if (subscriptionData) {
+            // Return response with cookie
+            return createResponseWithCookie(
+              { received: true, status: subscriptionData.status },
+              subscriptionData.status
+            );
+          }
         } catch (subError) {
           console.error(
             `Error processing subscription for checkout.session.completed:`,

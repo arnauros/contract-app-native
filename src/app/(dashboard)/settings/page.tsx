@@ -12,6 +12,7 @@ import {
   FiLogOut,
   FiTrash,
   FiCode,
+  FiImage,
 } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { SubscriptionStatus } from "@/components/SubscriptionStatus";
@@ -27,7 +28,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteUser } from "firebase/auth";
-import { doc, setDoc, getFirestore } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  getFirestore,
+  getDoc,
+  updateDoc,
+} from "firebase/firestore";
+import ProfileImageUploader from "@/app/Components/ProfileImageUploader";
 
 // New function to create a test stripe customer ID for development
 const createTestStripeCustomer = async (userId: string) => {
@@ -75,17 +83,217 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  // Image state
+  const [profileImageUrl, setProfileImageUrl] = useState<string>(
+    "/placeholder-profile.png"
+  );
+  const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
+    "/placeholder-banner.png"
+  );
+  const [defaultProfileImageUrl, setDefaultProfileImageUrl] = useState<
+    string | null
+  >(null);
+  const [defaultProfileBannerUrl, setDefaultProfileBannerUrl] = useState<
+    string | null
+  >(null);
+  const [isSettingDefaultImage, setIsSettingDefaultImage] = useState(false);
+  const [isSettingDefaultBanner, setIsSettingDefaultBanner] = useState(false);
+
   // Initialize form state from user data
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || "");
+
+      // Try loading from localStorage first for immediate display
+      const tryLocalImages = () => {
+        const userId = user.uid;
+        const profileImageKey = `profileImage-${userId}`;
+        const profileBannerKey = `profileBanner-${userId}`;
+        const defaultProfileImageKey = `defaultProfileImage-${userId}`;
+        const defaultProfileBannerKey = `defaultProfileBanner-${userId}`;
+
+        const savedProfileImage = localStorage.getItem(profileImageKey);
+        const savedProfileBanner = localStorage.getItem(profileBannerKey);
+        const savedDefaultProfileImage = localStorage.getItem(
+          defaultProfileImageKey
+        );
+        const savedDefaultProfileBanner = localStorage.getItem(
+          defaultProfileBannerKey
+        );
+
+        if (savedProfileImage) {
+          setProfileImageUrl(savedProfileImage);
+        } else if (user.photoURL) {
+          // If no localStorage but Auth profile pic exists
+          setProfileImageUrl(user.photoURL);
+          // Save to localStorage
+          localStorage.setItem(profileImageKey, user.photoURL);
+        }
+
+        if (savedProfileBanner) {
+          setProfileBannerUrl(savedProfileBanner);
+        }
+
+        if (savedDefaultProfileImage) {
+          setDefaultProfileImageUrl(savedDefaultProfileImage);
+        }
+
+        if (savedDefaultProfileBanner) {
+          setDefaultProfileBannerUrl(savedDefaultProfileBanner);
+        }
+      };
+
+      // Try localStorage first
+      tryLocalImages();
+
+      // Then get the latest data from Firestore
+      const fetchUserData = async () => {
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+
+            // Set profile image and banner if available
+            if (userData.profileImageUrl) {
+              setProfileImageUrl(userData.profileImageUrl);
+              localStorage.setItem(
+                `profileImage-${user.uid}`,
+                userData.profileImageUrl
+              );
+            }
+
+            if (userData.profileBannerUrl) {
+              setProfileBannerUrl(userData.profileBannerUrl);
+              localStorage.setItem(
+                `profileBanner-${user.uid}`,
+                userData.profileBannerUrl
+              );
+            }
+
+            // Get default images
+            if (userData.defaultProfileImageUrl) {
+              setDefaultProfileImageUrl(userData.defaultProfileImageUrl);
+              localStorage.setItem(
+                `defaultProfileImage-${user.uid}`,
+                userData.defaultProfileImageUrl
+              );
+            }
+
+            if (userData.defaultProfileBannerUrl) {
+              setDefaultProfileBannerUrl(userData.defaultProfileBannerUrl);
+              localStorage.setItem(
+                `defaultProfileBanner-${user.uid}`,
+                userData.defaultProfileBannerUrl
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      };
+
+      fetchUserData();
     }
   }, [user]);
+
+  // Ensure profile image and banner are loaded from localStorage if available
+  useEffect(() => {
+    if (user) {
+      const userId = user.uid;
+      const profileImageKey = `profileImage-${userId}`;
+      const profileBannerKey = `profileBanner-${userId}`;
+
+      const savedProfileImage = localStorage.getItem(profileImageKey);
+      const savedProfileBanner = localStorage.getItem(profileBannerKey);
+
+      if (savedProfileImage) {
+        setProfileImageUrl(savedProfileImage);
+      }
+
+      if (savedProfileBanner) {
+        setProfileBannerUrl(savedProfileBanner);
+      }
+    }
+  }, [user]);
+
+  // Function to set default profile image
+  const setDefaultImage = async () => {
+    if (!user) return;
+
+    try {
+      setIsSettingDefaultImage(true);
+      const db = getFirestore();
+      const userRef = doc(db, "users", user.uid);
+
+      // Check if we have a default image
+      if (!defaultProfileImageUrl) {
+        toast.error("No default profile image found. Please upload one first.");
+        return;
+      }
+
+      // Update the user's profile image with the default
+      await updateDoc(userRef, {
+        profileImageUrl: defaultProfileImageUrl,
+      });
+
+      // Also update auth profile
+      await updateUserProfile(displayName, defaultProfileImageUrl);
+
+      // Update local state and localStorage
+      setProfileImageUrl(defaultProfileImageUrl);
+      localStorage.setItem(`profileImage-${user.uid}`, defaultProfileImageUrl);
+
+      toast.success("Default profile image applied");
+    } catch (error) {
+      console.error("Error setting default image:", error);
+      toast.error("Failed to set default image");
+    } finally {
+      setIsSettingDefaultImage(false);
+    }
+  };
+
+  // Function to set default banner
+  const setDefaultBanner = async () => {
+    if (!user) return;
+
+    try {
+      setIsSettingDefaultBanner(true);
+      const db = getFirestore();
+      const userRef = doc(db, "users", user.uid);
+
+      // Check if we have a default banner
+      if (!defaultProfileBannerUrl) {
+        toast.error("No default banner found. Please upload one first.");
+        return;
+      }
+
+      // Update the user's banner with the default
+      await updateDoc(userRef, {
+        profileBannerUrl: defaultProfileBannerUrl,
+      });
+
+      // Update local state and localStorage
+      setProfileBannerUrl(defaultProfileBannerUrl);
+      localStorage.setItem(
+        `profileBanner-${user.uid}`,
+        defaultProfileBannerUrl
+      );
+
+      toast.success("Default banner applied");
+    } catch (error) {
+      console.error("Error setting default banner:", error);
+      toast.error("Failed to set default banner");
+    } finally {
+      setIsSettingDefaultBanner(false);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     try {
       setIsSubmitting(true);
-      const result = await updateUserProfile(displayName);
+      const result = await updateUserProfile(displayName, profileImageUrl);
       if (result.error) {
         toast.error(
           result.error instanceof Error
@@ -297,6 +505,22 @@ export default function SettingsPage() {
     router,
   ]);
 
+  const handleProfileImageChange = (url: string) => {
+    setProfileImageUrl(url);
+    // Also save in localStorage for persistence
+    if (user) {
+      localStorage.setItem(`profileImage-${user.uid}`, url);
+    }
+  };
+
+  const handleProfileBannerChange = (url: string) => {
+    setProfileBannerUrl(url);
+    // Also save in localStorage for persistence
+    if (user) {
+      localStorage.setItem(`profileBanner-${user.uid}`, url);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -326,6 +550,35 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2">
+          {/* Profile Banner */}
+          <div className="bg-white rounded-lg shadow mb-8 overflow-hidden">
+            <div className="h-40 w-full relative">
+              <ProfileImageUploader
+                type="profileBanner"
+                imageUrl={profileBannerUrl}
+                onImageChange={handleProfileBannerChange}
+                className="w-full"
+              />
+            </div>
+
+            {/* Profile Image (overlapping with banner) */}
+            <div className="px-6 pb-6 pt-12 relative">
+              <div className="absolute -top-20 left-6">
+                <ProfileImageUploader
+                  type="profileImage"
+                  imageUrl={profileImageUrl}
+                  onImageChange={handleProfileImageChange}
+                  className="w-full shadow-md border-4 border-white"
+                />
+              </div>
+              <div className="ml-32">
+                <h2 className="text-xl font-semibold">{user?.displayName}</h2>
+                <p className="text-gray-600">{user?.email}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Profile Settings */}
           <div className="bg-white p-6 rounded-lg shadow mb-8">
             <h2 className="text-xl font-semibold mb-6">Profile Settings</h2>
             <div className="space-y-4">
@@ -340,7 +593,7 @@ export default function SettingsPage() {
                   type="text"
                   id="name"
                   disabled
-                  value={user.displayName || ""}
+                  value={user?.displayName || ""}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -355,7 +608,7 @@ export default function SettingsPage() {
                   type="email"
                   id="email"
                   disabled
-                  value={user.email || ""}
+                  value={user?.email || ""}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -368,6 +621,63 @@ export default function SettingsPage() {
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
+            </div>
+          </div>
+
+          {/* Default Images Section */}
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
+            <h2 className="text-xl font-semibold mb-6">Default Images</h2>
+            <p className="text-gray-600 mb-6">
+              Set default profile image and banner that will be used when
+              starting new contracts or sending to clients.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="text-lg font-medium mb-3">
+                  Default Profile Image
+                </h3>
+                <ProfileImageUploader
+                  type="profileImage"
+                  imageUrl={
+                    defaultProfileImageUrl || "/placeholder-profile.png"
+                  }
+                  onImageChange={setDefaultProfileImageUrl}
+                  isDefaultUpload={true}
+                  className="mb-3"
+                />
+                <Button
+                  onClick={setDefaultImage}
+                  disabled={isSettingDefaultImage || !defaultProfileImageUrl}
+                  className="mt-2 flex items-center"
+                >
+                  <FiImage className="mr-2" />
+                  {isSettingDefaultImage
+                    ? "Setting..."
+                    : "Use as My Profile Image"}
+                </Button>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium mb-3">Default Banner</h3>
+                <ProfileImageUploader
+                  type="profileBanner"
+                  imageUrl={
+                    defaultProfileBannerUrl || "/placeholder-banner.png"
+                  }
+                  onImageChange={setDefaultProfileBannerUrl}
+                  isDefaultUpload={true}
+                  className="mb-3"
+                />
+                <Button
+                  onClick={setDefaultBanner}
+                  disabled={isSettingDefaultBanner || !defaultProfileBannerUrl}
+                  className="mt-2 flex items-center"
+                >
+                  <FiImage className="mr-2" />
+                  {isSettingDefaultBanner ? "Setting..." : "Use as My Banner"}
+                </Button>
+              </div>
             </div>
           </div>
 

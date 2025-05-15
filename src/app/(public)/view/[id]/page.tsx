@@ -141,7 +141,8 @@ const initializeCommentHandling = () => {
 
     // Set up a more aggressive observer
     const observer = new MutationObserver((mutations) => {
-      console.log(`🔄 DOM mutation detected: ${mutations.length} changes`);
+      // Disable DOM mutation console logs - they're too noisy
+      // console.log(`🔄 DOM mutation detected: ${mutations.length} changes`);
       hideErrorMessages();
     });
 

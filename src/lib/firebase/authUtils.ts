@@ -131,13 +131,26 @@ export const signInWithGoogle = async () => {
   }
 };
 
-export const updateUserProfile = async (displayName: string) => {
+export const updateUserProfile = async (
+  displayName: string,
+  photoURL?: string
+) => {
   try {
     const authInstance = getAuthInstance();
     if (!authInstance.currentUser) {
       throw new Error("No user logged in");
     }
-    await updateProfile(authInstance.currentUser, { displayName });
+
+    const profileUpdates: { displayName: string; photoURL?: string } = {
+      displayName,
+    };
+
+    // Only include photoURL if provided
+    if (photoURL) {
+      profileUpdates.photoURL = photoURL;
+    }
+
+    await updateProfile(authInstance.currentUser, profileUpdates);
     return { success: true, error: null };
   } catch (error) {
     errorHandler.handle(error, "updateUserProfile");

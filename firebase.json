@@ -16,5 +16,21 @@
       ],
       "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
     }
-  ]
+  ],
+  "storage": {
+    "cors": [
+      {
+        "origin": ["*"],
+        "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "maxAgeSeconds": 3600,
+        "responseHeader": [
+          "Content-Type",
+          "Authorization",
+          "Content-Length",
+          "User-Agent",
+          "x-goog-resumable"
+        ]
+      }
+    ]
+  }
 }

@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { updateUserProfile, signOut } from "@/lib/firebase/authUtils";
 import ProfileView from "@/app/Components/ProfileView";
+import { doc, getDoc, getFirestore } from "firebase/firestore";
+import ProfileImageUploader from "@/app/Components/ProfileImageUploader";
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
@@ -14,23 +16,97 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState<string>(
+    "/placeholder-profile.png"
+  );
+  const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
+    "/placeholder-banner.png"
+  );
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
       setEmail(user.email || "");
       setDisplayName(user.displayName || "");
       setIsOwner(true); // Set to true if this is the user's own profile
+
+      // Try local storage first for fast loading
+      const tryLocalImages = () => {
+        const userId = user.uid;
+        const profileImageKey = `profileImage-${userId}`;
+        const profileBannerKey = `profileBanner-${userId}`;
+
+        const savedProfileImage = localStorage.getItem(profileImageKey);
+        const savedProfileBanner = localStorage.getItem(profileBannerKey);
+
+        if (savedProfileImage) {
+          setProfileImageUrl(savedProfileImage);
+        } else if (user.photoURL) {
+          // If no localStorage image but photoURL exists, use that
+          setProfileImageUrl(user.photoURL);
+          // Save to localStorage for next time
+          localStorage.setItem(profileImageKey, user.photoURL);
+        }
+
+        if (savedProfileBanner) {
+          setProfileBannerUrl(savedProfileBanner);
+        }
+      };
+
+      // Try local storage immediately
+      tryLocalImages();
+
+      // Then load from Firestore for the most up-to-date data
+      const fetchUserData = async () => {
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+
+            // Only update if we have actual data
+            if (userData.profileImageUrl) {
+              setProfileImageUrl(userData.profileImageUrl);
+              localStorage.setItem(
+                `profileImage-${user.uid}`,
+                userData.profileImageUrl
+              );
+            }
+
+            if (userData.profileBannerUrl) {
+              setProfileBannerUrl(userData.profileBannerUrl);
+              localStorage.setItem(
+                `profileBanner-${user.uid}`,
+                userData.profileBannerUrl
+              );
+            }
+
+            setImagesLoaded(true);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      };
+
+      fetchUserData();
     }
   }, [user, loading]);
 
   const handleUpdateProfile = async () => {
     try {
-      const { error } = await updateUserProfile(displayName);
+      const { error } = await updateUserProfile(displayName, profileImageUrl);
       if (error) {
-        toast.error(error);
+        toast.error(error instanceof Error ? error.message : String(error));
         return;
       }
       setIsEditing(false);
+
+      // Save to localStorage for persistence
+      if (user) {
+        localStorage.setItem(`profileImage-${user.uid}`, profileImageUrl);
+      }
+
       toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -42,7 +118,7 @@ export default function ProfilePage() {
     try {
       const { error } = await signOut();
       if (error) {
-        toast.error(error);
+        toast.error(error instanceof Error ? error.message : String(error));
         return;
       }
       toast.success("Signed out successfully!");
@@ -63,17 +139,50 @@ export default function ProfilePage() {
 
   // If not the profile owner, show public view
   if (!isOwner) {
-    return <ProfileView email={email} displayName={displayName} />;
+    return (
+      <ProfileView
+        email={email}
+        displayName={displayName}
+        profileImageUrl={profileImageUrl}
+        profileBannerUrl={profileBannerUrl}
+      />
+    );
   }
 
   // Profile owner view with edit capabilities
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-4 py-5 sm:p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Profile</h1>
+      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+        {/* Profile Banner */}
+        <div className="relative h-40 w-full">
+          <ProfileImageUploader
+            type="profileBanner"
+            imageUrl={profileBannerUrl}
+            onImageChange={setProfileBannerUrl}
+            className="w-full h-full"
+          />
+        </div>
 
-          <div className="space-y-6">
+        <div className="px-4 py-5 sm:p-6 relative">
+          {/* Profile Image */}
+          <div className="absolute -top-16 left-6">
+            <ProfileImageUploader
+              type="profileImage"
+              imageUrl={profileImageUrl}
+              onImageChange={setProfileImageUrl}
+              className="w-full shadow-md border-4 border-white"
+            />
+          </div>
+
+          {/* Profile Information */}
+          <div className="pt-16 pb-4">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {displayName || "User"}
+            </h1>
+            <p className="text-gray-600">{email}</p>
+          </div>
+
+          <div className="mt-6 space-y-6">
             {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700">

@@ -1,32 +1,49 @@
 import { useState, useRef, useEffect } from "react";
 import SignaturePad from "react-signature-canvas";
-import { CheckIcon } from "@heroicons/react/20/solid";
+import { CheckIcon, ArrowPathIcon } from "@heroicons/react/20/solid";
 
 export interface SigningStageProps {
   onSign: (signature: string, name: string) => void;
+  designerSignature?: any; // Add prop to receive current signature status
 }
 
-export function SigningStage({ onSign }: SigningStageProps) {
+export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
   const [name, setName] = useState("");
   const [isValid, setIsValid] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
   const signaturePadRef = useRef<any>(null);
 
-  // Check for existing signature
+  // Check for existing signature - from both props and localStorage
   useEffect(() => {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
-    const savedSignature = localStorage.getItem(
-      `contract-designer-signature-${contractId}`
-    );
-
-    if (savedSignature) {
-      const signatureData = JSON.parse(savedSignature);
-      setName(signatureData.name);
+    // First check Firestore signature (from props)
+    if (designerSignature) {
+      setName(designerSignature.name || "");
       setIsSigned(true);
+      return;
     }
-  }, []);
+
+    // If not in props, check localStorage as fallback
+    try {
+      const savedSignature = localStorage.getItem(
+        `contract-designer-signature-${contractId}`
+      );
+
+      if (savedSignature) {
+        const signatureData = JSON.parse(savedSignature);
+        setName(signatureData.name);
+        setIsSigned(true);
+      } else {
+        // No signature found - reset state
+        setIsSigned(false);
+      }
+    } catch (error) {
+      console.error("Error checking saved signature:", error);
+      setIsSigned(false);
+    }
+  }, [designerSignature]);
 
   // Validation function
   const validateForm = () => {
@@ -44,6 +61,35 @@ export function SigningStage({ onSign }: SigningStageProps) {
     onSign(signature, name);
   };
 
+  // Clear signature pad
+  const handleClear = () => {
+    if (signaturePadRef.current) {
+      signaturePadRef.current.clear();
+      setIsValid(false);
+    }
+  };
+
+  // Reset and try again
+  const handleReset = async () => {
+    // Clear localStorage signature
+    const contractId = window.location.pathname.split("/").pop();
+    if (contractId) {
+      localStorage.removeItem(`contract-designer-signature-${contractId}`);
+    }
+
+    // Reset state
+    setIsSigned(false);
+    setName("");
+    setIsValid(false);
+
+    // Small delay to ensure DOM updates
+    setTimeout(() => {
+      if (signaturePadRef.current) {
+        signaturePadRef.current.clear();
+      }
+    }, 100);
+  };
+
   // Render signed state
   if (isSigned) {
     return (
@@ -58,9 +104,16 @@ export function SigningStage({ onSign }: SigningStageProps) {
           <p className="text-gray-600">
             This contract has been signed by {name}.
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 mb-4">
             You can proceed to send the contract
           </p>
+
+          <button
+            onClick={handleReset}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <ArrowPathIcon className="h-4 w-4 mr-1" /> Reset Signature
+          </button>
         </div>
       </div>
     );
@@ -79,7 +132,10 @@ export function SigningStage({ onSign }: SigningStageProps) {
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              validateForm();
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
             placeholder="Type your full name"
           />
@@ -89,14 +145,22 @@ export function SigningStage({ onSign }: SigningStageProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Signature
           </label>
-          <SignaturePad
-            ref={signaturePadRef}
-            onEnd={validateForm}
-            canvasProps={{
-              className:
-                "w-full h-40 bg-white border border-gray-200 rounded-md",
-            }}
-          />
+          <div className="relative">
+            <SignaturePad
+              ref={signaturePadRef}
+              onEnd={validateForm}
+              canvasProps={{
+                className:
+                  "w-full h-40 bg-white border border-gray-200 rounded-md",
+              }}
+            />
+            <button
+              onClick={handleClear}
+              className="absolute top-2 right-2 bg-white rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
         <button

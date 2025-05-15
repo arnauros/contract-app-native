@@ -59,7 +59,7 @@ const createEmailHtml = (
             <table role="presentation" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1);" cellspacing="0" cellpadding="0" border="0">
               <!-- Header -->
               <tr>
-                <td style="background-color: #2563eb; padding: 20px; text-align: center;">
+                <td style="background-color: #F97316; padding: 20px; text-align: center;">
                   <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Contract Ready for Review</h1>
                 </td>
               </tr>
@@ -71,7 +71,7 @@ const createEmailHtml = (
                   <p style="margin-bottom: 20px; line-height: 1.5;">A contract has been shared with you for review and signature. Please click the button below to view and sign the document.</p>
                   
                   <div style="text-align: center; margin: 30px 0;">
-                    <a href="${finalViewUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold;">
+                    <a href="${finalViewUrl}" style="display: inline-block; background-color: #F97316; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold;">
                       View and Sign Contract
                     </a>
                   </div>

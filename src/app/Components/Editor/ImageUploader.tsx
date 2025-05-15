@@ -89,9 +89,9 @@ export default function ImageUploader({
       const storage = getStorage(firebaseApp);
       const db = getFirestore(firebaseApp);
 
-      // Create unique file name
+      // Create unique file name with timestamp for cache busting
       const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.name}`;
+      const fileName = `${timestamp}-${file.name.replace(/\s+/g, "_")}`;
 
       // Create reference to the file location
       const fileRef = ref(
@@ -99,17 +99,33 @@ export default function ImageUploader({
         `contracts/${contractId}/${type}/${fileName}`
       );
 
+      // Add custom metadata to help with CORS
+      const metadata = {
+        contentType: file.type,
+        customMetadata: {
+          timestamp: timestamp.toString(),
+          contractId: contractId,
+          type: type,
+        },
+      };
+
       // Convert file to Uint8Array for upload
       const buffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(buffer);
 
-      // Upload the file
-      const snapshot = await uploadBytes(fileRef, uint8Array, {
-        contentType: file.type,
-      });
+      // Try uploading using retry logic
+      let snapshot;
+      try {
+        snapshot = await uploadWithRetry(fileRef, uint8Array, metadata);
+      } catch (uploadError) {
+        console.error("Upload failed after retries:", uploadError);
+        throw uploadError;
+      }
 
-      // Get the download URL
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      // Get the download URL - add timestamp parameter to prevent caching
+      let downloadURL = await getDownloadURL(snapshot.ref);
+      // Add cache busting query parameter
+      downloadURL = `${downloadURL}?t=${timestamp}`;
 
       // Update Firestore with the image URL
       const contractRef = doc(db, "contracts", contractId);
@@ -132,6 +148,39 @@ export default function ImageUploader({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Helper function to retry uploads with exponential backoff
+  const uploadWithRetry = async (
+    fileRef: any,
+    data: Uint8Array,
+    metadata: any,
+    maxRetries = 3
+  ) => {
+    let attempt = 0;
+    let lastError;
+
+    while (attempt < maxRetries) {
+      try {
+        console.log(`Upload attempt ${attempt + 1} for ${type}`);
+        return await uploadBytes(fileRef, data, metadata);
+      } catch (error) {
+        attempt++;
+        lastError = error;
+        console.warn(`Upload attempt ${attempt} failed:`, error);
+
+        if (attempt >= maxRetries) {
+          console.error("Maximum upload retries reached");
+          break;
+        }
+
+        // Wait with exponential backoff before retrying
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
   };
 
   const handleRemoveImage = async () => {

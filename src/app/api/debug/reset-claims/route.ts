@@ -40,17 +40,24 @@ export async function POST(req: Request) {
     };
 
     // Check if user has subscription
+    let subscriptionStatus = "free";
+    let isActive = false;
     if (userData?.subscription) {
       const subscription = userData.subscription;
-      const isActive = ["active", "trialing"].includes(subscription.status);
+      isActive = ["active", "trialing"].includes(subscription.status);
 
       if (isActive) {
+        subscriptionStatus = subscription.status;
         claims = {
           ...claims,
           subscriptionStatus: subscription.status,
           subscriptionTier: subscription.tier || "pro",
           subscriptionId: subscription.subscriptionId,
         };
+      } else {
+        // If subscription exists but is not active, use its status (e.g., "canceled")
+        subscriptionStatus = subscription.status;
+        claims.subscriptionStatus = subscription.status;
       }
     }
 
@@ -66,14 +73,34 @@ export async function POST(req: Request) {
     const updatedUser = await auth.getUser(userId);
     const updatedClaims = updatedUser.customClaims || {};
 
-    // Return the user information and updated claims
-    return NextResponse.json({
+    // Create response
+    const responseData = {
       uid: updatedUser.uid,
       email: updatedUser.email,
       displayName: updatedUser.displayName,
       customClaims: updatedClaims,
       message: "Claims reset successfully",
+    };
+
+    // Create response with cookie
+    const response = NextResponse.json(responseData);
+
+    // Set subscription cookie based on the subscription status
+    // Always use 'active' if the subscription is active, regardless of the status value
+    // This fixes issues when a user cancels and then resubscribes
+    const cookieValue = isActive ? "active" : subscriptionStatus;
+
+    console.log(`Setting subscription_status cookie to: ${cookieValue}`);
+
+    response.cookies.set("subscription_status", cookieValue, {
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
+
+    return response;
   } catch (error) {
     console.error("Error resetting user claims:", error);
     return NextResponse.json(

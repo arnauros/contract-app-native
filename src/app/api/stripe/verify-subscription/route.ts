@@ -112,7 +112,8 @@ export async function POST(req: Request) {
       console.log(`User has no Stripe customer ID, cannot check with Stripe`);
     }
 
-    return NextResponse.json({
+    // Create response with the verification results
+    const responseData = {
       userId,
       hasSubscription: !!subscription,
       isActive,
@@ -122,7 +123,27 @@ export async function POST(req: Request) {
       currentPeriodEnd: subscription?.currentPeriodEnd || null,
       wasUpdatedFromStripe:
         isActive && (!subscription || subscription.status !== "active"),
+    };
+
+    // Set the correct subscription status in the cookie
+    const response = NextResponse.json(responseData);
+
+    // Set subscription cookie based on the verified status
+    // Use 'active' if isActive is true, regardless of what's in the subscription.status field
+    // This ensures the cookie is updated properly when a user cancels and resubscribes
+    const cookieValue = isActive ? "active" : subscription?.status || "none";
+
+    console.log(`Setting subscription_status cookie to: ${cookieValue}`);
+
+    response.cookies.set("subscription_status", cookieValue, {
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
+
+    return response;
   } catch (error) {
     console.error("Error verifying subscription:", error);
     return NextResponse.json(

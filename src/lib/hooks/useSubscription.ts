@@ -489,6 +489,8 @@ export function useSubscription() {
         );
       }
 
+      const verifyData = await verifyResponse.json();
+
       // Step 2: Reset claims via the reset-claims endpoint
       const resetResponse = await fetch("/api/debug/reset-claims", {
         method: "POST",
@@ -508,8 +510,25 @@ export function useSubscription() {
         );
       }
 
+      const resetData = await resetResponse.json();
+
       // Step 3: Force refresh the token
       await user.getIdToken(true);
+
+      // Step 4: Update the cookie on the client side to ensure it's in sync
+      // This is necessary especially for the case where a user cancels and then resubscribes
+      if (typeof window !== "undefined" && verifyData?.isActive) {
+        // Import Cookies if it's not already imported at the top
+        const Cookies = (await import("js-cookie")).default;
+
+        // Set the cookie value to match what's in Firebase Auth claims
+        Cookies.set("subscription_status", "active", {
+          expires: 30, // 30 days
+          path: "/",
+        });
+
+        console.log("Updated subscription_status cookie to 'active'");
+      }
 
       toast.dismiss(loadingToast);
       toast.success("Subscription synchronized successfully");

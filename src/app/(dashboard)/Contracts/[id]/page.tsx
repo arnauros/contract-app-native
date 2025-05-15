@@ -159,7 +159,8 @@ const initializeCommentHandling = () => {
 
     // Set up a more aggressive observer
     const observer = new MutationObserver((mutations) => {
-      console.log(`🔄 DOM mutation detected: ${mutations.length} changes`);
+      // Disable DOM mutation console logs - they're too noisy
+      // console.log(`🔄 DOM mutation detected: ${mutations.length} changes`);
       hideErrorMessages();
     });
 
@@ -755,11 +756,33 @@ export default function ContractPage() {
       );
       const hasSignatures = !!(clientSig || designerSig);
 
+      // Check if this was an explicit edit button click
+      const editButtonClicked =
+        localStorage.getItem("explicit-edit-click") === "true";
+
       // Only enforce sign stage if we're trying to go to edit with signatures
-      if (hasSignatures && currentStage === "edit") {
+      // AND it wasn't from an explicit edit button click
+      if (hasSignatures && currentStage === "edit" && !editButtonClicked) {
         console.log("🔒 Found signatures - enforcing sign stage");
         setCurrentStage("sign");
         localStorage.setItem(`contract-stage-${id}`, "sign");
+      } else if (editButtonClicked && currentStage === "edit") {
+        // If it was an explicit edit click, we clear the flag and allow editing
+        console.log("🔓 Allowing edit mode due to explicit button click");
+
+        // Update UI to show contract can now be edited
+        // This is important when both designer and client have signed
+        const eventDetail = {
+          stage: "edit",
+          confirmed: true,
+        };
+        const event = new CustomEvent("stageChange", { detail: eventDetail });
+        window.dispatchEvent(event);
+      }
+
+      // Reset the flag after checking
+      if (editButtonClicked) {
+        localStorage.removeItem("explicit-edit-click");
       }
     };
 

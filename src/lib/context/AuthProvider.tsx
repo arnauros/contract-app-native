@@ -3,6 +3,7 @@
 import { createContext, useEffect, useState, ReactNode } from "react";
 import { User } from "firebase/auth";
 import { subscribeToAuthChanges, isAdmin } from "../firebase/authUtils";
+import { synchronizeSubscriptionCookie } from "../utils/cookieSynchronizer";
 
 // Auth context type
 type AuthContextType = {
@@ -33,9 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       // Set up auth state listener
-      const unsubscribe = subscribeToAuthChanges((user) => {
+      const unsubscribe = subscribeToAuthChanges(async (user) => {
         setUser(user);
         setAdminStatus(isAdmin(user?.email));
+
+        // Synchronize subscription cookies with auth claims
+        if (user) {
+          try {
+            // Get the latest ID token result to access custom claims
+            const idTokenResult = await user.getIdTokenResult(true);
+
+            // Synchronize the subscription cookie with the claims
+            synchronizeSubscriptionCookie(idTokenResult.claims);
+          } catch (error) {
+            console.error("Error synchronizing cookies:", error);
+          }
+        }
+
         setLoading(false);
       });
 

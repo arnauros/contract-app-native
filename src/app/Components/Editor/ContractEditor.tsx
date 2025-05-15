@@ -146,19 +146,52 @@ export function ContractEditor({
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
-    // Check for signatures and content
+    console.log("🔍 STAGE MANAGEMENT", {
+      stage,
+      isLocked,
+      hasDesignerSignature: !!designerSignature,
+      hasLocalSignature: !!localStorage.getItem(
+        `contract-designer-signature-${contractId}`
+      ),
+    });
+
+    // Check for signatures in both Firestore state and localStorage
     const designerSig = localStorage.getItem(
       `contract-designer-signature-${contractId}`
     );
-    const hasDesignerSignature = !!designerSig;
+    const hasDesignerSignature = !!designerSig || !!designerSignature;
     const hasContent = editorContent && Object.keys(editorContent).length > 0;
 
-    // Simple rules:
-    // 1. If we have a signature, editor is always locked
-    // 2. If we're not in edit mode, editor is locked
-    const shouldLock = hasDesignerSignature || stage !== "edit";
+    // Force the editor to be unlocked in edit mode, regardless of signature status
+    let newLockState = false;
+    if (stage === "edit") {
+      newLockState = false;
+      console.log("🔓 UNLOCKING: In edit stage");
 
-    setIsLocked(shouldLock);
+      // When going to edit mode, check if we need to display the unsign button
+      if (hasDesignerSignature) {
+        console.log("🔄 In edit mode with signatures - showing unsign option");
+        // We'll allow editing but keep signature data available for the unsign modal
+      }
+    } else if (stage === "sign") {
+      // Only lock in sign stage if we have a designer signature
+      newLockState = !!designerSignature;
+      console.log(
+        "🔒 LOCK STATE (sign stage):",
+        newLockState,
+        "Designer signature:",
+        !!designerSignature
+      );
+    } else if (stage === "send") {
+      newLockState = true;
+      console.log("🔒 LOCKING: In send stage");
+    }
+
+    console.log("🔄 Lock state changing:", {
+      from: isLocked,
+      to: newLockState,
+    });
+    setIsLocked(newLockState);
     setHasSignature(hasDesignerSignature);
 
     // Save current stage to localStorage
@@ -166,6 +199,7 @@ export function ContractEditor({
 
     // Only force send stage on initial load if we have content and signature
     if (hasDesignerSignature && hasContent && !initialLoadDone.current) {
+      console.log("🚀 Auto-advancing to send stage (has content & signature)");
       const event = new CustomEvent("stageChange", { detail: "send" });
       window.dispatchEvent(event);
       initialLoadDone.current = true;
@@ -173,11 +207,40 @@ export function ContractEditor({
 
     // If no content, force edit stage
     if (!hasContent && stage !== "edit") {
+      console.log("⚠️ No content, forcing edit stage");
       const event = new CustomEvent("stageChange", { detail: "edit" });
       window.dispatchEvent(event);
       toast.error("Please create your contract before proceeding");
     }
-  }, [stage, editorContent]);
+
+    // Re-fetch signatures when changing to sign stage after unsigning
+    if (stage === "sign") {
+      console.log("🔄 Re-fetching signatures in sign stage");
+      const contractId = window.location.pathname.split("/").pop();
+      if (contractId) {
+        getSignatures(contractId)
+          .then((result) => {
+            if (result.success) {
+              if (result.signatures.designer) {
+                console.log("✅ Found designer signature in Firestore");
+                setDesignerSignature(result.signatures.designer);
+              } else {
+                console.log("⚠️ No designer signature found in Firestore");
+              }
+              if (result.signatures.client) {
+                console.log("✅ Found client signature in Firestore");
+                setClientSignature(result.signatures.client);
+              }
+            } else {
+              console.log("❌ Failed to fetch signatures:", result.error);
+            }
+          })
+          .catch((error) => {
+            console.error("❌ Error fetching signatures:", error);
+          });
+      }
+    }
+  }, [stage, editorContent, designerSignature, isLocked]);
 
   // Save content to localStorage whenever it changes
   useEffect(() => {
@@ -233,6 +296,13 @@ export function ContractEditor({
     const initializeReadOnly = async () => {
       if (!editorRef.current) return;
 
+      console.log("🔧 EDITOR LOCK STATUS CHECK:", {
+        stage,
+        isLocked,
+        hasEditor: !!editorRef.current,
+        readOnlyEnabled: editorRef.current?.readOnly?.isEnabled,
+      });
+
       try {
         // Wait for editor to be ready
         await new Promise((resolve) => {
@@ -246,25 +316,49 @@ export function ContractEditor({
         // Now safely set readOnly mode
         const editor = editorRef.current;
         if (editor && typeof editor.readOnly?.toggle === "function") {
-          if (isLocked && !editor.readOnly.isEnabled) {
-            editor.readOnly.toggle();
-          } else if (!isLocked && editor.readOnly.isEnabled) {
-            editor.readOnly.toggle();
+          // Always ensure edit mode gets an unlocked editor
+          if (stage === "edit") {
+            console.log("🔄 Edit Stage - Checking if editor needs unlocking");
+            if (editor.readOnly.isEnabled) {
+              console.log("🔓 UNLOCKING EDITOR (was locked in edit mode)");
+              editor.readOnly.toggle();
+            } else {
+              console.log("✅ Editor already unlocked in edit mode");
+            }
+          } else {
+            // For other stages, follow the lock state
+            console.log("🔄 Non-Edit Stage - Checking lock state", {
+              stage,
+              isLocked,
+              readOnlyEnabled: editor.readOnly.isEnabled,
+            });
+
+            if (isLocked && !editor.readOnly.isEnabled) {
+              console.log("🔒 LOCKING EDITOR (matched lock state)");
+              editor.readOnly.toggle();
+            } else if (!isLocked && editor.readOnly.isEnabled) {
+              console.log("🔓 UNLOCKING EDITOR (matched lock state)");
+              editor.readOnly.toggle();
+            } else {
+              console.log("✅ Editor already in correct lock state");
+            }
           }
         } else {
-          console.warn("Editor readOnly API not available");
+          console.warn("⚠️ Editor readOnly API not available");
         }
       } catch (error) {
-        console.error("Error setting editor readOnly mode:", error);
+        console.error("❌ Error setting editor readOnly mode:", error);
       }
     };
 
     initializeReadOnly();
-  }, [isLocked]);
+  }, [isLocked, stage]);
 
   // Initialize editor with change handler
   useEffect(() => {
     if (editorRef.current || !containerRef.current) return;
+
+    console.log("🔄 INITIALIZING EDITOR with locked state:", isLocked);
 
     const editor = new EditorJS({
       holder: containerRef.current,
@@ -293,12 +387,19 @@ export function ContractEditor({
         ],
       },
       onReady: () => {
+        console.log("🚀 EDITOR READY, initial lock state:", isLocked);
         // Initialize drag-drop functionality
         new DragDrop(editor);
 
         // Set initial readOnly state if needed
         if (isLocked && editor.readOnly && !editor.readOnly.isEnabled) {
+          console.log("🔒 Setting initial lock on editor");
           editor.readOnly.toggle();
+        } else {
+          console.log("✅ Initial editor state is correct:", {
+            isLocked,
+            readOnlyEnabled: editor.readOnly?.isEnabled,
+          });
         }
       },
       onChange: async (api) => {
@@ -408,6 +509,45 @@ export function ContractEditor({
     }
   }, [designerSignature, clientSignature, showSuccess]);
 
+  // Utility function to clear localStorage space
+  const clearLocalStorageSpace = (currentContractId: string) => {
+    try {
+      console.log("Clearing localStorage space...");
+
+      // Find all contract-related items
+      const keysToCheck = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes("contract-")) {
+          keysToCheck.push(key);
+        }
+      }
+
+      // Sort by priority (remove signatures first, then other contract data)
+      const keysToRemove = [
+        // First remove old signature data (not for current contract)
+        ...keysToCheck.filter(
+          (k) => k.includes("signature") && !k.includes(currentContractId)
+        ),
+        // Then remove other old contract data
+        ...keysToCheck.filter(
+          (k) => !k.includes(currentContractId) && !k.includes("signature")
+        ),
+      ];
+
+      // Remove up to 10 items
+      keysToRemove.slice(0, 10).forEach((key) => {
+        console.log(`Removing localStorage item: ${key}`);
+        localStorage.removeItem(key);
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Error clearing localStorage:", error);
+      return false;
+    }
+  };
+
   const handleUnsign = async () => {
     try {
       const contractId = window.location.pathname.split("/").pop();
@@ -416,13 +556,26 @@ export function ContractEditor({
       // Remove from localStorage
       localStorage.removeItem(`contract-designer-signature-${contractId}`);
 
+      // Clear any potential localStorage items that might be full
+      clearLocalStorageSpace(contractId);
+
       // Remove from Firestore and update contract status
       await removeSignature(contractId, "designer");
 
-      // Update local state
+      // Update local state for designer signature only
       setDesignerSignature(null);
       setHasSignature(false);
       setIsLocked(false);
+
+      // Re-fetch client signature to ensure it's still displayed if present
+      try {
+        const result = await getSignatures(contractId);
+        if (result.success && result.signatures.client) {
+          setClientSignature(result.signatures.client);
+        }
+      } catch (error) {
+        console.error("Error re-fetching client signature:", error);
+      }
 
       // Update contract status
       await updateContractStatus(contractId, {
@@ -430,9 +583,19 @@ export function ContractEditor({
         updatedAt: new Date().toISOString(),
       });
 
-      // Trigger stage change to edit
-      const event = new CustomEvent("stageChange", { detail: "edit" });
-      window.dispatchEvent(event);
+      // Force reload to ensure components are properly reset
+      // This helps ensure the signature stage and audit panels are visible again
+      setTimeout(() => {
+        // Trigger stage change to edit mode first
+        const editEvent = new CustomEvent("stageChange", { detail: "edit" });
+        window.dispatchEvent(editEvent);
+
+        // Then immediately schedule a switch to sign mode to show the signature panel
+        setTimeout(() => {
+          const signEvent = new CustomEvent("stageChange", { detail: "sign" });
+          window.dispatchEvent(signEvent);
+        }, 100);
+      }, 100);
 
       toast.success("Signature removed successfully");
     } catch (error) {
@@ -440,6 +603,35 @@ export function ContractEditor({
       toast.error("Failed to remove signature");
     }
   };
+
+  const handleUnsignConfirm = async () => {
+    try {
+      await handleUnsign();
+      setIsUnsignModalOpen(false);
+
+      // Don't need additional stage change here since handleUnsign manages that now
+    } catch (error) {
+      console.error("Error during unsign:", error);
+      toast.error("Failed to remove signature");
+    }
+  };
+
+  // Handle switching to sign stage after unsigning
+  const handleSignStageClick = () => {
+    // If already in sign stage, do nothing
+    if (stage === "sign") return;
+
+    // Just switch to sign stage without checking for signature
+    // The stage management useEffect will handle the locking state
+    const event = new CustomEvent("stageChange", { detail: "sign" });
+    window.dispatchEvent(event);
+  };
+
+  // Handle stage changes
+  useEffect(() => {
+    // No longer needed to show the unsign modal automatically
+    // This gives the user more control over when to unsign
+  }, [stage, designerSignature]); // Only depend on designer signature
 
   const handleSignatureComplete = async (signature: string, name: string) => {
     try {
@@ -452,16 +644,37 @@ export function ContractEditor({
         throw new Error("User not authenticated");
       }
 
-      // Save to localStorage with correct key
+      // Create signature data object
       const signatureData = {
         signature,
         name,
         signedAt: new Date().toISOString(),
       };
-      localStorage.setItem(
-        `contract-designer-signature-${contractId}`,
-        JSON.stringify(signatureData)
-      );
+
+      // Try to save to localStorage with error handling for quota issues
+      try {
+        localStorage.setItem(
+          `contract-designer-signature-${contractId}`,
+          JSON.stringify(signatureData)
+        );
+      } catch (storageError) {
+        console.warn("localStorage quota exceeded, clearing space...");
+
+        // Clear other items related to this contract to make space
+        if (clearLocalStorageSpace(contractId)) {
+          // Try again
+          try {
+            localStorage.setItem(
+              `contract-designer-signature-${contractId}`,
+              JSON.stringify(signatureData)
+            );
+          } catch (retryError) {
+            console.error(
+              "Still failed to save signature to localStorage after clearing space"
+            );
+          }
+        }
+      }
 
       // Save to Firestore
       const firestoreSignature = {
@@ -661,28 +874,74 @@ export function ContractEditor({
     setIsUnsignModalOpen(true);
   };
 
-  const handleUnsignConfirm = async () => {
-    try {
-      await handleUnsign();
-      setIsUnsignModalOpen(false);
+  // Handle when top buttons are clicked to navigate between stages
+  const handleEditStageClick = () => {
+    // Check if both signatures are present
+    const contractId = window.location.pathname.split("/").pop();
+    if (!contractId) return;
 
-      // Change stage to edit after successful unsign
-      const event = new CustomEvent("stageChange", { detail: "edit" });
-      window.dispatchEvent(event);
-    } catch (error) {
-      console.error("Error during unsign:", error);
-      toast.error("Failed to remove signature");
+    const hasDesignerSig = !!designerSignature;
+    const hasClientSig = !!clientSignature;
+
+    if (hasDesignerSig || hasClientSig) {
+      // If either has signed, show a warning that changes will require re-signing
+      toast.error("Editing will require re-signing the contract");
+
+      // Force clear signatures from state to ensure editor unlocks
+      setDesignerSignature(null);
+      setClientSignature(null);
+      setHasSignature(false);
     }
+
+    // Set flag to indicate this was an explicit edit button click
+    localStorage.setItem("explicit-edit-click", "true");
+
+    // Force unlock when going to edit mode
+    setIsLocked(false);
+
+    // Force unlock the editor if it exists
+    if (editorRef.current?.readOnly?.isEnabled) {
+      editorRef.current.readOnly.toggle();
+    }
+
+    const event = new CustomEvent("stageChange", { detail: "edit" });
+    window.dispatchEvent(event);
   };
 
-  // Handle stage changes
+  // Listen for global stage change events
   useEffect(() => {
-    if (stage === "edit" && designerSignature) {
-      // Check specifically for designer signature
-      setIsUnsignModalOpen(true);
-      return;
-    }
-  }, [stage, designerSignature]); // Only depend on designer signature
+    const handleStageChange = (e: CustomEvent) => {
+      console.log("🌐 EXTERNAL STAGE CHANGE EVENT", {
+        oldStage: stage,
+        newStage: e.detail,
+        isLocked,
+        hasSignature,
+      });
+
+      // Handle special case for confirmed edit
+      if (e.detail?.stage === "edit" && e.detail?.confirmed) {
+        console.log("🔓 CONFIRMED EDIT: Forcing unlock from parent component");
+
+        // Force unlock the editor explicitly
+        setIsLocked(false);
+
+        // If we have a valid editor reference, unlock it
+        if (editorRef.current && editorRef.current.readOnly?.isEnabled) {
+          editorRef.current.readOnly.toggle();
+          console.log("🔓 Editor explicitly unlocked via editor API");
+        }
+      }
+    };
+
+    window.addEventListener("stageChange", handleStageChange as EventListener);
+
+    return () => {
+      window.removeEventListener(
+        "stageChange",
+        handleStageChange as EventListener
+      );
+    };
+  }, [stage, isLocked, hasSignature]);
 
   return (
     <div className="content-wrapper relative">
@@ -774,11 +1033,7 @@ export function ContractEditor({
                       ? "bg-gray-900 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
                   }`}
-                  onClick={() => {
-                    if (stage !== "edit") {
-                      handleUnsignClick();
-                    }
-                  }}
+                  onClick={handleEditStageClick}
                 >
                   Edit
                 </button>
@@ -788,12 +1043,7 @@ export function ContractEditor({
                       ? "bg-gray-900 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
                   }`}
-                  onClick={() => {
-                    const event = new CustomEvent("stageChange", {
-                      detail: "sign",
-                    });
-                    window.dispatchEvent(event);
-                  }}
+                  onClick={handleSignStageClick}
                 >
                   Sign
                 </button>
@@ -875,7 +1125,7 @@ export function ContractEditor({
                   <div className="flex items-center gap-2">
                     <LockClosedIcon className="h-5 w-5 text-gray-600" />
                     <span className="text-sm font-medium text-gray-700">
-                      Contract locked - signed version
+                      Contract locked - go to Draft & Edit mode to make changes
                     </span>
                   </div>
                 </div>
@@ -893,7 +1143,7 @@ export function ContractEditor({
           </div>
 
           {/* Signatures Display */}
-          {hasSignature && (
+          {(hasSignature || clientSignature) && (
             <div
               className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4"
               style={{ zIndex: 99999 }}
@@ -922,7 +1172,11 @@ export function ContractEditor({
                             className="h-16 border-b border-gray-300 mt-2"
                           />
                         </>
-                      ) : null}
+                      ) : (
+                        <p className="text-gray-400 text-xs">
+                          Not currently signed
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -977,6 +1231,7 @@ export function ContractEditor({
                 onSign={(signature, name) => {
                   handleSignatureComplete(signature, name);
                 }}
+                designerSignature={designerSignature}
               />
             )}
             {stage === "send" && !showSuccess && (
