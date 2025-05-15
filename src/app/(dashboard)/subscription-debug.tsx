@@ -8,7 +8,10 @@ import { FirebaseError } from "firebase/app";
 import Cookies from "js-cookie";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { toast } from "react-hot-toast";
-import { synchronizeSubscriptionCookie } from "@/lib/utils/cookieSynchronizer";
+import {
+  synchronizeSubscriptionCookie,
+  forceUpdateSubscriptionCookie,
+} from "@/lib/utils/cookieSynchronizer";
 
 export default function SubscriptionDebug() {
   const { user, loading } = useAuth();
@@ -148,9 +151,46 @@ export default function SubscriptionDebug() {
                   return;
                 }
 
+                // Get the latest subscription status from auth claims
                 const idTokenResult = await user.getIdTokenResult(true);
-                synchronizeSubscriptionCookie(idTokenResult.claims);
-                toast.success("Cookie updated successfully");
+                const subscriptionStatus =
+                  idTokenResult.claims?.subscriptionStatus;
+
+                if (subscriptionStatus === "active") {
+                  // If active in claims, force update the cookie to match
+                  forceUpdateSubscriptionCookie("active");
+                  toast.success("Cookie updated to 'active'");
+                } else if (firestoreData?.subscription?.status === "active") {
+                  // If active in Firestore but not in claims, force cookie and fix claims
+                  forceUpdateSubscriptionCookie("active");
+                  toast.success(
+                    "Cookie updated to 'active' based on Firestore data"
+                  );
+
+                  // Recommend fixing claims too
+                  toast.success(
+                    "Please also click 'Fix Subscription' to update your auth claims",
+                    {
+                      duration: 5000,
+                    }
+                  );
+                } else {
+                  // Try to synchronize with claims first
+                  synchronizeSubscriptionCookie(idTokenResult.claims);
+
+                  // If we can't determine the status, let the user choose
+                  if (!subscriptionStatus) {
+                    const confirmForce = window.confirm(
+                      "Could not determine subscription status from claims. Force set cookie to 'active'?"
+                    );
+
+                    if (confirmForce) {
+                      forceUpdateSubscriptionCookie("active");
+                      toast.success("Cookie force-updated to 'active'");
+                    }
+                  }
+                }
+
                 setRefreshCount((prev) => prev + 1);
               } catch (error) {
                 console.error("Failed to fix cookie:", error);

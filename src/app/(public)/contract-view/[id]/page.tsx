@@ -19,6 +19,12 @@ import { XMarkIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { CheckIcon } from "@heroicons/react/20/solid";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 
+// Define a contract type with media properties
+interface ContractWithMedia extends Contract {
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+}
+
 export default function PublicContractViewPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -53,6 +59,9 @@ export default function PublicContractViewPage() {
   const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
     "/placeholder-banner.png"
   );
+  // Contract logo and banner
+  const [logoUrl, setLogoUrl] = useState<string>("/placeholder-logo.png");
+  const [bannerUrl, setBannerUrl] = useState<string>("/placeholder-banner.png");
 
   // Add scroll listener for floating button
   useEffect(() => {
@@ -115,6 +124,39 @@ export default function PublicContractViewPage() {
         // Always grant access if contract exists
         console.log("Access granted - all contracts are public");
         setContract(contractData);
+
+        // Check for logo and banner in contract data
+        const contractWithMedia = contractData as ContractWithMedia;
+
+        if (contractWithMedia.logoUrl) {
+          setLogoUrl(contractWithMedia.logoUrl);
+          // Save to localStorage for backup
+          localStorage.setItem(
+            `contract-logo-${id}`,
+            contractWithMedia.logoUrl
+          );
+        } else {
+          // Try to get from localStorage as fallback
+          const savedLogo = localStorage.getItem(`contract-logo-${id}`);
+          if (savedLogo) {
+            setLogoUrl(savedLogo);
+          }
+        }
+
+        if (contractWithMedia.bannerUrl) {
+          setBannerUrl(contractWithMedia.bannerUrl);
+          // Save to localStorage for backup
+          localStorage.setItem(
+            `contract-banner-${id}`,
+            contractWithMedia.bannerUrl
+          );
+        } else {
+          // Try to get from localStorage as fallback
+          const savedBanner = localStorage.getItem(`contract-banner-${id}`);
+          if (savedBanner) {
+            setBannerUrl(savedBanner);
+          }
+        }
 
         // Load existing signatures
         const signaturesResult = await getSignatures(id);

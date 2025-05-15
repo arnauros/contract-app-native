@@ -10,6 +10,7 @@ import {
 } from "firebase/storage";
 import { initFirebase } from "@/lib/firebase/firebase";
 import { doc, updateDoc, getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 interface ImageUploaderProps {
   type: "logo" | "banner";
@@ -83,15 +84,91 @@ export default function ImageUploader({
 
     try {
       setIsUploading(true);
+      console.log(`🖼️ Starting ${type} upload for contract ${contractId}`);
 
       // Initialize Firebase
       const { app: firebaseApp } = initFirebase();
+      const auth = getAuth(firebaseApp);
       const storage = getStorage(firebaseApp);
       const db = getFirestore(firebaseApp);
 
       // Create unique file name with timestamp for cache busting
       const timestamp = Date.now();
       const fileName = `${timestamp}-${file.name.replace(/\s+/g, "_")}`;
+
+      console.log(`📁 Created filename: ${fileName}`);
+
+      // Try using the server API route first
+      try {
+        console.log(`🔄 Attempting server-side upload via API route`);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("userId", auth.currentUser?.uid || "anonymous");
+        formData.append("type", type);
+        formData.append("contractId", contractId);
+
+        // Upload with retry logic
+        const uploadResult = await uploadWithServerRetry(
+          "/api/upload",
+          formData
+        );
+
+        if (uploadResult.success && uploadResult.url) {
+          console.log(`✅ Server upload successful: ${uploadResult.url}`);
+
+          // Update Firestore with the image URL
+          console.log(
+            `📝 Updating Firestore document for contract ${contractId}`
+          );
+          const contractRef = doc(db, "contracts", contractId);
+
+          try {
+            const fieldToUpdate = type === "logo" ? "logoUrl" : "bannerUrl";
+            await updateDoc(contractRef, {
+              [fieldToUpdate]: uploadResult.url,
+            });
+            console.log(
+              `✅ Firestore update successful for field: ${fieldToUpdate}`
+            );
+          } catch (firestoreError) {
+            console.error(`❌ Firestore update failed:`, firestoreError);
+            // Still continue with local updates even if Firestore fails
+            toast.error(
+              `Warning: Image uploaded but database update failed. Try refreshing the page.`
+            );
+          }
+
+          // Update local state
+          onImageChange(uploadResult.url);
+          console.log(`🔄 Local state updated with new image URL`);
+
+          // Save to localStorage for backup
+          localStorage.setItem(
+            `contract-${type}-${contractId}`,
+            uploadResult.url
+          );
+          console.log(`💾 Image URL saved to localStorage`);
+
+          toast.success(
+            `${type === "logo" ? "Logo" : "Banner"} uploaded successfully`
+          );
+          setIsUploading(false);
+          return;
+        }
+
+        console.warn(
+          `⚠️ Server upload failed, falling back to direct upload:`,
+          uploadResult.error
+        );
+      } catch (apiError) {
+        console.warn(
+          `⚠️ Server API upload failed, falling back to direct upload:`,
+          apiError
+        );
+      }
+
+      // Fallback to direct upload
+      console.log(`🔄 Starting direct upload to Firebase Storage`);
 
       // Create reference to the file location
       const fileRef = ref(
@@ -117,8 +194,9 @@ export default function ImageUploader({
       let snapshot;
       try {
         snapshot = await uploadWithRetry(fileRef, uint8Array, metadata);
+        console.log(`✅ Upload to Firebase Storage successful`);
       } catch (uploadError) {
-        console.error("Upload failed after retries:", uploadError);
+        console.error("❌ Upload failed after retries:", uploadError);
         throw uploadError;
       }
 
@@ -127,27 +205,105 @@ export default function ImageUploader({
       // Add cache busting query parameter
       downloadURL = `${downloadURL}?t=${timestamp}`;
 
+      console.log(`🔗 Generated download URL: ${downloadURL}`);
+
       // Update Firestore with the image URL
+      console.log(`📝 Updating Firestore document for contract ${contractId}`);
       const contractRef = doc(db, "contracts", contractId);
-      await updateDoc(contractRef, {
-        [type === "logo" ? "logoUrl" : "bannerUrl"]: downloadURL,
-      });
+
+      try {
+        const fieldToUpdate = type === "logo" ? "logoUrl" : "bannerUrl";
+        await updateDoc(contractRef, {
+          [fieldToUpdate]: downloadURL,
+        });
+        console.log(
+          `✅ Firestore update successful for field: ${fieldToUpdate}`
+        );
+      } catch (firestoreError) {
+        console.error(`❌ Firestore update failed:`, firestoreError);
+        // Still continue with local updates even if Firestore fails
+        toast.error(
+          `Warning: Image uploaded but database update failed. Try refreshing the page.`
+        );
+      }
 
       // Update local state
       onImageChange(downloadURL);
+      console.log(`🔄 Local state updated with new image URL`);
 
       // Save to localStorage for backup
       localStorage.setItem(`contract-${type}-${contractId}`, downloadURL);
+      console.log(`💾 Image URL saved to localStorage`);
 
       toast.success(
         `${type === "logo" ? "Logo" : "Banner"} uploaded successfully`
       );
     } catch (error) {
-      console.error(`Error uploading ${type}:`, error);
+      console.error(`❌ Error uploading ${type}:`, error);
       toast.error(`Failed to upload ${type === "logo" ? "logo" : "banner"}`);
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Helper function to retry server uploads with exponential backoff
+  const uploadWithServerRetry = async (
+    url: string,
+    formData: FormData,
+    maxRetries = 3
+  ) => {
+    let attempt = 0;
+    let lastError;
+
+    while (attempt < maxRetries) {
+      try {
+        console.log(`Server upload attempt ${attempt + 1} for ${type}`);
+
+        const response = await fetch(url, {
+          method: "POST",
+          body: formData,
+        });
+
+        const responseData = await response.json();
+
+        // Check if it's a mock response from development mode
+        if (responseData.mock) {
+          console.log("Received mock response from server:", responseData);
+          return responseData;
+        }
+
+        if (!response.ok) {
+          // Even with a non-200 status, we might have JSON with error details
+          throw new Error(
+            `Server responded with ${response.status}: ${
+              responseData.error || "Unknown error"
+            }`
+          );
+        }
+
+        return responseData;
+      } catch (error) {
+        attempt++;
+        lastError = error;
+        console.warn(`Server upload attempt ${attempt} failed:`, error);
+
+        if (attempt >= maxRetries) {
+          console.error("Maximum server upload retries reached");
+          break;
+        }
+
+        // Wait with exponential backoff before retrying
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`Waiting ${delay}ms before retry`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    return {
+      success: false,
+      error: lastError instanceof Error ? lastError.message : String(lastError),
+      fallback: true,
+    };
   };
 
   // Helper function to retry uploads with exponential backoff

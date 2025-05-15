@@ -11,6 +11,7 @@ import { SocialProof } from "@/components/solar/SocialProof";
 import { CallToAction } from "@/components/solar/CallToAction";
 import VerticalLines from "@/components/solar/VerticalLines";
 import BentoFeatures from "@/components/solar/BentoFeatures";
+import PricingSection from "@/components/PricingSection";
 
 export default function LandingPage() {
   const [debugInfo, setDebugInfo] = useState({
@@ -59,6 +60,10 @@ export default function LandingPage() {
       <div className="mt-16 mb-24 px-6 xl:px-0">
         <SocialProof />
       </div>
+
+      {/* Pricing Section */}
+      <PricingSection />
+
       <div className="mt-16 mb-32 px-6 xl:px-0">
         <CallToAction />
       </div>
@@ -70,12 +75,6 @@ export default function LandingPage() {
         >
           Sign in
         </a>
-        <Link
-          href="/pricing"
-          className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-        >
-          View Pricing
-        </Link>
         <Link
           href="/test-flow"
           className="px-4 py-2 text-sm font-medium text-orange-600 bg-white border border-orange-600 rounded-md hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"

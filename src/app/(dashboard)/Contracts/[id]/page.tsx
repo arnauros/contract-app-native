@@ -716,11 +716,8 @@ export default function ContractPage() {
   // Stage change event listener
   useEffect(() => {
     const handleStageChangeEvent = (e: CustomEvent) => {
-      console.log("🎭 Stage change event received:", e.detail);
-
       // Handle confirmed edit case
       if (e.detail?.stage === "edit" && e.detail?.confirmed) {
-        console.log("✅ Processing confirmed edit");
         setCurrentStage("edit");
         localStorage.setItem(`contract-stage-${id}`, "edit");
         return;
@@ -729,7 +726,6 @@ export default function ContractPage() {
       // Handle normal stage changes
       if (typeof e.detail === "string") {
         const newStage = e.detail as Stage;
-        console.log("🔄 Setting stage to:", newStage);
         setCurrentStage(newStage);
         localStorage.setItem(`contract-stage-${id}`, newStage);
       }
@@ -763,12 +759,11 @@ export default function ContractPage() {
       // Only enforce sign stage if we're trying to go to edit with signatures
       // AND it wasn't from an explicit edit button click
       if (hasSignatures && currentStage === "edit" && !editButtonClicked) {
-        console.log("🔒 Found signatures - enforcing sign stage");
-        setCurrentStage("sign");
-        localStorage.setItem(`contract-stage-${id}`, "sign");
+        // Don't automatically redirect to sign stage anymore
+        // This allows editing even with signatures present
+        console.log("📝 Signatures present, but allowing edit mode");
       } else if (editButtonClicked && currentStage === "edit") {
         // If it was an explicit edit click, we clear the flag and allow editing
-        console.log("🔓 Allowing edit mode due to explicit button click");
 
         // Update UI to show contract can now be edited
         // This is important when both designer and client have signed

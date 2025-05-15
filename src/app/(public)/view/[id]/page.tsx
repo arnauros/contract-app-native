@@ -312,10 +312,32 @@ export default function ViewPage() {
 
         if (contractWithMedia.logoUrl) {
           setLogoUrl(contractWithMedia.logoUrl);
+          // Also save to localStorage for backup
+          localStorage.setItem(
+            `contract-logo-${id}`,
+            contractWithMedia.logoUrl
+          );
+        } else {
+          // Try to get from localStorage as fallback
+          const savedLogo = localStorage.getItem(`contract-logo-${id}`);
+          if (savedLogo) {
+            setLogoUrl(savedLogo);
+          }
         }
 
         if (contractWithMedia.bannerUrl) {
           setBannerUrl(contractWithMedia.bannerUrl);
+          // Also save to localStorage for backup
+          localStorage.setItem(
+            `contract-banner-${id}`,
+            contractWithMedia.bannerUrl
+          );
+        } else {
+          // Try to get from localStorage as fallback
+          const savedBanner = localStorage.getItem(`contract-banner-${id}`);
+          if (savedBanner) {
+            setBannerUrl(savedBanner);
+          }
         }
 
         // Check if user is the owner/designer of the contract (for tracking only)

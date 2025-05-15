@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import SignaturePad from "react-signature-canvas";
 import { CheckIcon, ArrowPathIcon } from "@heroicons/react/20/solid";
+import { toast } from "react-hot-toast";
+import { removeSignature } from "@/lib/firebase/firestore";
 
 export interface SigningStageProps {
   onSign: (signature: string, name: string) => void;
@@ -11,6 +13,7 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
   const [name, setName] = useState("");
   const [isValid, setIsValid] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const signaturePadRef = useRef<any>(null);
 
   // Check for existing signature - from both props and localStorage
@@ -71,23 +74,44 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
 
   // Reset and try again
   const handleReset = async () => {
-    // Clear localStorage signature
-    const contractId = window.location.pathname.split("/").pop();
-    if (contractId) {
-      localStorage.removeItem(`contract-designer-signature-${contractId}`);
-    }
+    try {
+      setIsRemoving(true);
 
-    // Reset state
-    setIsSigned(false);
-    setName("");
-    setIsValid(false);
-
-    // Small delay to ensure DOM updates
-    setTimeout(() => {
-      if (signaturePadRef.current) {
-        signaturePadRef.current.clear();
+      // Get contract ID
+      const contractId = window.location.pathname.split("/").pop();
+      if (!contractId) {
+        throw new Error("Contract ID not found");
       }
-    }, 100);
+
+      // Remove from Firestore
+      await removeSignature(contractId, "designer");
+
+      // Clear localStorage signature
+      localStorage.removeItem(`contract-designer-signature-${contractId}`);
+
+      // Reset state
+      setIsSigned(false);
+      setName("");
+      setIsValid(false);
+
+      // Small delay to ensure DOM updates
+      setTimeout(() => {
+        if (signaturePadRef.current) {
+          signaturePadRef.current.clear();
+        }
+      }, 100);
+
+      // Force reload the current stage to refresh the UI
+      const event = new CustomEvent("stageChange", { detail: "sign" });
+      window.dispatchEvent(event);
+
+      toast.success("Signature removed successfully");
+    } catch (error) {
+      console.error("Error removing signature:", error);
+      toast.error("Failed to remove signature");
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   // Render signed state
@@ -110,10 +134,23 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
 
           <button
             onClick={handleReset}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            disabled={isRemoving}
+            className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
+              isRemoving
+                ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                : "text-gray-700 bg-white hover:bg-gray-50"
+            }`}
           >
-            <ArrowPathIcon className="h-4 w-4 mr-1" /> Reset Signature
+            <ArrowPathIcon className="h-4 w-4 mr-1" />
+            {isRemoving ? "Removing..." : "Remove Signature"}
           </button>
+
+          <div className="mt-4 text-sm text-gray-500">
+            <p>
+              To edit the contract, first remove your signature or go to the
+              Edit tab.
+            </p>
+          </div>
         </div>
       </div>
     );
