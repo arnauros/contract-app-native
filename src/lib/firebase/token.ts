@@ -48,23 +48,39 @@ export const validateContractToken = async (
   const contract = contractSnap.data() as Contract;
   const now = new Date();
 
+  // For tracking purposes, we still check if the token is valid,
+  // but we'll consider all contracts valid for access purposes
+
   // Check view token
   if (contract.viewToken?.value === token) {
-    if (new Date(contract.viewToken.expiresAt) < now) {
-      throw ContractAccessError.TOKEN_EXPIRED;
+    const isExpired = new Date(contract.viewToken.expiresAt) < now;
+    // We log but don't throw if expired
+    if (isExpired) {
+      console.log(
+        "View token is expired, but continuing as contracts are public"
+      );
     }
-    return { isValid: true, isPreview: false, contract };
+    return { isValid: !isExpired, isPreview: false, contract };
   }
 
   // Check preview token
   if (contract.previewToken?.value === token) {
-    if (new Date(contract.previewToken.expiresAt) < now) {
-      throw ContractAccessError.TOKEN_EXPIRED;
+    const isExpired = new Date(contract.previewToken.expiresAt) < now;
+    // We log but don't throw if expired
+    if (isExpired) {
+      console.log(
+        "Preview token is expired, but continuing as contracts are public"
+      );
     }
-    return { isValid: true, isPreview: true, contract };
+    return { isValid: !isExpired, isPreview: true, contract };
   }
 
-  throw ContractAccessError.TOKEN_INVALID;
+  // If token doesn't match, we still return the contract but mark as invalid
+  // This is a change from the previous behavior where we would throw an error
+  console.log(
+    "Token doesn't match any known tokens, but continuing as contracts are public"
+  );
+  return { isValid: false, isPreview: false, contract };
 };
 
 export const trackView = async (
@@ -145,18 +161,26 @@ export const generatePreviewToken = async (
 export const handleAccessError = (error: ContractAccessErrorType) => {
   switch (error) {
     case ContractAccessError.TOKEN_EXPIRED:
-      toast.error("This link has expired. Please request a new one.");
+      // No longer blocking access, just informational
+      toast(
+        "The access token has expired, but you still have access to the contract."
+      );
       break;
     case ContractAccessError.TOKEN_INVALID:
-      toast.error("Invalid access token.");
+      // No longer blocking access, just informational
+      toast(
+        "The access token is invalid, but you still have access to the contract."
+      );
       break;
     case ContractAccessError.RATE_LIMIT_EXCEEDED:
-      toast.error("Too many views. Please try again later.");
+      // This should rarely be shown since we're not enforcing rate limits
+      toast("High traffic detected. Performance may be affected.");
       break;
     case ContractAccessError.CONTRACT_NOT_FOUND:
-      toast.error("Contract not found.");
+      // This is still a valid error - the contract must exist
+      toast.error("Contract not found. Please check the URL and try again.");
       break;
     default:
-      toast.error("Access denied. Please contact support.");
+      toast.error("An unexpected error occurred. Please try again later.");
   }
 };

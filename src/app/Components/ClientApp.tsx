@@ -7,6 +7,14 @@ import ClientLayout from "@/app/Components/ClientLayout";
 import { Suspense, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
+// Routes that are exempt from subscription protection
+// This list should match what's defined in middleware.ts
+const UNPROTECTED_ROUTES = [
+  "/dashboard/subscription-debug",
+  "/settings",
+  "/profile",
+];
+
 // Global variable to prevent multiple ClientApp instances
 let CLIENT_APP_MOUNTED = false;
 
@@ -66,11 +74,11 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
   // Check just once on component mount
   const isSubscriptionProtectedRoute = useRef(
     pathname &&
-      (pathname.includes("/dashboard") ||
-        pathname.startsWith("/Contracts/") ||
-        pathname === "/profile" ||
-        pathname === "/new" ||
-        pathname === "/store")
+      !UNPROTECTED_ROUTES.some(
+        (route) =>
+          pathname === route ||
+          (route.endsWith("/") && pathname.startsWith(route))
+      )
   ).current;
 
   // Log whether this route requires subscription - only log once

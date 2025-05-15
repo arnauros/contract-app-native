@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { app, db } from "@/lib/firebase/firebase";
 import DashboardStats from "@/app/Components/DashboardStats";
@@ -20,6 +20,7 @@ import {
   getDoc,
   onSnapshot,
   where,
+  updateDoc,
 } from "firebase/firestore";
 import {
   FiFileText,
@@ -29,6 +30,8 @@ import {
   FiEye,
   FiEdit3,
   FiTrash2,
+  FiExternalLink,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { IconType } from "react-icons";
 import { Line } from "react-chartjs-2";
@@ -47,6 +50,16 @@ import { SubscriptionStatus } from "@/components/SubscriptionStatus";
 import Link from "next/link";
 import { UserSubscription } from "@/lib/stripe/config";
 import DebugClaims from "@/app/Components/DebugClaims";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { handleMockSubscriptionChange } from "@/lib/test-helpers";
+import { getAuth } from "firebase/auth";
 
 ChartJS.register(
   CategoryScale,
@@ -111,6 +124,258 @@ const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => {
   );
 };
 
+// Mock Stripe Portal Component for development
+function MockStripePortal() {
+  const [open, setOpen] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const searchParams = useSearchParams();
+  const userId = searchParams?.get("userId") || "unknown";
+  const error = searchParams?.get("error");
+  const { user } = useAuth();
+  // Import showToast from utils
+  const { showToast } = require("@/lib/utils");
+
+  // Close dialog and go back to dashboard
+  const handleClose = () => {
+    setOpen(false);
+    // Navigate to dashboard without the mockStripePortal parameter
+    window.history.pushState({}, "", "/dashboard");
+  };
+
+  // Mock cancellation of subscription
+  const handleCancelSubscription = async () => {
+    if (!userId) {
+      showToast.error("User ID not found");
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      // Use the utility function to update subscription status
+      const success = await handleMockSubscriptionChange(userId, "canceled");
+
+      if (success) {
+        showToast.success("Subscription cancelled successfully");
+
+        // If we have a user object, force a token refresh to update claims
+        if (user) {
+          try {
+            await user.getIdToken(true);
+            console.log("User token refreshed after cancellation");
+          } catch (refreshError) {
+            console.error("Error refreshing token:", refreshError);
+          }
+        }
+
+        // Close the dialog and redirect to dashboard after a short delay
+        setTimeout(() => {
+          window.location.href = "/dashboard?subscription=canceled";
+        }, 1500);
+      } else {
+        throw new Error("Failed to update subscription status");
+      }
+    } catch (error) {
+      console.error("Error canceling subscription:", error);
+      showToast.error("Failed to cancel subscription");
+      setTimeout(() => {
+        handleClose();
+      }, 1500);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Mock upgrading subscription to yearly
+  const handleUpgradeSubscription = async () => {
+    if (!userId) {
+      showToast.error("User ID not found");
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      // Use the utility function to update subscription status
+      const success = await handleMockSubscriptionChange(userId, "active");
+
+      if (success) {
+        showToast.success("Subscription upgraded to yearly plan");
+
+        // If we have a user object, force a token refresh to update claims
+        if (user) {
+          try {
+            await user.getIdToken(true);
+            console.log("User token refreshed after upgrade");
+          } catch (refreshError) {
+            console.error("Error refreshing token:", refreshError);
+          }
+        }
+
+        // Close the dialog and redirect to dashboard after a short delay
+        setTimeout(() => {
+          window.location.href = "/dashboard?subscription=upgraded";
+        }, 1500);
+      } else {
+        throw new Error("Failed to update subscription status");
+      }
+    } catch (error) {
+      console.error("Error upgrading subscription:", error);
+      showToast.error("Failed to upgrade subscription");
+      setTimeout(() => {
+        handleClose();
+      }, 1500);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Mock updating payment method
+  const handleUpdatePayment = () => {
+    showToast.success("Payment method updated in mock portal");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogTitle className="flex items-center">
+          <svg
+            className="h-10 mr-2"
+            viewBox="0 0 60 25"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5 10.1c0-1.6 1.3-2.2 3.4-2.2 2.8 0 6.3.9 9.1 2.4V3.1c-3-.8-6.4-1.4-9.5-1.4C2.6 1.7 0 4.5 0 10.3c0 9 12.6 7.6 12.6 11.6 0 1.5-1.3 2-3.8 2-3.3 0-7.5-1.4-10.7-3.2v7.2c3.5 1.3 7.8 1.9 10.7 1.9 5.5 0 9.1-2.7 9.1-8.2-.1-9.3-12.9-7.7-12.9-11.5zM37.1 5h-7.4l-.1 22.9h7.5V5zM60 13.8c0-5.6-2.7-9.1-8.9-9.1-2.9 0-4.9.7-6.9 2.3l-.5-1.9h-6.7v30.8l7.5-1.6v-7c1.4.5 3.2.9 4.9.9 5.3 0 10.6-3.1 10.6-14.4zm-14.1 6.5v-9.3c.9-.8 2.1-1 3.4-1 2.7 0 3.3 2 3.3 5v5.5c0 2.9-.6 4.7-3.3 4.7-1.3.1-2.5-.3-3.4-4.9zm-22.1-20.6c2.4 0 4.4-2 4.4-4.4 0-2.4-2-4.4-4.4-4.4-2.4 0-4.4 2-4.4 4.4 0 2.4 2 4.4 4.4 4.4z"
+              fill="#6460e8"
+              fillRule="evenodd"
+            />
+          </svg>
+          Mock Customer Portal
+        </DialogTitle>
+        <DialogDescription>
+          This is a mock Stripe Customer Portal for development purposes only.
+          {error && (
+            <div className="mt-2 p-2 bg-yellow-50 rounded text-sm text-yellow-700">
+              Note: This mock portal is shown because of an error: {error}
+            </div>
+          )}
+        </DialogDescription>
+
+        <div className="py-4">
+          <div className="bg-gray-50 p-4 rounded-md mb-4">
+            <h3 className="font-medium text-gray-900">Subscription Details</h3>
+            <div className="mt-2 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Status:</span>
+                <span className="font-medium text-green-600">Active</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Plan:</span>
+                <span>Monthly Subscription</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Price:</span>
+                <span>$9.99 / month</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Next billing date:</span>
+                <span>Jan 1, 2025</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Customer ID:</span>
+                <span className="font-mono text-xs">{userId}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-md mb-4">
+            <h3 className="font-medium text-gray-900">Available Plans</h3>
+            <div className="mt-2 space-y-4">
+              <div className="border rounded-md p-3 bg-white flex justify-between items-center">
+                <div>
+                  <p className="font-medium">Yearly Plan (Save 20%)</p>
+                  <p className="text-gray-500 text-sm">$99.00 / year</p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="border-blue-500 text-blue-600"
+                  onClick={handleUpgradeSubscription}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? "Processing..." : "Upgrade"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-md">
+              <h3 className="font-medium text-gray-900 mb-2">
+                Cancel Subscription
+              </h3>
+              <p className="text-sm text-gray-500 mb-3">
+                You will lose access to premium features when your current
+                billing period ends.
+              </p>
+              <Button
+                variant="outline"
+                className="border-red-500 text-red-600 w-full"
+                onClick={handleCancelSubscription}
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Processing..." : "Cancel Subscription"}
+              </Button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-md">
+              <h3 className="font-medium text-gray-900 mb-2">
+                Update Payment Method
+              </h3>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleUpdatePayment}
+                disabled={isProcessing}
+              >
+                Update Payment Method
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isProcessing}
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Add conditional logging to prevent duplicate logs in development
+const logDebug = (...args: any[]) => {
+  // Use a timestamp-based deduplication to avoid double logs in React StrictMode
+  const logKey = JSON.stringify(args);
+  if (!window._logCache) {
+    window._logCache = {};
+  }
+  const now = Date.now();
+  if (!window._logCache[logKey] || now - window._logCache[logKey] > 1000) {
+    window._logCache[logKey] = now;
+    console.log(...args);
+  }
+};
+
+// Add this to the window interface
+declare global {
+  interface Window {
+    _logCache?: Record<string, number>;
+  }
+}
+
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -142,31 +407,31 @@ export default function Dashboard() {
 
   // Simplified auth check and data loading
   useEffect(() => {
-    // Debug output
-    console.log("Dashboard auth state:", { user: !!user, loading });
+    // Debug output - use logDebug instead of console.log
+    logDebug("Dashboard auth state:", { user: !!user, loading });
 
     // If not logged in and not loading, redirect to login
     if (!user && !loading) {
-      console.log("User not authenticated, redirecting to login");
+      logDebug("User not authenticated, redirecting to login");
       router.push("/login");
     }
 
     // If authenticated, load data
     if (user && !loading) {
-      console.log("User authenticated, fetching data");
+      logDebug("User authenticated, fetching data");
       fetchContractData();
     }
   }, [user, loading]);
 
   const fetchContractData = async () => {
     if (!user || !db) {
-      console.log("No user or db:", { user, db });
+      logDebug("No user or db:", { user, db });
       setIsLoading(false);
       return;
     }
 
     try {
-      console.log("Fetching contracts for user:", user.uid);
+      logDebug("Fetching contracts for user:", user.uid);
       const firestore = db as unknown as Firestore;
       const contractsRef = collection(firestore, "contracts");
 
@@ -178,7 +443,7 @@ export default function Dashboard() {
       );
 
       const querySnapshot = await getDocs(userContracts);
-      console.log("Found contracts:", querySnapshot.size);
+      logDebug("Found contracts:", querySnapshot.size);
 
       let stats = {
         total: 0,
@@ -194,7 +459,7 @@ export default function Dashboard() {
       for (const docSnapshot of querySnapshot.docs) {
         try {
           const data = docSnapshot.data();
-          console.log("Contract data:", { id: docSnapshot.id, ...data });
+          logDebug("Contract data:", { id: docSnapshot.id, ...data });
 
           // Only include contracts for the current user (redundant with where clause but kept for safety)
           if (data.userId === user.uid) {
@@ -223,7 +488,7 @@ export default function Dashboard() {
                 getDoc(clientSignatureRef),
               ]);
             } catch (signatureError) {
-              console.error("Error fetching signatures:", signatureError);
+              logDebug("Error fetching signatures:", signatureError);
               designerSignature = { exists: () => false };
               clientSignature = { exists: () => false };
             }
@@ -260,12 +525,12 @@ export default function Dashboard() {
             activityMap.set(date, (activityMap.get(date) || 0) + 1);
           }
         } catch (contractError) {
-          console.error("Error processing contract:", contractError);
+          logDebug("Error processing contract:", contractError);
           // Continue processing other contracts
         }
       }
 
-      console.log("Processed contracts:", {
+      logDebug("Processed contracts:", {
         total: contractsList.length,
         stats,
       });
@@ -306,20 +571,20 @@ export default function Dashboard() {
               setSubscription(subscriptionData);
             } else {
               // No subscription found - don't create a fake active one
-              console.log("No active subscription found for user:", user.uid);
+              logDebug("No active subscription found for user:", user.uid);
               setSubscription(null);
             }
           };
 
           fetchSubscription();
         } catch (subscriptionError) {
-          console.error("Error fetching subscription:", subscriptionError);
+          logDebug("Error fetching subscription:", subscriptionError);
           // Don't set a default subscription as fallback
           setSubscription(null);
         }
       }
     } catch (error) {
-      console.error("Error fetching contract data:", error);
+      logDebug("Error fetching contract data:", error);
       toast.error("Failed to load contracts. Please try again later.");
       setIsLoading(false);
       // Set default values to ensure UI doesn't break
@@ -432,9 +697,82 @@ export default function Dashboard() {
   }
 
   const hasActiveSubscription = subscription?.status === "active";
+  const isCanceledSubscription = subscription?.status === "canceled";
+
+  // Fix the searchParams null issue
+  const searchParams = useSearchParams();
+  const showMockPortal = searchParams?.get("mockStripePortal") === "true";
+  const subscriptionCanceled = searchParams?.get("subscription") === "canceled";
+  const subscriptionUpgraded = searchParams?.get("subscription") === "upgraded";
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Developer note about StrictMode */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="mb-4 px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded-md">
+          <p className="font-medium">Dev Note: Double logging in development</p>
+          <p>
+            This is caused by React's StrictMode which mounts components twice
+            to catch bugs.
+          </p>
+        </div>
+      )}
+
+      {/* Subscription status notification */}
+      {subscriptionCanceled && (
+        <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiAlertCircle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="font-medium">Your subscription has been canceled</p>
+              <p className="text-sm">
+                You will lose access when your current billing period ends.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription upgraded notification */}
+      {subscriptionUpgraded && (
+        <div className="mb-4 p-4 bg-green-50 border-l-4 border-green-400 text-green-700">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiCheck className="h-5 w-5 text-green-400" />
+            </div>
+            <div className="ml-3">
+              <p className="font-medium">
+                Your subscription has been upgraded to yearly
+              </p>
+              <p className="text-sm">Thank you for your support!</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Canceled subscription warning */}
+      {isCanceledSubscription && !subscriptionCanceled && (
+        <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiAlertCircle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="font-medium">Your subscription has been canceled</p>
+              <p className="text-sm">
+                Access will end on{" "}
+                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}.
+                <Link href="/pricing" className="ml-1 underline">
+                  Renew your subscription
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex gap-4">
@@ -744,7 +1082,76 @@ export default function Dashboard() {
           buttons below to reset your authentication claims.
         </p>
         <DebugClaims />
+
+        {/* Add subscription debug link */}
+        <div className="mt-4 pt-4 border-t border-orange-200">
+          <p className="mb-2 text-orange-700">
+            To verify your subscription status and cancellation:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/subscription-debug"
+              className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded"
+            >
+              <span className="mr-2">View Subscription Debug</span>
+              <FiExternalLink size={14} />
+            </Link>
+
+            <button
+              onClick={async () => {
+                try {
+                  const loadingToast = toast.loading(
+                    "Refreshing subscription..."
+                  );
+                  // Force a Firebase token refresh
+                  const auth = getAuth();
+                  if (auth.currentUser) {
+                    await auth.currentUser.getIdToken(true);
+
+                    // Call the reset-claims API
+                    const response = await fetch("/api/debug/reset-claims", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ userId: auth.currentUser.uid }),
+                    });
+
+                    if (response.ok) {
+                      // Get a fresh token with new claims
+                      await auth.currentUser.getIdToken(true);
+                      toast.dismiss(loadingToast);
+                      toast.success(
+                        "Subscription refreshed! Page will reload."
+                      );
+
+                      // Reload after a short delay
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 1500);
+                    } else {
+                      toast.dismiss(loadingToast);
+                      toast.error("Failed to refresh subscription");
+                    }
+                  }
+                } catch (error) {
+                  toast.error("Error refreshing subscription");
+                  console.error(error);
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
+            >
+              <span className="mr-2">Fix Subscription</span>
+              <FiRefreshCw size={14} />
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Show the mock Stripe portal when the URL parameter is present */}
+      {process.env.NODE_ENV === "development" && showMockPortal && (
+        <MockStripePortal />
+      )}
     </div>
   );
 }

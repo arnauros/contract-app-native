@@ -72,7 +72,7 @@ export function SendStage({ onSend, title }: SendStageProps) {
       const viewToken = uuidv4();
 
       // Construct the view URL with the token
-      const viewUrl = `${window.location.origin}/view/${contractId}?token=${viewToken}`;
+      const viewUrl = `${window.location.origin}/contract-view/${contractId}?token=${viewToken}`;
 
       // First update contract status in Firestore to ensure token is saved
       await updateDoc(doc(db, "contracts", contractId), {
@@ -154,8 +154,11 @@ export function SendStage({ onSend, title }: SendStageProps) {
       // Store it temporarily in localStorage for preview purposes
       localStorage.setItem(`preview-token-${contractId}`, previewToken);
 
-      // Open in new tab with the token
-      window.open(`/view/${contractId}?token=${previewToken}`, "_blank");
+      // Open in new tab with the token - UPDATED to use contract-view route which is more stable
+      window.open(
+        `/contract-view/${contractId}?token=${previewToken}`,
+        "_blank"
+      );
     } catch (error) {
       console.error("Error generating preview:", error);
       toast.error("Failed to generate preview. Please try again.");

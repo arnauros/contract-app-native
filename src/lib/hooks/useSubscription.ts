@@ -403,6 +403,7 @@ export function useSubscription() {
       setError(null);
       const loadingToast = toast.loading("Preparing customer portal...");
 
+      // In Next.js App Router, route.ts is handled automatically
       const response = await fetch("/api/stripe/create-portal", {
         method: "POST",
         headers: {
@@ -419,6 +420,24 @@ export function useSubscription() {
         const errorData = await response
           .json()
           .catch(() => ({ error: "Failed to parse error response" }));
+
+        // Check for specific Stripe configuration error
+        if (errorData.error && errorData.error.includes("configuration")) {
+          toast.error(
+            "Stripe customer portal not configured in test mode. Please check Stripe dashboard."
+          );
+          console.error("Stripe Portal Error:", errorData.error);
+
+          // Show more helpful message for developers
+          if (process.env.NODE_ENV === "development") {
+            toast.error(
+              "Developer: Configure portal at https://dashboard.stripe.com/test/settings/billing/portal"
+            );
+          }
+
+          return false;
+        }
+
         throw new Error(errorData.error || `API error: ${response.status}`);
       }
 
@@ -432,6 +451,80 @@ export function useSubscription() {
     } catch (err) {
       const appError = errorHandler.handle(err, "openCustomerPortal");
       setError(appError.message);
+      throw err; // Rethrow to allow handling in the component
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Add a function to synchronize subscription status
+  const synchronizeSubscription = useCallback(async () => {
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const loadingToast = toast.loading(
+        "Synchronizing subscription status..."
+      );
+
+      // Step 1: Call verify-subscription endpoint
+      const verifyResponse = await fetch("/api/stripe/verify-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+
+      if (!verifyResponse.ok) {
+        toast.dismiss(loadingToast);
+        const errorData = await verifyResponse
+          .json()
+          .catch(() => ({ error: "Failed to verify subscription" }));
+        throw new Error(
+          errorData.error || `API error: ${verifyResponse.status}`
+        );
+      }
+
+      // Step 2: Reset claims via the reset-claims endpoint
+      const resetResponse = await fetch("/api/debug/reset-claims", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+
+      if (!resetResponse.ok) {
+        toast.dismiss(loadingToast);
+        const errorData = await resetResponse
+          .json()
+          .catch(() => ({ error: "Failed to reset claims" }));
+        throw new Error(
+          errorData.error || `API error: ${resetResponse.status}`
+        );
+      }
+
+      // Step 3: Force refresh the token
+      await user.getIdToken(true);
+
+      toast.dismiss(loadingToast);
+      toast.success("Subscription synchronized successfully");
+
+      // Reload the page to apply changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+      return true;
+    } catch (err) {
+      const appError = errorHandler.handle(err, "synchronizeSubscription");
+      setError(appError.message);
+      toast.error(appError.message || "Failed to synchronize subscription");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -443,5 +536,6 @@ export function useSubscription() {
     error: error || subscriptionStatus.error,
     createCheckoutSession,
     openCustomerPortal,
+    synchronizeSubscription,
   };
 }

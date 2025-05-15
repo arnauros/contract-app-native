@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Topbar from "@/app/(dashboard)/topbar";
 import Sidebar from "@/app/(dashboard)/sidebar";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { FirebaseError } from "firebase/app";
 
@@ -12,6 +12,7 @@ declare global {
   interface Window {
     __RENDERED_PATHS?: Map<string, boolean>;
     __PRICING_IN_CLIENT_LAYOUT?: boolean;
+    __LAST_ERROR_TIME?: Record<string, number>;
   }
 }
 
@@ -26,6 +27,7 @@ export default function ClientLayout({
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const isLandingPage =
     pathname === "/" || pathname === "/pricing" || pathname === "/about";
+  const [errorDebounce] = useState<Map<string, number>>(new Map());
 
   // Special handler for pricing page to prevent double rendering
   const isPricingPage = pathname === "/pricing";
@@ -76,6 +78,27 @@ export default function ClientLayout({
     };
   }, [pathname, isPricingPage]);
 
+  // Utility function to check if we should show an error toast
+  const shouldShowErrorToast = (errorCode: string): boolean => {
+    // Initialize error time tracking
+    if (typeof window !== "undefined" && !window.__LAST_ERROR_TIME) {
+      window.__LAST_ERROR_TIME = {};
+    }
+
+    const now = Date.now();
+    const lastErrorTime = window.__LAST_ERROR_TIME?.[errorCode] || 0;
+
+    // Only show error if it hasn't been shown in the last 5 seconds
+    if (now - lastErrorTime > 5000) {
+      if (window.__LAST_ERROR_TIME) {
+        window.__LAST_ERROR_TIME[errorCode] = now;
+      }
+      return true;
+    }
+
+    return false;
+  };
+
   // Add global error handling
   useEffect(() => {
     // Handle unhandled promise rejections
@@ -87,16 +110,38 @@ export default function ClientLayout({
         const fbError = event.reason as FirebaseError;
         console.error("Firebase error code:", fbError.code);
 
-        if (fbError.code === "permission-denied") {
-          toast.error(
-            "Firebase permissions error. Please check your authentication."
-          );
-        } else {
-          toast.error(`Firebase error: ${fbError.message}`);
+        // Debounce error messages to prevent flooding
+        if (shouldShowErrorToast(fbError.code)) {
+          if (fbError.code === "permission-denied") {
+            // Only show a user-friendly message for permission-denied errors on subscription-debug page
+            if (!pathname?.includes("subscription-debug")) {
+              toast.error(
+                "You don't have access to this content. This could be due to your subscription status."
+              );
+            }
+          } else if (
+            fbError.code === "unauthenticated" ||
+            fbError.code === "auth/unauthenticated"
+          ) {
+            toast.error("Your session has expired. Please log in again.");
+          } else {
+            // Only show detailed firebase errors in development
+            const isDev = process.env.NODE_ENV === "development";
+            toast.error(
+              isDev
+                ? `Firebase error: ${fbError.message}`
+                : "Something went wrong"
+            );
+          }
         }
       } else {
-        // Show a generic toast notification for other errors
-        toast.error("Something went wrong");
+        // Show a generic toast notification for other errors, but avoid flooding
+        const errorMessage = event.reason?.message || "Something went wrong";
+        const errorKey = `error-${errorMessage.substring(0, 20)}`;
+
+        if (shouldShowErrorToast(errorKey)) {
+          toast.error("Something went wrong");
+        }
       }
 
       // Prevent the default browser behavior
@@ -107,8 +152,14 @@ export default function ClientLayout({
     const handleError = (event: ErrorEvent) => {
       console.error("Uncaught error:", event.error);
 
-      // Show a toast notification for the error
-      toast.error("An error occurred");
+      // Debounce generic errors too
+      const errorKey = `error-${
+        event.error?.message?.substring(0, 20) || "generic"
+      }`;
+      if (shouldShowErrorToast(errorKey)) {
+        // Show a toast notification for the error
+        toast.error("An error occurred");
+      }
 
       // Prevent the default browser behavior
       event.preventDefault();
@@ -126,7 +177,7 @@ export default function ClientLayout({
       );
       window.removeEventListener("error", handleError);
     };
-  }, []);
+  }, [pathname]);
 
   // For view routes and landing page, return children directly without layout
   if (isViewRoute || isLandingPage) {

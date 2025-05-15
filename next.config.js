@@ -34,13 +34,6 @@ const nextConfig = {
     domains: ["localhost"],
   },
 
-  // Redirect configuration
-  async rewrites() {
-    return {
-      beforeFiles: [],
-    };
-  },
-
   // Allow Stripe checkout in localhost development
   async headers() {
     return [

@@ -139,3 +139,84 @@ export const logTestCardInfo = () => {
   console.log("Expired Card: 4000000000000069");
   console.log("Use any future expiration date, any 3 digits for CVC");
 };
+
+// Handle mock Stripe portal subscription status changes
+export const handleMockSubscriptionChange = async (
+  userId,
+  status = "canceled"
+) => {
+  if (process.env.NODE_ENV !== "development") {
+    console.error(
+      "Mock subscription helpers can only be used in development mode"
+    );
+    return false;
+  }
+
+  try {
+    const db = getFirestore(app);
+    const now = new Date();
+
+    const subscriptionData = {
+      tier: "pro",
+      status: status,
+      cancelAtPeriodEnd: status === "canceled",
+      currentPeriodEnd:
+        status === "canceled"
+          ? now.getTime() + 24 * 60 * 60 * 1000 // 1 day if canceled
+          : new Date(
+              now.getFullYear(),
+              now.getMonth() + 1,
+              now.getDate()
+            ).getTime(), // 1 month otherwise
+      customerId: `mock_customer_${status}_${Math.random()
+        .toString(36)
+        .substring(2, 7)}`,
+      subscriptionId: `mock_sub_${status}_${Math.random()
+        .toString(36)
+        .substring(2, 7)}`,
+    };
+
+    // Update the user document
+    await updateDoc(doc(db, "users", userId), {
+      subscription: subscriptionData,
+    });
+
+    // Also update the subscription status cookie
+    Cookies.set("subscription_status", status, {
+      path: "/",
+      expires: 5, // 5 days
+    });
+
+    // Update user claims via the API - this will properly update access permissions
+    try {
+      console.log("Updating user claims to match subscription status...");
+      const response = await fetch("/api/debug/refresh-subscription-claims", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        console.warn(
+          "Failed to update user claims. Access may not be properly updated."
+        );
+      } else {
+        const data = await response.json();
+        console.log("User claims updated successfully:", data.newClaims);
+      }
+    } catch (claimsError) {
+      console.error("Error updating user claims:", claimsError);
+      // Continue despite claims error - at least the Firestore data is updated
+    }
+
+    console.log(
+      `Successfully updated user ${userId} subscription to ${status}`
+    );
+    return true;
+  } catch (error) {
+    console.error("Error updating subscription status:", error);
+    return false;
+  }
+};

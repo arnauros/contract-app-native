@@ -81,6 +81,7 @@ export default function Topbar({ pathname }: TopbarProps) {
     }
   };
 
+  // Only try to get signatures on the contract page and when contractId exists
   const handleNext = async () => {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
@@ -110,14 +111,30 @@ export default function Topbar({ pathname }: TopbarProps) {
         const localSignature = localStorage.getItem(
           `contract-designer-signature-${contractId}`
         );
-        const firestoreSignatures = await getSignatures(contractId);
 
-        const hasSignature =
-          localSignature ||
-          (firestoreSignatures.success &&
-            firestoreSignatures.signatures.designer);
+        // Check if we have a signature
+        let hasDesignerSignature = !!localSignature;
 
-        if (!hasSignature) {
+        // Only try to get signatures from Firestore if we don't have a local one
+        // and we're on a contract page
+        if (
+          !hasDesignerSignature &&
+          contractId &&
+          pathname.includes("/Contracts/")
+        ) {
+          try {
+            const firestoreSignatures = await getSignatures(contractId);
+            // Make sure success is defined before checking signatures
+            if (firestoreSignatures.success) {
+              hasDesignerSignature = !!firestoreSignatures.signatures.designer;
+            }
+          } catch (error) {
+            console.error("Error fetching signatures:", error);
+            // Continue with just the local signature check
+          }
+        }
+
+        if (!hasDesignerSignature) {
           toast.error("Please sign the contract before proceeding");
           return;
         }

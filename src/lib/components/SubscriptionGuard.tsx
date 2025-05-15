@@ -9,10 +9,35 @@ import { useSubscription } from "@/lib/hooks/useSubscription";
 export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, isAdmin } = useAuth();
   const router = useRouter();
-  const { isActive, loading: subscriptionLoading, error } = useSubscription();
+  const {
+    isActive,
+    loading: subscriptionLoading,
+    error,
+    subscriptions,
+  } = useSubscription();
   const [accessChecked, setAccessChecked] = useState(false);
   const [directCheckPerformed, setDirectCheckPerformed] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+
+  // Function to check if a canceled subscription is still within its grace period
+  const isWithinGracePeriod = () => {
+    if (!subscriptions || subscriptions.length === 0) return false;
+
+    // Look for canceled subscriptions
+    const canceledSubscription = subscriptions.find(
+      (sub) => sub.status === "canceled" && sub.currentPeriodEnd
+    );
+
+    if (canceledSubscription) {
+      const now = Date.now();
+      const endDate = canceledSubscription.currentPeriodEnd;
+
+      // If the end date is in the future, the user still has access
+      return now < endDate;
+    }
+
+    return false;
+  };
 
   // Function to directly verify the subscription status as a fallback
   const verifySubscriptionDirectly = async () => {
@@ -107,11 +132,17 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check if user has access - either admin or has active subscription
-    const hasMainAccess = isAdmin || isActive;
+    // Check if user has access - either admin, has active subscription or is within grace period
+    const gracePeriodAccess = isWithinGracePeriod();
+    const hasMainAccess = isAdmin || isActive || gracePeriodAccess;
 
     // If we have a definite answer through the normal subscription check
     if (hasMainAccess) {
+      console.log("SubscriptionGuard: Access granted", {
+        isAdmin,
+        isActive,
+        gracePeriodAccess,
+      });
       setHasAccess(true);
       setAccessChecked(true);
     } else {
@@ -132,6 +163,7 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
             email: user?.email,
             isAdmin,
             isActive,
+            gracePeriodAccess,
             hasAccess: false,
             subscriptionLoadingState: subscriptionLoading,
             directCheckPerformed: true,
@@ -155,6 +187,7 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
     router,
     accessChecked,
     directCheckPerformed,
+    subscriptions,
   ]);
 
   // Show loading state while auth or subscription data is loading
