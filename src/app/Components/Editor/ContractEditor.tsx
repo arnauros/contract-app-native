@@ -53,19 +53,50 @@ export function ContractEditor({
     if (initialContent?.logoUrl) {
       return initialContent.logoUrl;
     }
-    // Otherwise try localStorage
+    // Otherwise try localStorage for this specific contract
     const savedLogo = localStorage.getItem(`contract-logo-${contractId}`);
-    return savedLogo || "/placeholder-logo.png";
+    if (savedLogo) {
+      return savedLogo;
+    }
+
+    // If no contract-specific logo, try to use the default profile image
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      const defaultProfileImage = localStorage.getItem(
+        `defaultProfileImage-${userId}`
+      );
+      if (defaultProfileImage) {
+        return defaultProfileImage;
+      }
+    }
+
+    return "/placeholder-logo.png";
   });
+
   const [bannerUrl, setBannerUrl] = useState(() => {
     const contractId = window.location.pathname.split("/").pop();
     // First check if it was provided in initialContent
     if (initialContent?.bannerUrl) {
       return initialContent.bannerUrl;
     }
-    // Otherwise try localStorage
+    // Otherwise try localStorage for this specific contract
     const savedBanner = localStorage.getItem(`contract-banner-${contractId}`);
-    return savedBanner || "/placeholder-banner.png";
+    if (savedBanner) {
+      return savedBanner;
+    }
+
+    // If no contract-specific banner, try to use the default profile banner
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      const defaultProfileBanner = localStorage.getItem(
+        `defaultProfileBanner-${userId}`
+      );
+      if (defaultProfileBanner) {
+        return defaultProfileBanner;
+      }
+    }
+
+    return "/placeholder-banner.png";
   });
   const [editorContent, setEditorContent] = useState(() => {
     const contractId = window.location.pathname.split("/").pop();
@@ -465,10 +496,14 @@ export function ContractEditor({
       };
 
       // Wait for editor to be ready before setting up handlers
-      if (editor.isReady) {
-        handleBlockClicks();
-      } else {
-        editor.on("ready", handleBlockClicks);
+      if (editor) {
+        // Check if editor is already ready
+        if (typeof editor.isReady === "boolean" && editor.isReady) {
+          handleBlockClicks();
+        } else {
+          // Otherwise wait for ready event
+          editor.on("ready", handleBlockClicks);
+        }
       }
     }
 
@@ -552,8 +587,52 @@ export function ContractEditor({
       setIsLocked(false);
 
       // Force unlock the editor if it exists
-      if (editorRef.current && editorRef.current.readOnly?.isEnabled) {
-        editorRef.current.readOnly.toggle();
+      if (editorRef.current) {
+        if (editorRef.current.readOnly?.isEnabled) {
+          editorRef.current.readOnly.toggle();
+        }
+
+        // Force DOM update to remove readonly attributes
+        setTimeout(() => {
+          try {
+            // Find all editable elements in the editor and remove readonly attributes
+            const editorElement = containerRef.current;
+            if (editorElement) {
+              const editableElements = editorElement.querySelectorAll(
+                '[contenteditable="false"]'
+              );
+              editableElements.forEach((el: Element) => {
+                (el as HTMLElement).setAttribute("contenteditable", "true");
+              });
+
+              // Remove any pointer-events-none classes
+              const lockedElements = editorElement.querySelectorAll(
+                ".pointer-events-none"
+              );
+              lockedElements.forEach((el: Element) => {
+                el.classList.remove("pointer-events-none");
+              });
+
+              // Hide lock overlays but don't remove them
+              const lockOverlay = document.querySelector(
+                ".absolute.inset-0.bg-gray-50.bg-opacity-50"
+              );
+              if (lockOverlay) {
+                (lockOverlay as HTMLElement).style.display = "none";
+              }
+
+              // Hide lock indicator but don't remove it
+              const lockIndicator = document.querySelector(
+                ".absolute.top-0.left-0.right-0.bg-gray-100"
+              );
+              if (lockIndicator) {
+                (lockIndicator as HTMLElement).style.display = "none";
+              }
+            }
+          } catch (error) {
+            console.error("Error forcing editor to be editable:", error);
+          }
+        }, 100);
       }
 
       // Re-fetch client signature to ensure it's still displayed if present
@@ -865,7 +944,10 @@ export function ContractEditor({
 
     // If either has signed, show a warning that changes will require re-signing
     if (hasDesignerSig || hasClientSig) {
-      toast.error("Editing will require re-signing the contract");
+      toast("Editing a signed contract - changes will require re-signing", {
+        id: "edit-warning", // Prevent duplicate toasts
+        icon: "⚠️",
+      });
     }
 
     // Set flag to indicate this was an explicit edit button click
@@ -924,18 +1006,52 @@ export function ContractEditor({
       }, 100);
     }
 
-    const event = new CustomEvent("stageChange", { detail: "edit" });
+    // Dispatch stage change to edit mode with confirmed flag for reliability
+    const eventDetail = {
+      stage: "edit",
+      confirmed: true,
+      source: "explicit-click",
+    };
+    const event = new CustomEvent("stageChange", { detail: eventDetail });
     window.dispatchEvent(event);
   };
+
+  // Listen for unsign events from any component
+  useEffect(() => {
+    const handleUnsignEvent = (e: CustomEvent) => {
+      // Call our centralized handleUnsign function
+      handleUnsign();
+    };
+
+    window.addEventListener(
+      "unsignContract",
+      handleUnsignEvent as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "unsignContract",
+        handleUnsignEvent as EventListener
+      );
+    };
+  }, []);
 
   // Listen for global stage change events
   useEffect(() => {
     const handleStageChange = (e: CustomEvent) => {
+      // Support both string and object detail formats
+      const newStage =
+        typeof e.detail === "string" ? e.detail : e.detail?.stage;
+      const isConfirmed = e.detail?.confirmed === true;
+      const allowWithSignatures = e.detail?.allowWithSignatures === true;
+      const source = e.detail?.source || "unknown";
+
+      console.log(
+        `📝 Stage change event received: ${newStage} (source: ${source})`
+      );
+
       // Handle any transition to edit mode
-      if (
-        (typeof e.detail === "string" && e.detail === "edit") ||
-        e.detail?.stage === "edit"
-      ) {
+      if (newStage === "edit") {
         // Force unlock the editor explicitly
         setIsLocked(false);
 
@@ -1136,6 +1252,7 @@ export function ContractEditor({
                 imageUrl={bannerUrl}
                 onImageChange={setBannerUrl}
                 className="w-full"
+                useDefaultIfEmpty={true}
               />
             </div>
           )}
@@ -1161,6 +1278,7 @@ export function ContractEditor({
                 imageUrl={logoUrl}
                 onImageChange={setLogoUrl}
                 className="mb-12 mr-8"
+                useDefaultIfEmpty={true}
               />
             ) : logoUrl !== "/placeholder-logo.png" ? (
               <div className="h-32 w-32 mb-12 mr-8 rounded-lg overflow-hidden">

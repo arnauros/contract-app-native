@@ -756,28 +756,34 @@ export default function ContractPage() {
       const editButtonClicked =
         localStorage.getItem("explicit-edit-click") === "true";
 
-      // Only enforce sign stage if we're trying to go to edit with signatures
-      // AND it wasn't from an explicit edit button click
-      if (hasSignatures && currentStage === "edit" && !editButtonClicked) {
-        // Don't automatically redirect to sign stage anymore
-        // This allows editing even with signatures present
-        console.log("📝 Signatures present, but allowing edit mode");
-      } else if (editButtonClicked && currentStage === "edit") {
-        // If it was an explicit edit click, we clear the flag and allow editing
+      // Allow editing even with signatures in three cases:
+      // 1. If it was an explicit edit button click
+      // 2. If we're in edit mode and we were put there intentionally
+      // 3. If there are no signatures at all
+      if (editButtonClicked && currentStage === "edit") {
+        console.log(
+          "📝 Explicit edit button click detected, allowing edit mode"
+        );
 
         // Update UI to show contract can now be edited
-        // This is important when both designer and client have signed
         const eventDetail = {
           stage: "edit",
           confirmed: true,
+          allowWithSignatures: true,
         };
         const event = new CustomEvent("stageChange", { detail: eventDetail });
         window.dispatchEvent(event);
-      }
 
-      // Reset the flag after checking
-      if (editButtonClicked) {
+        // Clear the flag after processing
         localStorage.removeItem("explicit-edit-click");
+      } else if (
+        hasSignatures &&
+        currentStage === "edit" &&
+        !editButtonClicked
+      ) {
+        // We have signatures, we're in edit mode, but it wasn't from an explicit click
+        // Still allow it but log it for debugging
+        console.log("📝 Signatures present, but allowing edit mode");
       }
     };
 

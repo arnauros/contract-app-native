@@ -38,8 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(user);
         setAdminStatus(isAdmin(user?.email));
 
-        // Synchronize subscription cookies with auth claims
+        // Store or clear user ID in localStorage for image defaults
         if (user) {
+          localStorage.setItem("userId", user.uid);
+
+          // Synchronize subscription cookies with auth claims
           try {
             // Get the latest ID token result to access custom claims
             const idTokenResult = await user.getIdTokenResult(true);
@@ -49,6 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             console.error("Error synchronizing cookies:", error);
           }
+        } else {
+          // Clear userId from localStorage on logout
+          localStorage.removeItem("userId");
         }
 
         setLoading(false);

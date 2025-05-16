@@ -12,6 +12,7 @@ import { CallToAction } from "@/components/solar/CallToAction";
 import VerticalLines from "@/components/solar/VerticalLines";
 import BentoFeatures from "@/components/solar/BentoFeatures";
 import PricingSection from "@/components/PricingSection";
+import AboutSection from "@/components/AboutSection";
 
 export default function LandingPage() {
   const [debugInfo, setDebugInfo] = useState({
@@ -63,6 +64,9 @@ export default function LandingPage() {
 
       {/* Pricing Section */}
       <PricingSection />
+
+      {/* About Section */}
+      <AboutSection />
 
       <div className="mt-16 mb-32 px-6 xl:px-0">
         <CallToAction />

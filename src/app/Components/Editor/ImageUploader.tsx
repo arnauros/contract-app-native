@@ -9,7 +9,7 @@ import {
   deleteObject,
 } from "firebase/storage";
 import { initFirebase } from "@/lib/firebase/firebase";
-import { doc, updateDoc, getFirestore } from "firebase/firestore";
+import { doc, updateDoc, getFirestore, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 interface ImageUploaderProps {
@@ -18,34 +18,22 @@ interface ImageUploaderProps {
   imageUrl: string;
   onImageChange: (url: string) => void;
   className?: string;
+  useDefaultIfEmpty?: boolean;
 }
 
-// Create a default gradient banner image
+// Helper function to create a gradient banner
 const createGradientBanner = () => {
-  // Check if we're in the browser environment
-  if (typeof document === "undefined") return "/placeholder-banner.png";
+  // Create a random gradient for the banner
+  const colors = [
+    ["#4F46E5", "#7C3AED"], // Indigo to Purple
+    ["#2563EB", "#3B82F6"], // Blue shades
+    ["#0891B2", "#06B6D4"], // Cyan shades
+    ["#059669", "#10B981"], // Green shades
+    ["#7C3AED", "#8B5CF6"], // Purple shades
+  ];
 
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 200;
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) return "/placeholder-banner.png";
-
-    // Create a gradient from blue to indigo
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-    gradient.addColorStop(0, "#EBF4FF"); // light blue
-    gradient.addColorStop(1, "#E0E7FF"); // light indigo
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    return canvas.toDataURL();
-  } catch (error) {
-    console.error("Error creating gradient banner:", error);
-    return "/placeholder-banner.png";
-  }
+  const randomPair = colors[Math.floor(Math.random() * colors.length)];
+  return `linear-gradient(135deg, ${randomPair[0]}, ${randomPair[1]})`;
 };
 
 export default function ImageUploader({
@@ -54,6 +42,7 @@ export default function ImageUploader({
   imageUrl,
   onImageChange,
   className,
+  useDefaultIfEmpty = true,
 }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +56,60 @@ export default function ImageUploader({
       setDefaultBannerUrl(createGradientBanner());
     }
   }, [type]);
+
+  // If image is default and useDefaultIfEmpty is true, try to load default profile image
+  useEffect(() => {
+    const loadDefaultProfileImage = async () => {
+      if (!useDefaultIfEmpty) return;
+
+      const isDefaultImage =
+        (type === "logo" && imageUrl === "/placeholder-logo.png") ||
+        (type === "banner" &&
+          (imageUrl === "/placeholder-banner.png" ||
+            imageUrl === defaultBannerUrl));
+
+      if (!isDefaultImage) return;
+
+      try {
+        // Try to get user ID from localStorage
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        // Check localStorage first for default images
+        const defaultImageKey = `default${
+          type === "logo" ? "ProfileImage" : "ProfileBanner"
+        }-${userId}`;
+        const defaultImage = localStorage.getItem(defaultImageKey);
+
+        if (defaultImage) {
+          onImageChange(defaultImage);
+          return;
+        }
+
+        // If not in localStorage, try Firestore
+        const db = getFirestore();
+        const userDoc = await getDoc(doc(db, "users", userId));
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const fieldName =
+            type === "logo"
+              ? "defaultProfileImageUrl"
+              : "defaultProfileBannerUrl";
+
+          if (userData[fieldName]) {
+            onImageChange(userData[fieldName]);
+            // Also save to localStorage for next time
+            localStorage.setItem(defaultImageKey, userData[fieldName]);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading default profile image:", error);
+      }
+    };
+
+    loadDefaultProfileImage();
+  }, [type, imageUrl, defaultBannerUrl, onImageChange, useDefaultIfEmpty]);
 
   const isDefaultImage =
     (type === "logo" && imageUrl === "/placeholder-logo.png") ||

@@ -83,13 +83,14 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
         throw new Error("Contract ID not found");
       }
 
-      // Remove from Firestore
-      await removeSignature(contractId, "designer");
+      // Dispatch a custom event to trigger the parent component's handleUnsign
+      // This centralizes signature removal logic and ensures consistency
+      const unsignEvent = new CustomEvent("unsignContract", {
+        detail: { contractId, source: "signingStage" },
+      });
+      window.dispatchEvent(unsignEvent);
 
-      // Clear localStorage signature
-      localStorage.removeItem(`contract-designer-signature-${contractId}`);
-
-      // Reset state
+      // Reset local component state
       setIsSigned(false);
       setName("");
       setIsValid(false);
@@ -99,11 +100,16 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
         if (signaturePadRef.current) {
           signaturePadRef.current.clear();
         }
-      }, 100);
 
-      // Force reload the current stage to refresh the UI
-      const event = new CustomEvent("stageChange", { detail: "sign" });
-      window.dispatchEvent(event);
+        // Also force a refresh of the signing stage after a short delay
+        // This ensures the UI is properly reset after unsigning
+        setTimeout(() => {
+          const stageEvent = new CustomEvent("stageChange", {
+            detail: { stage: "sign", refreshed: true },
+          });
+          window.dispatchEvent(stageEvent);
+        }, 300);
+      }, 100);
 
       toast.success("Signature removed successfully");
     } catch (error) {
