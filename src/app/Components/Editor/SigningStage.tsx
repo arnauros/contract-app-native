@@ -10,43 +10,253 @@ export interface SigningStageProps {
 }
 
 export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
-  const [name, setName] = useState("");
+  // Initialize signed state based on designer signature prop
+  const hasInitialSignature = !!designerSignature;
+  const initialName = designerSignature?.name || "";
+
+  const [name, setName] = useState(initialName);
   const [isValid, setIsValid] = useState(false);
-  const [isSigned, setIsSigned] = useState(false);
+  const [isSigned, setIsSigned] = useState(hasInitialSignature);
   const [isRemoving, setIsRemoving] = useState(false);
   const signaturePadRef = useRef<any>(null);
+  const forceRefreshKey = useRef(Date.now());
+
+  // Force a refresh immediately after mount to ensure correct state
+  useEffect(() => {
+    // Force refresh after a short delay
+    const timer = setTimeout(() => {
+      const contractId = window.location.pathname.split("/").pop();
+      if (!contractId) return;
+
+      console.log("🖊️ SigningStage: Initial mount force refresh", {
+        hasInitialSignature,
+        designerSignature,
+      });
+
+      // Check localStorage as a fallback
+      const savedSignatureData = localStorage.getItem(
+        `contract-designer-signature-${contractId}`
+      );
+
+      const hasStoredSignature = !!savedSignatureData;
+
+      // If we have a signature from props or localStorage, update state
+      if (hasInitialSignature || hasStoredSignature) {
+        setIsSigned(true);
+
+        if (hasInitialSignature && designerSignature?.name) {
+          setName(designerSignature.name);
+        } else if (hasStoredSignature) {
+          try {
+            const parsedData = JSON.parse(savedSignatureData!);
+            if (parsedData && parsedData.name) {
+              setName(parsedData.name);
+            }
+          } catch (e) {
+            console.error("Error parsing saved signature data:", e);
+          }
+        }
+
+        // Force a component update
+        forceRefreshKey.current = Date.now();
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Check for existing signature - from both props and localStorage
   useEffect(() => {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
+    console.log("🖊️ SigningStage: Checking signature state", {
+      designerSignature,
+      isSigned,
+      forceRefreshKey: forceRefreshKey.current,
+    });
+
+    // Track whether we found a signature
+    let foundSignature = false;
+
     // First check Firestore signature (from props)
     if (designerSignature) {
+      console.log("✅ Found signature in props:", designerSignature);
       setName(designerSignature.name || "");
       setIsSigned(true);
-      return;
-    }
+      foundSignature = true;
 
-    // If not in props, check localStorage as fallback
-    try {
-      const savedSignature = localStorage.getItem(
-        `contract-designer-signature-${contractId}`
-      );
-
-      if (savedSignature) {
-        const signatureData = JSON.parse(savedSignature);
-        setName(signatureData.name);
-        setIsSigned(true);
-      } else {
-        // No signature found - reset state
-        setIsSigned(false);
+      // Make sure this is also in localStorage for consistent state
+      try {
+        localStorage.setItem(
+          `contract-designer-signature-${contractId}`,
+          JSON.stringify({
+            signature: designerSignature.signature,
+            name: designerSignature.name,
+            signedAt: designerSignature.signedAt?.toDate?.() || new Date(),
+          })
+        );
+        console.log("✅ Saved signature from props to localStorage");
+      } catch (e) {
+        console.error("Error saving signature to localStorage:", e);
       }
-    } catch (error) {
-      console.error("Error checking saved signature:", error);
-      setIsSigned(false);
     }
-  }, [designerSignature]);
+
+    // If not in props, check localStorage as fallback (or as additional verification)
+    if (!foundSignature) {
+      try {
+        const savedSignature = localStorage.getItem(
+          `contract-designer-signature-${contractId}`
+        );
+
+        if (savedSignature) {
+          console.log("✅ Found signature in localStorage");
+          try {
+            const signatureData = JSON.parse(savedSignature);
+            setName(signatureData.name || "");
+            setIsSigned(true);
+            foundSignature = true;
+          } catch (parseError) {
+            console.error(
+              "Error parsing signature from localStorage:",
+              parseError
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error accessing localStorage:", error);
+      }
+    }
+
+    // If no signature was found from any source, reset state
+    if (!foundSignature) {
+      console.log("❌ No signature found from any source");
+      setIsSigned(false);
+      setName("");
+
+      // Make sure the signature pad is clear
+      if (signaturePadRef.current) {
+        signaturePadRef.current.clear();
+      }
+    }
+  }, [designerSignature, forceRefreshKey.current]);
+
+  // Listen for signature state change events from other components
+  useEffect(() => {
+    const handleSignatureStateChanged = (e: CustomEvent) => {
+      const detail = e.detail || {};
+      const contractId = window.location.pathname.split("/").pop();
+
+      console.log("📝 SigningStage: Signature state changed event received", {
+        detail,
+        currentContractId: contractId,
+      });
+
+      if (detail.contractId === contractId) {
+        // Force refresh our component
+        forceRefreshKey.current = Date.now();
+
+        // Update our internal state
+        setIsSigned(!!detail.hasDesignerSignature);
+
+        if (!detail.hasDesignerSignature) {
+          // Clear any existing signature data
+          setName("");
+          setIsValid(false);
+
+          // Clear the signature pad
+          if (signaturePadRef.current) {
+            signaturePadRef.current.clear();
+          }
+        }
+      }
+    };
+
+    window.addEventListener(
+      "signatureStateChanged",
+      handleSignatureStateChanged as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "signatureStateChanged",
+        handleSignatureStateChanged as EventListener
+      );
+    };
+  }, []);
+
+  // Listen for stage refresh events
+  useEffect(() => {
+    const handleStageChange = (e: CustomEvent) => {
+      const detail = e.detail || {};
+      const isSignStage = detail.stage === "sign" || detail === "sign";
+      const isRefreshed = detail.refreshed === true;
+      const source = detail.source || "unknown";
+
+      if (isSignStage) {
+        console.log("🔄 SigningStage: Detected sign stage change", {
+          detail,
+          isSigned,
+          name,
+        });
+
+        if (isRefreshed) {
+          // This is a signal to fully refresh our component state
+          forceRefreshKey.current = Date.now();
+
+          // Clear any existing signature data in the pad
+          if (signaturePadRef.current) {
+            signaturePadRef.current.clear();
+          }
+
+          // Force a fresh check of signature status to ensure we're in sync
+          const contractId = window.location.pathname.split("/").pop();
+          if (contractId) {
+            // Check both localStorage and component props
+            const freshFromStorage = localStorage.getItem(
+              `contract-designer-signature-${contractId}`
+            );
+
+            const hasStorageSignature = !!freshFromStorage;
+            const hasPropsSignature = !!designerSignature;
+
+            console.log(`🔄 SigningStage refresh (${source}):`, {
+              hasStorageSignature,
+              hasPropsSignature,
+              currentIsSigned: isSigned,
+            });
+
+            // Update state based on fresh signature check
+            if (hasStorageSignature) {
+              try {
+                const sigData = JSON.parse(freshFromStorage!);
+                setName(sigData.name || "");
+                setIsSigned(true);
+              } catch (e) {
+                console.error("Error parsing localStorage signature:", e);
+              }
+            } else if (hasPropsSignature) {
+              setName(designerSignature.name || "");
+              setIsSigned(true);
+            } else {
+              // No signature found in any source
+              setIsSigned(false);
+              setName("");
+              setIsValid(false);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("stageChange", handleStageChange as EventListener);
+    return () => {
+      window.removeEventListener(
+        "stageChange",
+        handleStageChange as EventListener
+      );
+    };
+  }, [designerSignature, isSigned, name]);
 
   // Validation function
   const validateForm = () => {
@@ -94,22 +304,20 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
       setIsSigned(false);
       setName("");
       setIsValid(false);
+      forceRefreshKey.current = Date.now();
 
-      // Small delay to ensure DOM updates
+      // Clear the signature pad immediately
+      if (signaturePadRef.current) {
+        signaturePadRef.current.clear();
+      }
+
+      // Force a refresh of the signing stage
       setTimeout(() => {
-        if (signaturePadRef.current) {
-          signaturePadRef.current.clear();
-        }
-
-        // Also force a refresh of the signing stage after a short delay
-        // This ensures the UI is properly reset after unsigning
-        setTimeout(() => {
-          const stageEvent = new CustomEvent("stageChange", {
-            detail: { stage: "sign", refreshed: true },
-          });
-          window.dispatchEvent(stageEvent);
-        }, 300);
-      }, 100);
+        const stageEvent = new CustomEvent("stageChange", {
+          detail: { stage: "sign", refreshed: true, source: "handleReset" },
+        });
+        window.dispatchEvent(stageEvent);
+      }, 300);
 
       toast.success("Signature removed successfully");
     } catch (error) {
@@ -164,7 +372,10 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
 
   // Render signing interface
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div
+      className="bg-white rounded-lg border border-gray-200 p-6"
+      key={forceRefreshKey.current}
+    >
       <h2 className="text-xl font-semibold mb-4">Sign Contract</h2>
 
       <div className="space-y-4">

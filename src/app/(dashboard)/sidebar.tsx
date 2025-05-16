@@ -3,33 +3,18 @@
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSidebar } from "@/lib/context/SidebarContext";
 import {
-  FiFileText,
   FiPlus,
-  FiClock,
-  FiSearch,
-  FiPieChart,
-  FiUsers,
-  FiDollarSign,
-  FiCreditCard,
   FiSettings,
   FiHelpCircle,
-  FiChevronDown,
   FiChevronLeft,
   FiHome,
   FiUser,
-  FiLogOut,
-  FiPlusCircle,
-  FiInbox,
-  FiMenu,
-  FiX,
 } from "react-icons/fi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { signOut } from "@/lib/firebase/authUtils";
-import Image from "next/image";
 import { toast } from "react-hot-toast";
-import useOnClickOutside from "@/lib/hooks/useOnClickOutside";
 
 interface NavItem {
   name: string;
@@ -41,25 +26,6 @@ interface NavItem {
 const topNavigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: FiHome, shortcut: "⌘D" },
   { name: "New Doc", href: "/new", icon: FiPlus, shortcut: "⌘N" },
-  {
-    name: "Recent",
-    href: "/recent",
-    icon: FiClock,
-    shortcut: "⌘R",
-  },
-  {
-    name: "Search",
-    href: "/search",
-    icon: FiSearch,
-    shortcut: "⌘S",
-  },
-];
-
-const workNavigation: NavItem[] = [
-  { name: "Analytics", href: "/analytics", icon: FiPieChart },
-  { name: "People", href: "/people", icon: FiUsers },
-  { name: "Incomes", href: "/incomes", icon: FiDollarSign },
-  { name: "Payments", href: "/payments", icon: FiCreditCard },
 ];
 
 function classNames(...classes: string[]) {
@@ -70,7 +36,6 @@ export default function Sidebar() {
   const { user } = useAuth();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const pathname = usePathname();
-  const [workExpanded, setWorkExpanded] = useState(true);
 
   // Add logout handler
   const handleLogout = async () => {
@@ -137,66 +102,6 @@ export default function Sidebar() {
               )}
             </Link>
           ))}
-
-          {/* Work section */}
-          <div className="mt-8">
-            <div
-              className={classNames(
-                "flex items-center text-xs font-semibold text-gray-500",
-                isCollapsed ? "justify-center py-2" : "px-3 py-2"
-              )}
-            >
-              <span>WORK</span>
-              {!isCollapsed && (
-                <button
-                  onClick={() => setWorkExpanded(!workExpanded)}
-                  className="ml-auto"
-                >
-                  <FiChevronDown
-                    className={classNames(
-                      "w-4 h-4 transition-transform",
-                      workExpanded ? "transform rotate-180" : ""
-                    )}
-                  />
-                </button>
-              )}
-            </div>
-            {(workExpanded || isCollapsed) && (
-              <div className={isCollapsed ? "" : "mt-1"}>
-                {workNavigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={classNames(
-                      pathname === item.href
-                        ? "bg-gray-100 text-gray-900"
-                        : "text-gray-700 hover:bg-gray-50",
-                      "group flex items-center gap-3 rounded-md my-1",
-                      isCollapsed ? "justify-center p-2" : "px-3 py-2"
-                    )}
-                    title={isCollapsed ? item.name : undefined}
-                  >
-                    <item.icon className="w-5 h-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="flex-1">{item.name}</span>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Personal section */}
-          <div className="mt-4">
-            <div
-              className={classNames(
-                "text-xs font-semibold text-gray-500",
-                isCollapsed ? "text-center py-2" : "px-3 py-2"
-              )}
-            >
-              PERSONAL
-            </div>
-          </div>
         </nav>
 
         {/* Footer */}

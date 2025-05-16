@@ -130,6 +130,7 @@ export function ContractEditor({
   const [clientSignature, setClientSignature] = useState<any>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isUnsignModalOpen, setIsUnsignModalOpen] = useState(false);
+  const [companyName, setCompanyName] = useState<string>("");
 
   // Load saved stage on mount
   useEffect(() => {
@@ -172,40 +173,143 @@ export function ContractEditor({
     loadSignatures();
   }, []);
 
+  // Load user profile data including company name
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        // Fix: Add null check for db
+        if (!db) {
+          console.error("Firestore not initialized");
+          return;
+        }
+
+        const userDoc = await getDoc(doc(db, "users", userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.companyName) {
+            setCompanyName(userData.companyName);
+            // Store in localStorage for future use
+            localStorage.setItem(`companyName-${userId}`, userData.companyName);
+          }
+        } else {
+          // Try to get from localStorage as fallback
+          const savedCompanyName = localStorage.getItem(
+            `companyName-${userId}`
+          );
+          if (savedCompanyName) {
+            setCompanyName(savedCompanyName);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
   // Simplified stage management
   useEffect(() => {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
-    // Check for signatures in both Firestore state and localStorage
+    console.log("📄 ContractEditor: Stage management", {
+      stage,
+      hasSignature,
+      isLocked,
+    });
+
+    // Get fresh signature status from both localStorage and component state
+    // Try multiple sources for reliability
     const designerSig = localStorage.getItem(
       `contract-designer-signature-${contractId}`
     );
-    const hasDesignerSignature = !!designerSig || !!designerSignature;
+
+    // For debugging, check all possible sources of signature data
+    let designerSigFromState = !!designerSignature;
+    let designerSigFromStorage = !!designerSig;
+
+    // Final determination of signature presence - check both sources
+    const hasDesignerSignature = designerSigFromState || designerSigFromStorage;
     const hasContent = editorContent && Object.keys(editorContent).length > 0;
+
+    console.log("📝 ContractEditor: Current signature state", {
+      hasDesignerSignature,
+      designerSigFromStorage,
+      designerSigFromState,
+      stage,
+      isLocked,
+    });
 
     // Force the editor to be unlocked in edit mode, regardless of signature status
     let newLockState = false;
     if (stage === "edit") {
+      // Edit mode is always unlocked
       newLockState = false;
-
-      // In edit mode, we want the editor to be unlocked but we still want
-      // to preserve signature state for the audit panel and unsign functionality
-      // So we don't clear signatures here anymore
+      console.log("🔓 Edit mode - unlocking editor");
     } else if (stage === "sign") {
-      // Only lock in sign stage if we have a designer signature
-      newLockState = !!designerSignature;
+      // In sign stage, lock if we have a designer signature from any source
+      newLockState = hasDesignerSignature;
+
+      // Double check localStorage one more time
+      if (!newLockState) {
+        // One final check - parse the localStorage item to ensure we're not missing anything
+        try {
+          const sigData = localStorage.getItem(
+            `contract-designer-signature-${contractId}`
+          );
+          if (sigData && JSON.parse(sigData)) {
+            console.log(
+              "🔒 Found signature data in localStorage during final check"
+            );
+            newLockState = true;
+          }
+        } catch (e) {
+          console.log("Error parsing localStorage signature data:", e);
+        }
+      }
+
+      console.log(
+        `${newLockState ? "🔒" : "🔓"} Sign mode - ${
+          newLockState ? "locking" : "unlocking"
+        } editor (hasDesignerSignature: ${hasDesignerSignature})`
+      );
     } else if (stage === "send") {
+      // Send mode is always locked
       newLockState = true;
+      console.log("🔒 Send mode - locking editor");
     }
 
     // Only update lock state if it's changing
     if (isLocked !== newLockState) {
+      console.log(`🔄 Changing lock state from ${isLocked} to ${newLockState}`);
       setIsLocked(newLockState);
+
+      // Force DOM update for lock state
+      setTimeout(() => {
+        // Update the lock indicator visibility based on stage and lock state
+        const lockIndicator = document.querySelector(
+          ".absolute.top-0.left-0.right-0.bg-gray-100"
+        );
+
+        if (lockIndicator) {
+          if (newLockState) {
+            (lockIndicator as HTMLElement).style.display = "flex";
+          } else {
+            (lockIndicator as HTMLElement).style.display = "none";
+          }
+        }
+      }, 50);
     }
 
     // Always set hasSignature based on current state
     if (hasSignature !== hasDesignerSignature) {
+      console.log(
+        `🔄 Changing signature state from ${hasSignature} to ${hasDesignerSignature}`
+      );
       setHasSignature(hasDesignerSignature);
     }
 
@@ -349,11 +453,11 @@ export function ContractEditor({
                     el.classList.remove("pointer-events-none");
                   });
 
-                  // Hide any lock overlays
-                  const lockOverlays = document.querySelectorAll(
-                    ".absolute.bg-gray-50.bg-opacity-50"
+                  // Hide any lock indicators but not the overlays
+                  const lockIndicators = document.querySelectorAll(
+                    ".absolute.top-0.left-0.right-0.bg-gray-100"
                   );
-                  lockOverlays.forEach((el: Element) => {
+                  lockIndicators.forEach((el: Element) => {
                     (el as HTMLElement).style.display = "none";
                   });
                 }
@@ -388,7 +492,13 @@ export function ContractEditor({
       tools: {
         header: Header,
         list: List,
-        paragraph: Paragraph,
+        paragraph: {
+          class: Paragraph,
+          inlineToolbar: true,
+          config: {
+            placeholder: "Start writing your contract here...",
+          },
+        },
         image: {
           class: Image,
           config: {
@@ -415,6 +525,19 @@ export function ContractEditor({
         // Set initial readOnly state if needed
         if (isLocked && editor.readOnly && !editor.readOnly.isEnabled) {
           editor.readOnly.toggle();
+        }
+
+        // Process content to replace placeholders with actual values
+        if (companyName && editor && containerRef.current) {
+          const paragraphs = containerRef.current.querySelectorAll(
+            '[contenteditable="true"]'
+          );
+          paragraphs.forEach((p) => {
+            const text = p.innerHTML;
+            if (text && text.includes("[Your Company Name]")) {
+              p.innerHTML = text.replace(/\[Your Company Name\]/g, companyName);
+            }
+          });
         }
       },
       onChange: async (api) => {
@@ -513,7 +636,7 @@ export function ContractEditor({
         editorRef.current = null;
       }
     };
-  }, [user?.uid, isLocked, editorContent, onBlockClick]);
+  }, [user?.uid, isLocked, editorContent, onBlockClick, companyName]);
 
   // Add effect to check for both signatures and trigger celebration
   useEffect(() => {
@@ -572,14 +695,18 @@ export function ContractEditor({
       const contractId = window.location.pathname.split("/").pop();
       if (!contractId) throw new Error("No contract ID found");
 
+      console.log("🔄 Initiating signature removal process", { contractId });
+
       // Remove from localStorage
       localStorage.removeItem(`contract-designer-signature-${contractId}`);
+      localStorage.removeItem(`contract-signature-cache-${contractId}`);
 
       // Clear any potential localStorage items that might be full
       clearLocalStorageSpace(contractId);
 
       // Remove from Firestore and update contract status
       await removeSignature(contractId, "designer");
+      console.log("✅ Signature removed from Firestore");
 
       // Update local state for designer signature only
       setDesignerSignature(null);
@@ -588,6 +715,7 @@ export function ContractEditor({
 
       // Force unlock the editor if it exists
       if (editorRef.current) {
+        console.log("🔓 Unlocking editor");
         if (editorRef.current.readOnly?.isEnabled) {
           editorRef.current.readOnly.toggle();
         }
@@ -604,6 +732,9 @@ export function ContractEditor({
               editableElements.forEach((el: Element) => {
                 (el as HTMLElement).setAttribute("contenteditable", "true");
               });
+              console.log(
+                `🔄 Updated ${editableElements.length} editable elements`
+              );
 
               // Remove any pointer-events-none classes
               const lockedElements = editorElement.querySelectorAll(
@@ -612,14 +743,9 @@ export function ContractEditor({
               lockedElements.forEach((el: Element) => {
                 el.classList.remove("pointer-events-none");
               });
-
-              // Hide lock overlays but don't remove them
-              const lockOverlay = document.querySelector(
-                ".absolute.inset-0.bg-gray-50.bg-opacity-50"
+              console.log(
+                `🔄 Updated ${lockedElements.length} locked elements`
               );
-              if (lockOverlay) {
-                (lockOverlay as HTMLElement).style.display = "none";
-              }
 
               // Hide lock indicator but don't remove it
               const lockIndicator = document.querySelector(
@@ -627,6 +753,7 @@ export function ContractEditor({
               );
               if (lockIndicator) {
                 (lockIndicator as HTMLElement).style.display = "none";
+                console.log("🔄 Hidden lock indicator");
               }
             }
           } catch (error) {
@@ -640,6 +767,12 @@ export function ContractEditor({
         const result = await getSignatures(contractId);
         if (result.success && result.signatures.client) {
           setClientSignature(result.signatures.client);
+          console.log(
+            "ℹ️ Client signature preserved:",
+            result.signatures.client
+          );
+        } else {
+          console.log("ℹ️ No client signature found after refresh");
         }
       } catch (error) {
         console.error("Error re-fetching client signature:", error);
@@ -650,6 +783,17 @@ export function ContractEditor({
         status: "draft",
         updatedAt: new Date().toISOString(),
       });
+      console.log("✅ Contract status updated to draft");
+
+      // Refresh internal signature state for any component that might need it
+      const refreshEvent = new CustomEvent("signatureStateChanged", {
+        detail: {
+          contractId,
+          hasDesignerSignature: false,
+          source: "handleUnsign",
+        },
+      });
+      window.dispatchEvent(refreshEvent);
 
       // No longer dispatch stage change event here, as it's handled by the calling function
       return true;
@@ -689,10 +833,139 @@ export function ContractEditor({
     // If already in sign stage, do nothing
     if (stage === "sign") return;
 
-    // Just switch to sign stage without checking for signature
-    // The stage management useEffect will handle the locking state
-    const event = new CustomEvent("stageChange", { detail: "sign" });
-    window.dispatchEvent(event);
+    console.log("🔄 Switching to sign stage, current signature state:", {
+      hasDesignerSignature: !!designerSignature,
+      hasSignature,
+      stage,
+    });
+
+    // Re-check signature status before switching
+    const contractId = window.location.pathname.split("/").pop();
+    if (contractId) {
+      // First switch to sign mode to ensure the UI updates
+      const initialEvent = new CustomEvent("stageChange", {
+        detail: {
+          stage: "sign",
+          refreshed: true,
+          source: "handleSignStageClick-initial",
+        },
+      });
+      window.dispatchEvent(initialEvent);
+
+      // Clear any cached signature data to ensure we get a fresh state
+      localStorage.removeItem(`contract-signature-cache-${contractId}`);
+
+      // Force refresh the signature state
+      getSignatures(contractId)
+        .then((result) => {
+          if (result.success) {
+            // Save any signatures to localStorage for better persistence
+            if (result.signatures.designer) {
+              try {
+                localStorage.setItem(
+                  `contract-designer-signature-${contractId}`,
+                  JSON.stringify({
+                    signature: result.signatures.designer.signature,
+                    name: result.signatures.designer.name,
+                    signedAt:
+                      result.signatures.designer.signedAt?.toDate?.() ||
+                      new Date(),
+                  })
+                );
+              } catch (e) {
+                console.error("Failed to save signature to localStorage:", e);
+              }
+            }
+
+            setDesignerSignature(result.signatures.designer || null);
+            setClientSignature(result.signatures.client || null);
+
+            // Update hasSignature state based on fresh data
+            const hasDesignerSig = !!result.signatures.designer;
+            setHasSignature(hasDesignerSig);
+
+            console.log("📝 Updated signature state before stage change:", {
+              hasDesignerSignature: hasDesignerSig,
+              designerSignature: result.signatures.designer,
+            });
+
+            // Force a second stage change to refresh components with new signature data
+            setTimeout(() => {
+              const refreshEvent = new CustomEvent("stageChange", {
+                detail: {
+                  stage: "sign",
+                  refreshed: true,
+                  source: "handleSignStageClick-after-fetch",
+                },
+              });
+              window.dispatchEvent(refreshEvent);
+
+              // Also dispatch signature state change event for better coordination
+              const sigStateEvent = new CustomEvent("signatureStateChanged", {
+                detail: {
+                  contractId,
+                  hasDesignerSignature: hasDesignerSig,
+                  designerSignature: result.signatures.designer,
+                  source: "handleSignStageClick",
+                },
+              });
+              window.dispatchEvent(sigStateEvent);
+
+              // Force reload of the component with updated signature data
+              // This simulates a page refresh but more targeted
+              setTimeout(() => {
+                // Update internal state directly to force reactivity
+                setDesignerSignature(result.signatures.designer || null);
+                setHasSignature(hasDesignerSig);
+
+                // Force another refresh with a slight delay for the state to settle
+                setTimeout(() => {
+                  const finalRefreshEvent = new CustomEvent("stageChange", {
+                    detail: {
+                      stage: "sign",
+                      refreshed: true,
+                      source: "handleSignStageClick-final-refresh",
+                    },
+                  });
+                  window.dispatchEvent(finalRefreshEvent);
+                }, 150);
+              }, 100);
+            }, 100);
+          } else {
+            // Just dispatch a refresh event if there was no signature data
+            const refreshEvent = new CustomEvent("stageChange", {
+              detail: {
+                stage: "sign",
+                refreshed: true,
+                source: "handleSignStageClick-no-data",
+              },
+            });
+            window.dispatchEvent(refreshEvent);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching signatures:", error);
+          // Still switch to sign stage even if there was an error
+          const event = new CustomEvent("stageChange", {
+            detail: {
+              stage: "sign",
+              refreshed: true,
+              source: "handleSignStageClick-error",
+            },
+          });
+          window.dispatchEvent(event);
+        });
+    } else {
+      // Fallback if no contract ID
+      const event = new CustomEvent("stageChange", {
+        detail: {
+          stage: "sign",
+          refreshed: true,
+          source: "sign-button-click",
+        },
+      });
+      window.dispatchEvent(event);
+    }
   };
 
   // Handle stage changes
@@ -1000,14 +1273,6 @@ export function ContractEditor({
               el.classList.remove("pointer-events-none");
             });
 
-            // Hide lock overlays but don't remove them
-            const lockOverlay = document.querySelector(
-              ".absolute.inset-0.bg-gray-50.bg-opacity-50"
-            );
-            if (lockOverlay) {
-              (lockOverlay as HTMLElement).style.display = "none";
-            }
-
             // Hide lock indicator but don't remove it
             const lockIndicator = document.querySelector(
               ".absolute.top-0.left-0.right-0.bg-gray-100"
@@ -1133,15 +1398,7 @@ export function ContractEditor({
                   el.classList.remove("pointer-events-none");
                 });
 
-                // Also hide the lock overlay
-                const lockOverlay = document.querySelector(
-                  ".absolute.inset-0.bg-gray-50.bg-opacity-50"
-                );
-                if (lockOverlay) {
-                  (lockOverlay as HTMLElement).style.display = "none";
-                }
-
-                // And hide the top lock indicator
+                // Hide the top lock indicator (but no longer need to hide overlay since it's removed)
                 const lockIndicator = document.querySelector(
                   ".absolute.top-0.left-0.right-0.bg-gray-100"
                 );
@@ -1166,6 +1423,41 @@ export function ContractEditor({
       );
     };
   }, []);
+
+  // Add a function to replace placeholders in the editor content
+  const replacePlaceholders = () => {
+    if (!companyName || !editorRef.current || !containerRef.current) return;
+
+    // Wait for editor to be ready
+    if (editorRef.current.isReady) {
+      const paragraphs = containerRef.current.querySelectorAll(
+        '[contenteditable="true"]'
+      );
+      paragraphs.forEach((p) => {
+        const text = p.innerHTML;
+        if (text && text.includes("[Your Company Name]")) {
+          p.innerHTML = text.replace(/\[Your Company Name\]/g, companyName);
+        }
+      });
+    } else {
+      editorRef.current.on("ready", () => {
+        const paragraphs = containerRef.current?.querySelectorAll(
+          '[contenteditable="true"]'
+        );
+        paragraphs?.forEach((p) => {
+          const text = p.innerHTML;
+          if (text && text.includes("[Your Company Name]")) {
+            p.innerHTML = text.replace(/\[Your Company Name\]/g, companyName);
+          }
+        });
+      });
+    }
+  };
+
+  // Call replacePlaceholders when company name changes
+  useEffect(() => {
+    replacePlaceholders();
+  }, [companyName]);
 
   return (
     <div className="content-wrapper relative">
@@ -1219,13 +1511,13 @@ export function ContractEditor({
               {stage === "edit" && (
                 <div>
                   <button
-                    className="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-50"
+                    className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center h-[34px]"
                     onClick={() =>
                       document.getElementById("pdf-upload")?.click()
                     }
                   >
                     <svg
-                      className="h-4 w-4 mr-1"
+                      className="h-4 w-4 mr-1.5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1252,7 +1544,7 @@ export function ContractEditor({
               {/* Stage navigation buttons */}
               <div className="flex border border-gray-300 rounded-lg overflow-hidden">
                 <button
-                  className={`px-3 py-1.5 ${
+                  className={`px-3 py-1.5 h-[34px] ${
                     stage === "edit"
                       ? "bg-gray-900 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1262,7 +1554,7 @@ export function ContractEditor({
                   Edit
                 </button>
                 <button
-                  className={`px-3 py-1.5 ${
+                  className={`px-3 py-1.5 h-[34px] ${
                     stage === "sign"
                       ? "bg-gray-900 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1272,7 +1564,7 @@ export function ContractEditor({
                   Sign
                 </button>
                 <button
-                  className={`px-3 py-1.5 ${
+                  className={`px-3 py-1.5 h-[34px] ${
                     stage === "send"
                       ? "bg-gray-900 text-white"
                       : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1376,7 +1668,7 @@ export function ContractEditor({
             ) : null}
           </div>
 
-          {/* Editor section with lock overlay */}
+          {/* Editor section with lock indicator (without dimming overlay) */}
           <div className="relative">
             {isLocked && (
               <>
@@ -1389,9 +1681,6 @@ export function ContractEditor({
                     </span>
                   </div>
                 </div>
-
-                {/* Simple overlay - similar to original */}
-                <div className="absolute inset-0 bg-gray-50 bg-opacity-50 pointer-events-none z-[1]"></div>
               </>
             )}
             <div

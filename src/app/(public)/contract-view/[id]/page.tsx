@@ -51,6 +51,7 @@ export default function PublicContractViewPage() {
   } | null>(null);
   const signaturePadRef = useRef<any>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [companyName, setCompanyName] = useState<string>("");
 
   // Profile image and banner
   const [profileImageUrl, setProfileImageUrl] = useState<string>(
@@ -124,6 +125,24 @@ export default function PublicContractViewPage() {
         // Always grant access if contract exists
         console.log("Access granted - all contracts are public");
         setContract(contractData);
+
+        // Try to extract company name from metadata or user profile
+        try {
+          if (contractData.userId) {
+            const db = getFirestore();
+            const userDoc = await getDoc(doc(db, "users", contractData.userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              if (userData.companyName) {
+                setCompanyName(userData.companyName);
+              } else if (userData.displayName) {
+                setCompanyName(userData.displayName);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching company name:", error);
+        }
 
         // Check for logo and banner in contract data
         const contractWithMedia = contractData as ContractWithMedia;
@@ -231,6 +250,13 @@ export default function PublicContractViewPage() {
                   userData.defaultProfileBannerUrl
                 );
               }
+
+              // Set company name if available
+              if (userData.companyName && !companyName) {
+                setCompanyName(userData.companyName);
+              } else if (userData.displayName && !companyName) {
+                setCompanyName(userData.displayName);
+              }
             }
           } catch (error) {
             console.error("Error fetching user profile data:", error);
@@ -312,6 +338,18 @@ export default function PublicContractViewPage() {
       return <div dangerouslySetInnerHTML={{ __html: content }} />;
     }
 
+    // Process the content to replace placeholders
+    const processText = (text: string) => {
+      if (!text) return text;
+
+      // Replace company name placeholder if we have a company name
+      if (companyName) {
+        text = text.replace(/\[Your Company Name\]/g, companyName);
+      }
+
+      return text;
+    };
+
     // Handle blocks format content
     if (content?.blocks && Array.isArray(content.blocks)) {
       return (
@@ -333,14 +371,14 @@ export default function PublicContractViewPage() {
 
                 return (
                   <HeaderTag key={index} className={headerClass}>
-                    {block.data.text}
+                    {processText(block.data.text)}
                   </HeaderTag>
                 );
 
               case "paragraph":
                 return (
                   <p key={index} className="text-gray-700 leading-relaxed mb-4">
-                    {block.data.text}
+                    {processText(block.data.text)}
                   </p>
                 );
 
@@ -352,17 +390,35 @@ export default function PublicContractViewPage() {
                   >
                     {block.data.items?.map(
                       (item: string, itemIndex: number) => (
-                        <li key={itemIndex}>{item}</li>
+                        <li key={itemIndex}>{processText(item)}</li>
                       )
                     )}
                   </ul>
+                );
+
+              case "image":
+                return (
+                  <div key={index} className="my-6">
+                    <img
+                      src={block.data.file?.url}
+                      alt={block.data.caption || "Contract image"}
+                      className="max-w-full h-auto rounded-lg"
+                    />
+                    {block.data.caption && (
+                      <p className="text-sm text-gray-500 mt-2 text-center">
+                        {block.data.caption}
+                      </p>
+                    )}
+                  </div>
                 );
 
               default:
                 // Handle other block types or unknown types
                 return (
                   <div key={index} className="mb-4">
-                    {block.data.text || JSON.stringify(block.data)}
+                    {block.data.text
+                      ? processText(block.data.text)
+                      : JSON.stringify(block.data)}
                   </div>
                 );
             }
@@ -440,6 +496,10 @@ export default function PublicContractViewPage() {
                 src={profileImageUrl}
                 alt="Profile"
                 className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "/placeholder-profile.png";
+                }}
               />
             </div>
 
@@ -470,6 +530,36 @@ export default function PublicContractViewPage() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
+          {/* Contract Logo if available */}
+          {logoUrl !== "/placeholder-logo.png" && (
+            <div className="flex justify-start mb-8">
+              <div className="h-24 w-24 overflow-hidden">
+                <img
+                  src={logoUrl}
+                  alt="Contract Logo"
+                  className="h-full w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Contract Banner if available */}
+          {bannerUrl !== "/placeholder-banner.png" && (
+            <div className="mb-8">
+              <img
+                src={bannerUrl}
+                alt="Contract Banner"
+                className="w-full h-40 object-cover rounded-lg"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+          )}
+
           {/* Contract Content with Improved Typography */}
           <div className="prose prose-lg max-w-none mb-16">
             {renderContractContent(contract.content)}
@@ -490,6 +580,10 @@ export default function PublicContractViewPage() {
                       src={profileImageUrl}
                       alt="Designer"
                       className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "/placeholder-profile.png";
+                      }}
                     />
                   </div>
                   <h3 className="text-lg font-medium text-gray-800">

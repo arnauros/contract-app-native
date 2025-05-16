@@ -62,6 +62,20 @@ body {
   }
 }
 
+@keyframes flowAcross {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
 .animate-fade-in {
   opacity: 0;
   animation: fadeIn 0.7s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
@@ -69,6 +83,10 @@ body {
 
 .highlight-pulse {
   animation: highlightPulse 1s ease-in-out;
+}
+
+.flow-animation {
+  animation: flowAcross 0.7s ease-in-out;
 }
 
 /* Layout components */

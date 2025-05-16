@@ -21,6 +21,10 @@ export default function Topbar({ pathname }: TopbarProps) {
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
+  const [previousStage, setPreviousStage] = useState<
+    "edit" | "sign" | "send" | null
+  >(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { loggedIn } = useAuth();
 
   // Get active users for current contract
@@ -45,45 +49,60 @@ export default function Topbar({ pathname }: TopbarProps) {
   }, [pathname, params?.id]);
 
   // Memoize handleStageChange to prevent recreating it on each render
-  const handleStageChange = useCallback((e: CustomEvent) => {
-    // Support both string and object detail formats for better compatibility
-    const newStage = typeof e.detail === "string" ? e.detail : e.detail?.stage;
+  const handleStageChange = useCallback(
+    (e: CustomEvent) => {
+      // Support both string and object detail formats for better compatibility
+      const newStage =
+        typeof e.detail === "string" ? e.detail : e.detail?.stage;
 
-    if (
-      !newStage ||
-      (newStage !== "edit" && newStage !== "sign" && newStage !== "send")
-    ) {
-      console.log("🎭 Invalid stage received:", newStage);
-      return;
-    }
-
-    const contractId = window.location.pathname.split("/").pop();
-
-    if (contractId) {
-      // Check for contract content
-      const savedContent = localStorage.getItem(
-        `contract-content-${contractId}`
-      );
-      const hasContent =
-        savedContent && JSON.parse(savedContent).blocks?.length > 0;
-
-      // Only allow non-edit stages if we have content
-      if (!hasContent && newStage !== "edit") {
-        toast.error("Please create your contract before proceeding");
-        const event = new CustomEvent("stageChange", { detail: "edit" });
-        window.dispatchEvent(event);
+      if (
+        !newStage ||
+        (newStage !== "edit" && newStage !== "sign" && newStage !== "send")
+      ) {
+        console.log("🎭 Invalid stage received:", newStage);
         return;
       }
-    }
 
-    console.log("🎭 Stage change:", newStage);
-    setCurrentStage(newStage as "edit" | "sign" | "send");
+      const contractId = window.location.pathname.split("/").pop();
 
-    // Also save the current stage to localStorage for persistence
-    if (contractId) {
-      localStorage.setItem(`contract-stage-${contractId}`, newStage);
-    }
-  }, []);
+      if (contractId) {
+        // Check for contract content
+        const savedContent = localStorage.getItem(
+          `contract-content-${contractId}`
+        );
+        const hasContent =
+          savedContent && JSON.parse(savedContent).blocks?.length > 0;
+
+        // Only allow non-edit stages if we have content
+        if (!hasContent && newStage !== "edit") {
+          toast.error("Please create your contract before proceeding");
+          const event = new CustomEvent("stageChange", { detail: "edit" });
+          window.dispatchEvent(event);
+          return;
+        }
+      }
+
+      // Save the previous stage before updating
+      setPreviousStage(currentStage);
+
+      // Set transition flag
+      setIsTransitioning(true);
+
+      console.log("🎭 Stage change:", newStage);
+      setCurrentStage(newStage as "edit" | "sign" | "send");
+
+      // Also save the current stage to localStorage for persistence
+      if (contractId) {
+        localStorage.setItem(`contract-stage-${contractId}`, newStage);
+      }
+
+      // Reset transition flag after animation completes
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 500); // Match the duration of your transition
+    },
+    [currentStage]
+  );
 
   // Simple stage management with debounce and content check
   useEffect(() => {
@@ -231,6 +250,48 @@ export default function Topbar({ pathname }: TopbarProps) {
     return "Dashboard / Contracts";
   };
 
+  // Helper function to get stage index
+  const getStageIndex = (stage: "edit" | "sign" | "send") => {
+    const stages = ["edit", "sign", "send"];
+    return stages.indexOf(stage);
+  };
+
+  // Calculate direction of transition: 1 for forward, -1 for backward
+  const transitionDirection =
+    previousStage && currentStage
+      ? getStageIndex(currentStage) > getStageIndex(previousStage)
+        ? 1
+        : -1
+      : 1;
+
+  // Get position for the active stage indicator
+  const getActiveStagePosition = () => {
+    switch (currentStage) {
+      case "edit":
+        return "left-0";
+      case "sign":
+        return "left-1/3";
+      case "send":
+        return "left-2/3";
+      default:
+        return "left-0";
+    }
+  };
+
+  // Get width percentage based on stage
+  const getProgressWidth = () => {
+    switch (currentStage) {
+      case "edit":
+        return "33%";
+      case "sign":
+        return "66%";
+      case "send":
+        return "100%";
+      default:
+        return "33%";
+    }
+  };
+
   const isContractPage = pathname.startsWith("/Contracts/") && params?.id;
 
   return (
@@ -244,42 +305,53 @@ export default function Topbar({ pathname }: TopbarProps) {
         <div className="flex-1 flex justify-center">
           {isContractPage && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="flex items-center h-10 justify-center gap-2 px-1 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center h-10 justify-center gap-2 px-1 bg-white rounded-lg border border-gray-200 shadow-sm relative overflow-hidden min-w-[320px]">
+                {/* Animated background for fluid stage transition */}
                 <div
-                  className={`flex items-center gap-3 h-8 px-1 ${
-                    currentStage === "edit"
-                      ? "bg-[#E5FFE7] border border-gray-100 rounded-md"
-                      : ""
+                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-green-100 to-transparent transition-all duration-700 ease-in-out ${
+                    isTransitioning ? "opacity-30 flow-animation" : "opacity-0"
                   }`}
-                >
-                  <span className="flex items-center justify-center w-6 h-6 bg-white rounded-md text-sm font-medium shadow-sm">
-                    1
-                  </span>
-                  <span className="text-sm font-medium pr-2">Draft & Edit</span>
-                </div>
-                <div
-                  className={`flex items-center gap-3 h-8 px-1 ${
-                    currentStage === "sign"
-                      ? "bg-[#E5FFE7] border border-gray-100 rounded-md"
-                      : ""
-                  }`}
-                >
-                  <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
-                    2
-                  </span>
-                  <span className="text-sm font-medium">Sign</span>
-                </div>
-                <div
-                  className={`flex items-center gap-3 h-8 px-1 ${
-                    currentStage === "send"
-                      ? "bg-[#E5FFE7] border border-gray-100 rounded-md"
-                      : ""
-                  }`}
-                >
-                  <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
-                    3
-                  </span>
-                  <span className="text-sm font-medium">Send</span>
+                  style={{
+                    transform: `translateX(${transitionDirection * 100}%)`,
+                  }}
+                />
+
+                <div className="flex items-center relative w-full">
+                  {/* Active stage indicator that moves smoothly */}
+                  <div
+                    className={`absolute top-0 h-8 bg-[#E5FFE7] border border-gray-100 rounded-2xl transition-all duration-500 ease-in-out z-0`}
+                    style={{
+                      width: currentStage === "sign" ? "28%" : "24%",
+                      left:
+                        currentStage === "edit"
+                          ? "5%"
+                          : currentStage === "sign"
+                          ? "36%"
+                          : "70%",
+                    }}
+                  />
+
+                  {/* Stage indicators */}
+                  <div className="flex items-center w-full justify-between px-4">
+                    <div className="flex items-center gap-4 transition-colors duration-300 z-10">
+                      <span className="flex items-center justify-center w-6 h-6 bg-white rounded-md text-sm font-medium shadow-sm">
+                        1
+                      </span>
+                      <span className="text-sm font-medium">Draft</span>
+                    </div>
+                    <div className="flex items-center gap-4 transition-colors duration-300 z-10">
+                      <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+                        2
+                      </span>
+                      <span className="text-sm font-medium">Sign</span>
+                    </div>
+                    <div className="flex items-center gap-4 transition-colors duration-300 z-10">
+                      <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+                        3
+                      </span>
+                      <span className="text-sm font-medium">Send</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -299,7 +371,7 @@ export default function Topbar({ pathname }: TopbarProps) {
               {currentStage !== "edit" && (
                 <button
                   onClick={handleBackClick}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-4 py-2 h-[40px] text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors min-w-[100px] font-medium"
                 >
                   Back
                 </button>
@@ -307,7 +379,7 @@ export default function Topbar({ pathname }: TopbarProps) {
               {currentStage !== "send" && (
                 <button
                   onClick={handleNext}
-                  className="px-4 py-2 bg-black text-white rounded-md"
+                  className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-colors min-w-[100px] font-medium border-2 border-orange-500"
                 >
                   Next
                 </button>

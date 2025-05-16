@@ -997,9 +997,51 @@ export default function Dashboard() {
                         "Untitled Contract"}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {contract.content?.clientEmail
-                        ? `Client: ${contract.content.clientEmail}`
-                        : "No client assigned"}
+                      {!contract.content?.projectBrief &&
+                      !contract.content?.startDate &&
+                      !contract.content?.techStack &&
+                      !contract.content?.clientName ? (
+                        "Click to add contract details"
+                      ) : (
+                        <>
+                          {contract.content?.projectBrief
+                            ? `Scope: ${contract.content.projectBrief.substring(
+                                0,
+                                12
+                              )}...`
+                            : ""}
+                          {contract.content?.projectBrief &&
+                          (contract.content?.startDate ||
+                            contract.content?.techStack ||
+                            contract.content?.clientName)
+                            ? " • "
+                            : ""}
+                          {contract.content?.startDate &&
+                          contract.content?.endDate
+                            ? `$${
+                                parseInt(
+                                  contract.content.startDate.split("-")[2] ||
+                                    "0"
+                                ) * 100
+                              }`
+                            : ""}
+                          {contract.content?.startDate &&
+                          contract.content?.endDate &&
+                          (contract.content?.techStack ||
+                            contract.content?.clientName)
+                            ? " • "
+                            : ""}
+                          {contract.content?.techStack || ""}
+                          {contract.content?.clientName &&
+                          (contract.content?.projectBrief ||
+                            contract.content?.startDate ||
+                            contract.content?.techStack)
+                            ? ` • ${contract.content.clientName}`
+                            : contract.content?.clientName
+                            ? contract.content.clientName
+                            : ""}
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

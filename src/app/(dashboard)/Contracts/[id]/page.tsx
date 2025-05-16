@@ -209,6 +209,59 @@ export default function ContractPage() {
     designerSignedAt: null,
   });
   const hasInitialized = useRef(false);
+  const lastForceRefreshTime = useRef(Date.now());
+
+  // Force a refresh of the component after mount to ensure signature state is correct
+  useEffect(() => {
+    // This will force a reload of the contract data after a short delay
+    // to ensure signatures are properly loaded
+    const timer = setTimeout(() => {
+      console.log("🔄 Forcing signature refresh after initial load");
+      loadContract();
+      lastForceRefreshTime.current = Date.now();
+
+      // Also broadcast signature state for other components
+      const contractId = id;
+      if (contractId) {
+        getSignatures(contractId)
+          .then((result) => {
+            if (result.success) {
+              const hasDesignerSignature = !!result.signatures.designer;
+              console.log("📢 Broadcasting signature state:", {
+                hasDesignerSignature,
+              });
+
+              const sigStateEvent = new CustomEvent("signatureStateChanged", {
+                detail: {
+                  contractId,
+                  hasDesignerSignature,
+                  source: "contract-page-force-refresh",
+                },
+              });
+              window.dispatchEvent(sigStateEvent);
+
+              // Force stage refresh to ensure UI is in sync
+              const currentStageValue =
+                (localStorage.getItem(`contract-stage-${id}`) as Stage) ||
+                "edit";
+              const stageEvent = new CustomEvent("stageChange", {
+                detail: {
+                  stage: currentStageValue,
+                  refreshed: true,
+                  source: "contract-page-force-refresh",
+                },
+              });
+              window.dispatchEvent(stageEvent);
+            }
+          })
+          .catch((error) => {
+            console.error("Error in force refresh:", error);
+          });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [id]);
 
   // Comment functionality
   const [showComments, setShowComments] = useState(false);
@@ -743,87 +796,163 @@ export default function ContractPage() {
     };
   }, [id]);
 
-  // Safety check for signatures
+  // Listen for signature state changes
   useEffect(() => {
-    const checkSignatures = () => {
-      const clientSig = localStorage.getItem(`contract-client-signature-${id}`);
-      const designerSig = localStorage.getItem(
-        `contract-designer-signature-${id}`
+    const handleSignatureStateChanged = (e: CustomEvent) => {
+      const detail = e.detail || {};
+
+      // Only process if the event is for this contract
+      if (detail.contractId === id) {
+        console.log(
+          "📝 ContractPage: Signature state changed event received",
+          detail
+        );
+
+        // Update our internal contract state
+        setContractState((prevState) => ({
+          ...prevState,
+          existingSignature: detail.hasDesignerSignature || false,
+          designerSignature: detail.hasDesignerSignature
+            ? prevState.designerSignature
+            : "",
+        }));
+
+        // If signatures were removed and we're not in edit mode, force edit mode
+        if (!detail.hasDesignerSignature && currentStage !== "edit") {
+          console.log(
+            "🔄 ContractPage: Forcing edit mode after signature removal"
+          );
+          setCurrentStage("edit");
+          localStorage.setItem(`contract-stage-${id}`, "edit");
+        }
+
+        // Force reload signatures from Firestore to ensure state consistency
+        loadContract();
+      }
+    };
+
+    window.addEventListener(
+      "signatureStateChanged",
+      handleSignatureStateChanged as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "signatureStateChanged",
+        handleSignatureStateChanged as EventListener
       );
-      const hasClientSignature = !!clientSig;
-      const hasDesignerSignature = !!designerSig;
+    };
+  }, [id, currentStage]);
 
-      // Check if this was an explicit edit button click
-      const editButtonClicked =
-        localStorage.getItem("explicit-edit-click") === "true";
+  // Update the safety check for signatures to better handle direct URL navigation
+  useEffect(() => {
+    const checkSignatures = async () => {
+      console.log("🔍 ContractPage: Running signature safety check", {
+        currentStage,
+      });
 
-      // Case 1: Explicit edit click with designer signature
-      // This should have triggered the unsign modal in ContractEditor already
-      if (
-        editButtonClicked &&
-        hasDesignerSignature &&
-        currentStage === "edit"
-      ) {
-        console.log(
-          "📝 Explicit edit button click detected with designer signature"
-        );
+      // Always check fresh signature status from Firestore
+      try {
+        const result = await getSignatures(id);
+        const hasDesignerSignature = !!result.signatures?.designer;
+        const hasClientSignature = !!result.signatures?.client;
 
-        // In this case, don't automatically switch to edit mode
-        // The modal in ContractEditor will handle the workflow
+        console.log("📝 ContractPage: Current signature state", {
+          hasDesignerSignature,
+          hasClientSignature,
+        });
 
-        // Just clear the flag since we've processed the click
-        localStorage.removeItem("explicit-edit-click");
-      }
-      // Case 2: Explicit edit click without designer signature
-      else if (
-        editButtonClicked &&
-        !hasDesignerSignature &&
-        currentStage === "edit"
-      ) {
-        console.log(
-          "📝 Explicit edit button click detected, allowing edit mode"
-        );
+        // Check if this was an explicit edit button click
+        const editButtonClicked =
+          localStorage.getItem("explicit-edit-click") === "true";
 
-        // Update UI to show contract can now be edited
-        const eventDetail = {
-          stage: "edit",
-          confirmed: true,
-          allowWithSignatures: true,
-        };
-        const event = new CustomEvent("stageChange", { detail: eventDetail });
-        window.dispatchEvent(event);
+        // Update our local state first
+        setContractState((prev) => ({
+          ...prev,
+          existingSignature: hasDesignerSignature,
+          isClientSigned: hasClientSignature,
+          designerSignature: result.signatures?.designer?.signature || "",
+          designerName: result.signatures?.designer?.name || "",
+          designerSignedAt: result.signatures?.designer?.signedAt
+            ? new Date(result.signatures.designer.signedAt)
+            : null,
+          clientSignature: result.signatures?.client?.signature || "",
+          clientName: result.signatures?.client?.name || "",
+          clientSignedAt: result.signatures?.client?.signedAt
+            ? new Date(result.signatures.client.signedAt)
+            : null,
+        }));
 
-        // Clear the flag after processing
-        localStorage.removeItem("explicit-edit-click");
-      }
-      // Case 3: User currently in edit mode with designer signature, but no explicit click
-      // This could happen during initial load or URL navigation
-      else if (
-        hasDesignerSignature &&
-        currentStage === "edit" &&
-        !editButtonClicked
-      ) {
-        console.log(
-          "📝 Designer signature present, but allowing view in edit stage"
-        );
+        // Case 1: Explicit edit click with designer signature
+        // This should have triggered the unsign modal in ContractEditor already
+        if (
+          editButtonClicked &&
+          hasDesignerSignature &&
+          currentStage === "edit"
+        ) {
+          console.log(
+            "📝 Explicit edit button click detected with designer signature"
+          );
 
-        // Previously we redirected to sign stage, but now we want to allow viewing in edit mode
-        // but ensure the editor remains locked. This is handled by ContractEditor component's
-        // stage management useEffect.
+          // In this case, don't automatically switch to edit mode
+          // The modal in ContractEditor will handle the workflow
 
-        // Update local storage with the current stage
-        localStorage.setItem(`contract-stage-${id}`, "edit");
-      }
-      // Case 4: Only client signature exists, still allow edit mode
-      else if (
-        hasClientSignature &&
-        !hasDesignerSignature &&
-        currentStage === "edit"
-      ) {
-        console.log("📝 Only client signature present, allowing edit mode");
+          // Just clear the flag since we've processed the click
+          localStorage.removeItem("explicit-edit-click");
+        }
+        // Case 2: Explicit edit click without designer signature
+        else if (
+          editButtonClicked &&
+          !hasDesignerSignature &&
+          currentStage === "edit"
+        ) {
+          console.log(
+            "📝 Explicit edit button click detected, allowing edit mode"
+          );
 
-        // Update local storage with the current stage
-        localStorage.setItem(`contract-stage-${id}`, "edit");
+          // Update UI to show contract can now be edited
+          const eventDetail = {
+            stage: "edit",
+            confirmed: true,
+            allowWithSignatures: true,
+          };
+          const event = new CustomEvent("stageChange", { detail: eventDetail });
+          window.dispatchEvent(event);
+
+          // Clear the flag after processing
+          localStorage.removeItem("explicit-edit-click");
+        }
+        // Case 3: User currently in edit mode with designer signature, but no explicit click
+        // This could happen during initial load or URL navigation
+        else if (
+          hasDesignerSignature &&
+          currentStage === "edit" &&
+          !editButtonClicked
+        ) {
+          console.log(
+            "📝 Designer signature present, but allowing view in edit stage"
+          );
+
+          // Previously we redirected to sign stage, but now we want to allow viewing in edit mode
+          // but ensure the editor remains locked. This is handled by ContractEditor component's
+          // stage management useEffect.
+
+          // Update local storage with the current stage
+          localStorage.setItem(`contract-stage-${id}`, "edit");
+        }
+        // Case 4: Only client signature exists, still allow edit mode
+        else if (
+          hasClientSignature &&
+          !hasDesignerSignature &&
+          currentStage === "edit"
+        ) {
+          console.log("📝 Only client signature present, allowing edit mode");
+
+          // Update local storage with the current stage
+          localStorage.setItem(`contract-stage-${id}`, "edit");
+        }
+      } catch (error) {
+        console.error("❌ Error checking signatures:", error);
       }
     };
 
