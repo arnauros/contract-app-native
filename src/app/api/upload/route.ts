@@ -55,17 +55,34 @@ export async function POST(request: NextRequest) {
     // This avoids Firebase Admin configuration issues during development
     if (process.env.NODE_ENV === "development") {
       const timestamp = Date.now();
-      const mockUrl =
-        type === "profileImage"
-          ? "/placeholder-profile.png"
-          : "/placeholder-banner.png";
+      const fileName = file.name.replace(/\s+/g, "_");
 
-      console.log("Development mode - returning mock response");
+      // Ensure we return the correct placeholder for each type
+      let mockUrl;
+      if (type === "logo") {
+        mockUrl = `/placeholder-logo.png?t=${timestamp}`;
+        console.log("🖼️ [DEV] Using logo placeholder:", mockUrl);
+      } else if (type === "profileImage") {
+        mockUrl = `/placeholder-profile.png?t=${timestamp}`;
+        console.log("🖼️ [DEV] Using profile placeholder:", mockUrl);
+      } else if (type === "banner" || type === "profileBanner") {
+        mockUrl = `/placeholder-banner.png?t=${timestamp}`;
+        console.log("🖼️ [DEV] Using banner placeholder:", mockUrl);
+      } else {
+        // Default to logo for any other type
+        mockUrl = `/placeholder-logo.png?t=${timestamp}`;
+        console.log(
+          "🖼️ [DEV] Using default placeholder for unknown type:",
+          type
+        );
+      }
+
+      console.log("🔄 [DEV] Mock upload complete. Returning URL:", mockUrl);
 
       return NextResponse.json({
         success: true,
         url: mockUrl,
-        path: `mock/users/${userId}/${type}/${timestamp}.png`,
+        path: `mock/users/${userId}/${type}/${timestamp}-${fileName}`,
         mock: true,
       });
     }

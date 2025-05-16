@@ -57,6 +57,15 @@ export default function ImageUploader({
     }
   }, [type]);
 
+  // Ensure imageUrl has proper path
+  useEffect(() => {
+    // Ensure the imageUrl has a leading slash if it's a relative path
+    if (imageUrl && !imageUrl.startsWith("/") && !imageUrl.startsWith("http")) {
+      console.log(`Fixing imageUrl format for ${type}:`, imageUrl);
+      onImageChange(`/${imageUrl}`);
+    }
+  }, [imageUrl, type, onImageChange]);
+
   // If image is default and useDefaultIfEmpty is true, try to load default profile image
   useEffect(() => {
     const loadDefaultProfileImage = async () => {
@@ -459,11 +468,39 @@ export default function ImageUploader({
             </span>
           </div>
         ) : (
-          <img
-            src={imageUrl}
-            alt={type === "logo" ? "Contract logo" : "Contract banner"}
-            className="w-full h-full object-cover"
-          />
+          <>
+            {/* Add a key with timestamp to force re-render when the URL changes */}
+            <img
+              key={`${type}-${imageUrl}`}
+              src={
+                imageUrl + (imageUrl.includes("?") ? "" : `?t=${Date.now()}`)
+              }
+              alt={type === "logo" ? "Contract logo" : "Contract banner"}
+              className="w-full h-full object-cover"
+              onLoad={() => {
+                console.log(`${type} image loaded successfully:`, imageUrl);
+              }}
+              onError={(e) => {
+                console.error(`${type} image failed to load:`, imageUrl, e);
+                // If image fails to load, reset to the correct default
+                if (type === "logo" && imageUrl !== "/placeholder-logo.png") {
+                  console.log(
+                    `Resetting to default logo image after load failure`
+                  );
+                  onImageChange("/placeholder-logo.png");
+                } else if (
+                  type === "banner" &&
+                  imageUrl !== "/placeholder-banner.png" &&
+                  imageUrl !== defaultBannerUrl
+                ) {
+                  console.log(
+                    `Resetting to default banner image after load failure`
+                  );
+                  onImageChange("/placeholder-banner.png");
+                }
+              }}
+            />
+          </>
         )}
         <input
           ref={fileInputRef}

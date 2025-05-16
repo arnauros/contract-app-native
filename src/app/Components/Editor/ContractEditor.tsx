@@ -651,15 +651,12 @@ export function ContractEditor({
         updatedAt: new Date().toISOString(),
       });
 
-      toast.success("Signature removed successfully");
-
-      // Force reload to ensure components are properly reset
-      // First go to edit mode to ensure the editor is unlocked
-      const editEvent = new CustomEvent("stageChange", { detail: "edit" });
-      window.dispatchEvent(editEvent);
+      // No longer dispatch stage change event here, as it's handled by the calling function
+      return true;
     } catch (error) {
       console.error("Error removing signature:", error);
       toast.error("Failed to remove signature");
+      return false;
     }
   };
 
@@ -668,7 +665,19 @@ export function ContractEditor({
       await handleUnsign();
       setIsUnsignModalOpen(false);
 
-      // Don't need additional stage change here since handleUnsign manages that now
+      // Explicitly transition to edit mode after signature removal
+      const editEvent = new CustomEvent("stageChange", {
+        detail: {
+          stage: "edit",
+          confirmed: true,
+          source: "unsign-confirm",
+          allowWithSignatures: false,
+        },
+      });
+      window.dispatchEvent(editEvent);
+
+      // Show a success toast explaining what happened
+      toast.success("Signature removed. You can now edit the contract.");
     } catch (error) {
       console.error("Error during unsign:", error);
       toast.error("Failed to remove signature");
@@ -942,8 +951,15 @@ export function ContractEditor({
     const hasDesignerSig = !!designerSignature;
     const hasClientSig = !!clientSignature;
 
-    // If either has signed, show a warning that changes will require re-signing
-    if (hasDesignerSig || hasClientSig) {
+    // If designer signature exists, prompt to remove it before editing
+    if (hasDesignerSig) {
+      // Open the unsign confirmation modal instead of proceeding
+      setIsUnsignModalOpen(true);
+      return;
+    }
+
+    // Otherwise if only client signature exists, show warning
+    if (hasClientSig) {
       toast("Editing a signed contract - changes will require re-signing", {
         id: "edit-warning", // Prevent duplicate toasts
         icon: "⚠️",
@@ -1035,6 +1051,41 @@ export function ContractEditor({
       );
     };
   }, []);
+
+  // Listen for unsign requests from topbar
+  useEffect(() => {
+    const handleUnsignRequest = (e: CustomEvent) => {
+      const source = e.detail?.source || "unknown";
+      console.log(`📝 Unsign request received from: ${source}`);
+
+      // If user has a signature, show unsign modal
+      if (designerSignature) {
+        setIsUnsignModalOpen(true);
+      } else {
+        // No signature, can safely go to edit mode
+        const event = new CustomEvent("stageChange", {
+          detail: {
+            stage: "edit",
+            confirmed: true,
+            source: "unsign-request-no-signature",
+          },
+        });
+        window.dispatchEvent(event);
+      }
+    };
+
+    window.addEventListener(
+      "requestUnsignPrompt",
+      handleUnsignRequest as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "requestUnsignPrompt",
+        handleUnsignRequest as EventListener
+      );
+    };
+  }, [designerSignature]);
 
   // Listen for global stage change events
   useEffect(() => {
@@ -1250,7 +1301,10 @@ export function ContractEditor({
                 type="banner"
                 contractId={window.location.pathname.split("/").pop() || ""}
                 imageUrl={bannerUrl}
-                onImageChange={setBannerUrl}
+                onImageChange={(url) => {
+                  console.log("Banner image changed to:", url);
+                  setBannerUrl(url);
+                }}
                 className="w-full"
                 useDefaultIfEmpty={true}
               />
@@ -1261,9 +1315,25 @@ export function ContractEditor({
           {bannerUrl !== "/placeholder-banner.png" && (
             <div className="mb-6">
               <img
-                src={bannerUrl}
+                src={
+                  bannerUrl +
+                  (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
+                }
                 alt="Contract banner"
                 className="w-full h-40 object-cover rounded-lg"
+                onLoad={() =>
+                  console.log("Banner image loaded successfully:", bannerUrl)
+                }
+                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                  console.error("Banner image failed to load:", bannerUrl, e);
+                  // Reset to default if loading fails
+                  if (bannerUrl !== "/placeholder-banner.png") {
+                    console.log(
+                      "Resetting to default banner after load failure in editor"
+                    );
+                    setBannerUrl("/placeholder-banner.png");
+                  }
+                }}
               />
             </div>
           )}
@@ -1276,16 +1346,31 @@ export function ContractEditor({
                 type="logo"
                 contractId={window.location.pathname.split("/").pop() || ""}
                 imageUrl={logoUrl}
-                onImageChange={setLogoUrl}
+                onImageChange={(url) => {
+                  console.log("Logo image changed to:", url);
+                  setLogoUrl(url);
+                }}
                 className="mb-12 mr-8"
                 useDefaultIfEmpty={true}
               />
             ) : logoUrl !== "/placeholder-logo.png" ? (
               <div className="h-32 w-32 mb-12 mr-8 rounded-lg overflow-hidden">
                 <img
-                  src={logoUrl}
+                  src={
+                    logoUrl + (logoUrl.includes("?") ? "" : `?t=${Date.now()}`)
+                  }
                   alt="Contract logo"
                   className="w-full h-full object-cover"
+                  onLoad={() =>
+                    console.log("Logo image loaded successfully:", logoUrl)
+                  }
+                  onError={(e) => {
+                    console.error("Logo image failed to load:", logoUrl, e);
+                    // Reset to default if loading fails
+                    if (logoUrl !== "/placeholder-logo.png") {
+                      setLogoUrl("/placeholder-logo.png");
+                    }
+                  }}
                 />
               </div>
             ) : null}
@@ -1456,8 +1541,15 @@ export function ContractEditor({
       >
         <div className="p-6">
           <p className="text-gray-600 mb-4">
-            Are you sure you want to remove your signature from this contract?
-            {stage === "edit" && " This is required to edit the contract."}
+            To edit this contract, you must first remove your signature.
+            <span className="font-medium">
+              {" "}
+              Once you edit the contract, you will need to sign it again.
+            </span>
+          </p>
+          <p className="text-gray-500 mb-4 text-sm">
+            Editing a signed contract invalidates the previous signature since
+            the content is changing.
           </p>
           <div className="flex justify-end gap-4">
             <button

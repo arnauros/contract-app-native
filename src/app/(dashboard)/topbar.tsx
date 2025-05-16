@@ -27,9 +27,36 @@ export default function Topbar({ pathname }: TopbarProps) {
   const contractId = params?.id as string;
   const { activeUsers } = useActiveUsers(contractId);
 
+  // Initialize stage from localStorage on load
+  useEffect(() => {
+    const contractId = params?.id;
+    if (contractId && pathname.includes("/Contracts/")) {
+      const savedStage = localStorage.getItem(`contract-stage-${contractId}`);
+      if (
+        savedStage &&
+        (savedStage === "edit" ||
+          savedStage === "sign" ||
+          savedStage === "send")
+      ) {
+        console.log("🎭 Initializing stage from localStorage:", savedStage);
+        setCurrentStage(savedStage as "edit" | "sign" | "send");
+      }
+    }
+  }, [pathname, params?.id]);
+
   // Memoize handleStageChange to prevent recreating it on each render
   const handleStageChange = useCallback((e: CustomEvent) => {
-    const newStage = e.detail;
+    // Support both string and object detail formats for better compatibility
+    const newStage = typeof e.detail === "string" ? e.detail : e.detail?.stage;
+
+    if (
+      !newStage ||
+      (newStage !== "edit" && newStage !== "sign" && newStage !== "send")
+    ) {
+      console.log("🎭 Invalid stage received:", newStage);
+      return;
+    }
+
     const contractId = window.location.pathname.split("/").pop();
 
     if (contractId) {
@@ -50,7 +77,12 @@ export default function Topbar({ pathname }: TopbarProps) {
     }
 
     console.log("🎭 Stage change:", newStage);
-    setCurrentStage(newStage);
+    setCurrentStage(newStage as "edit" | "sign" | "send");
+
+    // Also save the current stage to localStorage for persistence
+    if (contractId) {
+      localStorage.setItem(`contract-stage-${contractId}`, newStage);
+    }
   }, []);
 
   // Simple stage management with debounce and content check
@@ -64,20 +96,57 @@ export default function Topbar({ pathname }: TopbarProps) {
     };
   }, [handleStageChange]);
 
-  // Simple navigation rules with debounce
-  const handleBackClick = () => {
+  // Navigation rules with signature checking
+  const handleBackClick = async () => {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
-    // Prevent rapid clicks
+    // Handle navigation based on current stage
     if (currentStage === "send") {
       // Going from send to sign is always allowed
       const event = new CustomEvent("stageChange", { detail: "sign" });
       window.dispatchEvent(event);
     } else if (currentStage === "sign") {
-      // Going from sign to edit - let the ContractEditor handle this
-      const event = new CustomEvent("stageChange", { detail: "edit" });
-      window.dispatchEvent(event);
+      // Check for designer signature before going from sign to edit
+      try {
+        // Check both localStorage and Firestore for signatures
+        const localSignature = localStorage.getItem(
+          `contract-designer-signature-${contractId}`
+        );
+
+        // Check if we have a designer signature
+        let hasDesignerSignature = !!localSignature;
+
+        // Also check Firestore if needed
+        if (!hasDesignerSignature && contractId) {
+          try {
+            const firestoreSignatures = await getSignatures(contractId);
+            if (firestoreSignatures.success) {
+              hasDesignerSignature = !!firestoreSignatures.signatures.designer;
+            }
+          } catch (error) {
+            console.error("Error fetching signatures:", error);
+          }
+        }
+
+        // If designer has signed, send special event to trigger unsign modal
+        if (hasDesignerSignature) {
+          console.log("Designer signature present, need confirmation to edit");
+          const event = new CustomEvent("requestUnsignPrompt", {
+            detail: { source: "topbar-back" },
+          });
+          window.dispatchEvent(event);
+        } else {
+          // No signature, can safely go to edit mode
+          const event = new CustomEvent("stageChange", { detail: "edit" });
+          window.dispatchEvent(event);
+        }
+      } catch (error) {
+        console.error("Error checking signatures:", error);
+        // Default to normal behavior if there's an error
+        const event = new CustomEvent("stageChange", { detail: "edit" });
+        window.dispatchEvent(event);
+      }
     }
   };
 

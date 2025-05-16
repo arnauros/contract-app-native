@@ -750,17 +750,36 @@ export default function ContractPage() {
       const designerSig = localStorage.getItem(
         `contract-designer-signature-${id}`
       );
-      const hasSignatures = !!(clientSig || designerSig);
+      const hasClientSignature = !!clientSig;
+      const hasDesignerSignature = !!designerSig;
 
       // Check if this was an explicit edit button click
       const editButtonClicked =
         localStorage.getItem("explicit-edit-click") === "true";
 
-      // Allow editing even with signatures in three cases:
-      // 1. If it was an explicit edit button click
-      // 2. If we're in edit mode and we were put there intentionally
-      // 3. If there are no signatures at all
-      if (editButtonClicked && currentStage === "edit") {
+      // Case 1: Explicit edit click with designer signature
+      // This should have triggered the unsign modal in ContractEditor already
+      if (
+        editButtonClicked &&
+        hasDesignerSignature &&
+        currentStage === "edit"
+      ) {
+        console.log(
+          "📝 Explicit edit button click detected with designer signature"
+        );
+
+        // In this case, don't automatically switch to edit mode
+        // The modal in ContractEditor will handle the workflow
+
+        // Just clear the flag since we've processed the click
+        localStorage.removeItem("explicit-edit-click");
+      }
+      // Case 2: Explicit edit click without designer signature
+      else if (
+        editButtonClicked &&
+        !hasDesignerSignature &&
+        currentStage === "edit"
+      ) {
         console.log(
           "📝 Explicit edit button click detected, allowing edit mode"
         );
@@ -776,14 +795,35 @@ export default function ContractPage() {
 
         // Clear the flag after processing
         localStorage.removeItem("explicit-edit-click");
-      } else if (
-        hasSignatures &&
+      }
+      // Case 3: User currently in edit mode with designer signature, but no explicit click
+      // This could happen during initial load or URL navigation
+      else if (
+        hasDesignerSignature &&
         currentStage === "edit" &&
         !editButtonClicked
       ) {
-        // We have signatures, we're in edit mode, but it wasn't from an explicit click
-        // Still allow it but log it for debugging
-        console.log("📝 Signatures present, but allowing edit mode");
+        console.log(
+          "📝 Designer signature present, but allowing view in edit stage"
+        );
+
+        // Previously we redirected to sign stage, but now we want to allow viewing in edit mode
+        // but ensure the editor remains locked. This is handled by ContractEditor component's
+        // stage management useEffect.
+
+        // Update local storage with the current stage
+        localStorage.setItem(`contract-stage-${id}`, "edit");
+      }
+      // Case 4: Only client signature exists, still allow edit mode
+      else if (
+        hasClientSignature &&
+        !hasDesignerSignature &&
+        currentStage === "edit"
+      ) {
+        console.log("📝 Only client signature present, allowing edit mode");
+
+        // Update local storage with the current stage
+        localStorage.setItem(`contract-stage-${id}`, "edit");
       }
     };
 
