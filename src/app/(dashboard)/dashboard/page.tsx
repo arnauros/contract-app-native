@@ -21,6 +21,7 @@ import {
   onSnapshot,
   where,
   updateDoc,
+  getFirestore,
 } from "firebase/firestore";
 import {
   FiFileText,
@@ -32,6 +33,7 @@ import {
   FiTrash2,
   FiExternalLink,
   FiRefreshCw,
+  FiDownload,
 } from "react-icons/fi";
 import { IconType } from "react-icons";
 import { Line } from "react-chartjs-2";
@@ -376,6 +378,23 @@ declare global {
   }
 }
 
+// Define types for contract content
+interface BlockData {
+  text?: string;
+  items?: string[];
+}
+
+interface Block {
+  type: string;
+  data: BlockData;
+}
+
+interface EditorContent {
+  blocks: Block[];
+  time: number;
+  version: string;
+}
+
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -650,6 +669,297 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Error deleting contract:", error);
       toast.error("Failed to delete contract");
+    }
+  };
+
+  const handleDownloadPDF = async (contractId: string) => {
+    try {
+      // Display loading toast
+      const loadingToast = toast.loading("Generating PDF...");
+
+      // Get the contract content from localStorage
+      const savedContent = localStorage.getItem(
+        `contract-content-${contractId}`
+      );
+      if (!savedContent) {
+        toast.dismiss(loadingToast);
+        toast.error("No contract content found");
+        return;
+      }
+
+      let parsedContent: EditorContent;
+      try {
+        parsedContent = JSON.parse(savedContent);
+        if (!parsedContent.blocks || parsedContent.blocks.length === 0) {
+          toast.dismiss(loadingToast);
+          toast.error("Contract content is empty");
+          return;
+        }
+      } catch (error) {
+        toast.dismiss(loadingToast);
+        toast.error("Invalid contract content format");
+        return;
+      }
+
+      // Get designer and client signature data
+      let designerSignature = "";
+      let designerName = "";
+      let designerDate = "";
+      let clientSignature = "";
+      let clientName = "";
+      let clientDate = "";
+
+      // 1. First try to get signatures from Firestore
+      try {
+        const firestore = getFirestore();
+        if (firestore) {
+          // Get designer signature
+          const designerSignatureRef = doc(
+            firestore,
+            "contracts",
+            contractId,
+            "signatures",
+            "designer"
+          );
+          const designerSignatureSnap = await getDoc(designerSignatureRef);
+
+          if (designerSignatureSnap.exists()) {
+            const designerData = designerSignatureSnap.data();
+            designerSignature = designerData.signature || "";
+            designerName = designerData.name || "Designer";
+            designerDate = designerData.signedAt
+              ? new Date(designerData.signedAt.toDate()).toLocaleDateString()
+              : new Date().toLocaleDateString();
+          }
+
+          // Get client signature
+          const clientSignatureRef = doc(
+            firestore,
+            "contracts",
+            contractId,
+            "signatures",
+            "client"
+          );
+          const clientSignatureSnap = await getDoc(clientSignatureRef);
+
+          if (clientSignatureSnap.exists()) {
+            const clientData = clientSignatureSnap.data();
+            clientSignature = clientData.signature || "";
+            clientName = clientData.name || "Client";
+            clientDate = clientData.signedAt
+              ? new Date(clientData.signedAt.toDate()).toLocaleDateString()
+              : "";
+          }
+        }
+      } catch (firestoreError) {
+        console.error(
+          "Error fetching signatures from Firestore:",
+          firestoreError
+        );
+        // Continue with localStorage fallback
+      }
+
+      // 2. Fall back to localStorage if needed
+      if (!designerSignature) {
+        const savedDesignerSignature = localStorage.getItem(
+          `contract-designer-signature-${contractId}`
+        );
+        if (savedDesignerSignature) {
+          try {
+            const parsedData = JSON.parse(savedDesignerSignature);
+            designerSignature = parsedData.signature || "";
+            designerName = parsedData.name || "Designer";
+            designerDate = parsedData.signedAt
+              ? new Date(parsedData.signedAt).toLocaleDateString()
+              : new Date().toLocaleDateString();
+          } catch (e) {
+            console.error(
+              "Error parsing designer signature from localStorage:",
+              e
+            );
+          }
+        } else {
+          // Legacy fallback
+          designerSignature = localStorage.getItem("contract-signature") || "";
+          designerName = user?.displayName || "Designer";
+          designerDate = new Date().toLocaleDateString();
+        }
+      }
+
+      if (!clientSignature) {
+        const savedClientSignature = localStorage.getItem(
+          `client-signature-${contractId}`
+        );
+        if (savedClientSignature) {
+          try {
+            const parsedData = JSON.parse(savedClientSignature);
+            clientSignature = parsedData.signature || "";
+            clientName = parsedData.name || "Client";
+            clientDate = parsedData.signedAt
+              ? new Date(parsedData.signedAt).toLocaleDateString()
+              : "";
+          } catch (e) {
+            console.error(
+              "Error parsing client signature from localStorage:",
+              e
+            );
+          }
+        }
+      }
+
+      // Also check contract meta for recipient info
+      if (!clientName) {
+        const contractMetaStr = localStorage.getItem(
+          `contract-meta-${contractId}`
+        );
+        if (contractMetaStr) {
+          try {
+            const contractMeta = JSON.parse(contractMetaStr);
+            if (contractMeta.recipientName) {
+              clientName = contractMeta.recipientName;
+            }
+            if (contractMeta.signedAt) {
+              clientDate = new Date(contractMeta.signedAt).toLocaleDateString();
+            }
+          } catch (e) {
+            console.error("Error parsing contract meta from localStorage:", e);
+          }
+        }
+      }
+
+      // Import jsPDF dynamically to avoid server-side rendering issues
+      const jsPDFModule = await import("jspdf");
+      const jsPDF = jsPDFModule.default;
+
+      // Create a new PDF document
+      const pdf = new jsPDF();
+      let yPosition = 10;
+
+      // Add a title
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Contract Document", 105, yPosition, { align: "center" });
+      yPosition += 15;
+
+      // Add content from blocks
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+
+      const margin = 20;
+      const pageWidth = pdf.internal.pageSize.width - margin * 2;
+
+      parsedContent.blocks.forEach((block: Block) => {
+        if (yPosition > 270) {
+          pdf.addPage();
+          yPosition = 10;
+        }
+
+        if (block.type === "header" && block.data.text) {
+          pdf.setFontSize(16);
+          pdf.setFont("helvetica", "bold");
+
+          const splitText = pdf.splitTextToSize(block.data.text, pageWidth);
+          pdf.text(splitText, margin, yPosition);
+          yPosition += 10 * splitText.length;
+
+          pdf.setFontSize(12);
+          pdf.setFont("helvetica", "normal");
+        } else if (block.type === "paragraph" && block.data.text) {
+          const splitText = pdf.splitTextToSize(block.data.text, pageWidth);
+          pdf.text(splitText, margin, yPosition);
+          yPosition += 7 * splitText.length;
+        } else if (
+          block.type === "list" &&
+          block.data.items &&
+          block.data.items.length
+        ) {
+          block.data.items.forEach((item: string) => {
+            if (yPosition > 270) {
+              pdf.addPage();
+              yPosition = 10;
+            }
+
+            const itemText = `• ${item}`;
+            const splitText = pdf.splitTextToSize(itemText, pageWidth - 5);
+            pdf.text(splitText, margin, yPosition);
+            yPosition += 7 * splitText.length;
+          });
+        }
+
+        yPosition += 5; // Add space between blocks
+      });
+
+      // Add signatures section
+      if (yPosition > 200) {
+        // Add a new page if we're too far down
+        pdf.addPage();
+        yPosition = 20;
+      } else {
+        // Add extra space before signatures
+        yPosition += 30;
+      }
+
+      // Add signature title
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Signatures", margin, yPosition);
+      yPosition += 15;
+
+      // Reset font
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+
+      // Designer signature section
+      pdf.text(`Designer: ${designerName}`, margin, yPosition);
+      yPosition += 10;
+      pdf.text(`Date: ${designerDate}`, margin, yPosition);
+      yPosition += 15;
+
+      // Add designer signature if available
+      if (designerSignature) {
+        try {
+          pdf.addImage(designerSignature, "PNG", margin, yPosition, 80, 30);
+          yPosition += 40;
+        } catch (error) {
+          console.error("Error adding designer signature:", error);
+          pdf.text("(Signature)", margin, yPosition);
+          yPosition += 15;
+        }
+      } else {
+        pdf.text("(Signature not available)", margin, yPosition);
+        yPosition += 15;
+      }
+
+      // Add space between signatures
+      yPosition += 10;
+
+      // Client signature section
+      pdf.text(`Client: ${clientName || "Not signed yet"}`, margin, yPosition);
+      yPosition += 10;
+      pdf.text(`Date: ${clientDate || "Not signed yet"}`, margin, yPosition);
+      yPosition += 15;
+
+      // Add client signature if available
+      if (clientSignature) {
+        try {
+          pdf.addImage(clientSignature, "PNG", margin, yPosition, 80, 30);
+        } catch (error) {
+          console.error("Error adding client signature:", error);
+          pdf.text("(Signature)", margin, yPosition);
+        }
+      } else {
+        pdf.text("(Signature not available)", margin, yPosition);
+      }
+
+      // Finalize PDF and download
+      pdf.save(`contract-${contractId}.pdf`);
+
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingToast);
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. Please try again.");
     }
   };
 
@@ -1080,6 +1390,13 @@ export default function Dashboard() {
                           <FiEdit3 className="w-4 h-4" />
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDownloadPDF(contract.id)}
+                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Download PDF"
+                      >
+                        <FiDownload className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleDeleteContract(contract.id)}
                         className="text-gray-500 hover:text-gray-700 transition-colors"

@@ -1,26 +1,12 @@
 [
   {
-    "origin": ["*"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "origin": [
+      "http://localhost:3000",
+      "http://app.localhost:3000",
+      "https://your-production-domain.com"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
     "maxAgeSeconds": 3600,
-    "responseHeader": [
-      "Content-Type",
-      "Content-Length",
-      "Access-Control-Allow-Origin",
-      "ETag",
-      "X-Download-Options",
-      "X-Request-Id",
-      "X-Content-Type-Options",
-      "X-Goog-Meta-Foo",
-      "X-Goog-Upload-Protocol",
-      "X-Goog-Upload-Status",
-      "X-Goog-Upload-URL",
-      "X-Goog-Upload-Command",
-      "X-Goog-Upload-Offset",
-      "X-Goog-Upload-Size-Received",
-      "X-Content-Type-Options",
-      "Cache-Control",
-      "Authorization"
-    ]
+    "responseHeader": ["Content-Type", "Content-Disposition", "Content-Length"]
   }
 ]

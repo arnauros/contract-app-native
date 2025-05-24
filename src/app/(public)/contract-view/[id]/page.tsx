@@ -15,9 +15,14 @@ import { Contract } from "@/lib/firebase/types";
 import { toast } from "react-hot-toast";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import SignaturePad from "react-signature-canvas";
-import { XMarkIcon, PencilIcon } from "@heroicons/react/24/outline";
+import {
+  XMarkIcon,
+  PencilIcon,
+  ArrowDownTrayIcon,
+} from "@heroicons/react/24/outline";
 import { CheckIcon } from "@heroicons/react/20/solid";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
+import jsPDF from "jspdf";
 
 // Define a contract type with media properties
 interface ContractWithMedia extends Contract {
@@ -435,6 +440,166 @@ export default function PublicContractViewPage() {
     );
   };
 
+  // PDF Download Handler
+  const handleDownloadPDF = async () => {
+    try {
+      if (!contract) {
+        toast.error("No contract data found");
+        return;
+      }
+      const contractId = contract.id || id;
+      // Display loading toast
+      const loadingToast = toast.loading("Generating PDF...");
+
+      // Get contract content
+      const savedContent = contract.content
+        ? JSON.stringify(contract.content)
+        : null;
+      if (!savedContent) {
+        toast.dismiss(loadingToast);
+        toast.error("No contract content found");
+        return;
+      }
+
+      // Get designer and client signature data
+      let designerSignatureImg = designerSignature?.signature || "";
+      let designerName = designerSignature?.name || "Designer";
+      let designerDate = designerSignature?.signedAt
+        ? new Date(designerSignature.signedAt).toLocaleDateString()
+        : new Date().toLocaleDateString();
+      let clientSignatureImg = clientSignature?.signature || "";
+      let clientName = clientSignature?.name || "Client";
+      let clientDate = clientSignature?.signedAt
+        ? new Date(clientSignature.signedAt).toLocaleDateString()
+        : new Date().toLocaleDateString();
+
+      let parsedContent: { blocks: any[] };
+      try {
+        parsedContent = JSON.parse(savedContent);
+        if (!parsedContent.blocks || parsedContent.blocks.length === 0) {
+          toast.dismiss(loadingToast);
+          toast.error("Contract content is empty");
+          return;
+        }
+      } catch (error) {
+        toast.dismiss(loadingToast);
+        toast.error("Invalid contract content format");
+        return;
+      }
+
+      // Create a new PDF document
+      const pdf = new jsPDF();
+      let yPosition = 10;
+
+      // Add a title
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Contract Document", 105, yPosition, { align: "center" });
+      yPosition += 15;
+
+      // Add content from blocks
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+
+      const margin = 20;
+      const pageWidth = pdf.internal.pageSize.width - margin * 2;
+
+      parsedContent.blocks.forEach((block: any) => {
+        if (yPosition > 270) {
+          pdf.addPage();
+          yPosition = 10;
+        }
+
+        if (block.type === "header" && block.data.text) {
+          pdf.setFontSize(16);
+          pdf.setFont("helvetica", "bold");
+
+          const splitText = pdf.splitTextToSize(block.data.text, pageWidth);
+          pdf.text(splitText, margin, yPosition);
+          yPosition += 10 * splitText.length;
+
+          pdf.setFontSize(12);
+          pdf.setFont("helvetica", "normal");
+        } else if (block.type === "paragraph" && block.data.text) {
+          const splitText = pdf.splitTextToSize(block.data.text, pageWidth);
+          pdf.text(splitText, margin, yPosition);
+          yPosition += 7 * splitText.length;
+        } else if (
+          block.type === "list" &&
+          block.data.items &&
+          block.data.items.length
+        ) {
+          (block.data.items as string[]).forEach((item: string) => {
+            if (yPosition > 270) {
+              pdf.addPage();
+              yPosition = 10;
+            }
+            const itemText = `• ${item}`;
+            const splitText = pdf.splitTextToSize(itemText, pageWidth - 5);
+            pdf.text(splitText, margin, yPosition);
+            yPosition += 7 * splitText.length;
+          });
+        }
+        yPosition += 5; // Add space between blocks
+      });
+
+      // Add signatures section
+      if (yPosition > 200) {
+        pdf.addPage();
+        yPosition = 20;
+      } else {
+        yPosition += 30;
+      }
+
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Signatures", margin, yPosition);
+      yPosition += 15;
+
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+
+      // Designer signature section
+      pdf.text(`Designer: ${designerName}`, margin, yPosition);
+      yPosition += 10;
+      pdf.text(`Date: ${designerDate}`, margin, yPosition);
+      yPosition += 15;
+      if (designerSignatureImg) {
+        try {
+          pdf.addImage(designerSignatureImg, "PNG", margin, yPosition, 80, 30);
+          yPosition += 40;
+        } catch (error) {
+          pdf.text("(Signature)", margin, yPosition);
+          yPosition += 15;
+        }
+      } else {
+        pdf.text("(Signature not available)", margin, yPosition);
+        yPosition += 15;
+      }
+      yPosition += 10;
+      // Client signature section
+      pdf.text(`Client: ${clientName || "Not signed yet"}`, margin, yPosition);
+      yPosition += 10;
+      pdf.text(`Date: ${clientDate || "Not signed yet"}`, margin, yPosition);
+      yPosition += 15;
+      if (clientSignatureImg) {
+        try {
+          pdf.addImage(clientSignatureImg, "PNG", margin, yPosition, 80, 30);
+        } catch (error) {
+          pdf.text("(Signature)", margin, yPosition);
+        }
+      } else {
+        pdf.text("(Signature not available)", margin, yPosition);
+      }
+      pdf.save(`contract-${contractId}.pdf`);
+      toast.dismiss(loadingToast);
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. Please try again.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen p-8 flex items-center justify-center">
@@ -650,6 +815,18 @@ export default function PublicContractViewPage() {
               </div>
             </div>
           </div>
+
+          {clientSignature && (
+            <div className="max-w-4xl mx-auto px-4 py-8 flex justify-center">
+              <button
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg shadow hover:bg-gray-800 transition-colors"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5" />
+                Download as PDF
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -346,19 +346,6 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
             You can proceed to send the contract
           </p>
 
-          <button
-            onClick={handleReset}
-            disabled={isRemoving}
-            className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
-              isRemoving
-                ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                : "text-gray-700 bg-white hover:bg-gray-50"
-            }`}
-          >
-            <ArrowPathIcon className="h-4 w-4 mr-1" />
-            {isRemoving ? "Removing..." : "Remove Signature"}
-          </button>
-
           <div className="mt-4 text-sm text-gray-500">
             <p>
               To edit the contract, first remove your signature or go to the

@@ -12,6 +12,10 @@ import {
   synchronizeSubscriptionCookie,
   forceUpdateSubscriptionCookie,
 } from "@/lib/utils/cookieSynchronizer";
+import { Menu, Transition } from "@headlessui/react";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { Fragment } from "react";
+import Link from "next/link";
 
 export default function SubscriptionDebug() {
   const { user, loading } = useAuth();
@@ -119,7 +123,7 @@ export default function SubscriptionDebug() {
     <div className="p-6 bg-white rounded-lg shadow">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Subscription Status Debug</h2>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
           <button
             onClick={handleRefresh}
             disabled={isLoading}
@@ -202,6 +206,37 @@ export default function SubscriptionDebug() {
           >
             Fix Cookie
           </button>
+
+          {/* Three dots menu */}
+          <Menu as="div" className="relative">
+            <Menu.Button className="p-2 rounded-full hover:bg-gray-100">
+              <EllipsisVerticalIcon className="h-5 w-5 text-gray-600" />
+            </Menu.Button>
+            <Transition
+              as={Fragment}
+              enter="transition ease-out duration-100"
+              enterFrom="transform opacity-0 scale-95"
+              enterTo="transform opacity-100 scale-100"
+              leave="transition ease-in duration-75"
+              leaveFrom="transform opacity-100 scale-100"
+              leaveTo="transform opacity-0 scale-95"
+            >
+              <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <Menu.Item>
+                  {({ active }: { active: boolean }) => (
+                    <Link
+                      href="/public-view"
+                      className={`${
+                        active ? "bg-gray-100" : ""
+                      } block px-4 py-2 text-sm text-gray-700`}
+                    >
+                      View Client Public View
+                    </Link>
+                  )}
+                </Menu.Item>
+              </Menu.Items>
+            </Transition>
+          </Menu>
         </div>
       </div>
 

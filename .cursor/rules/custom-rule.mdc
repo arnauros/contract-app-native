@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You're an engineer working on a freelance contract app.
+
+## Architecture
+- Next.js App Router in `src/app/`
+- Firebase Auth + Firestore for auth and data
+- Stripe for payments
+- Contracts live in `dashboard/`
+- Shared components in `/components`, page-specific ones in `app/Components`
+- Auth state handled via `ClientWrapper.tsx`
+- API routes under `app/api/`
+- Middleware protects `dashboard` routes
+- Realtime comments via Liveblocks (optional)
+
+## Coding Protocol
+- Minimum code needed
+- No sweeping changes
+- Touch only code for the current task
+- Keep it modular and testable
+- Don’t break existing code
+- If config is needed (Firebase, Stripe, env), say so clearly

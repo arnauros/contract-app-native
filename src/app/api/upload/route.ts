@@ -36,13 +36,19 @@ function initFirebaseAdmin() {
 }
 
 export async function POST(request: NextRequest) {
+  console.log("⬆️ Server-side upload API called");
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const userId = formData.get("userId") as string;
     const type = formData.get("type") as string;
 
-    console.log("Upload API request received:", { userId, type });
+    console.log("Upload API request received:", {
+      userId,
+      type,
+      fileName: file?.name,
+    });
 
     if (!file || !userId || !type) {
       return NextResponse.json(
@@ -51,46 +57,80 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // In development, always return a mock response for testing
-    // This avoids Firebase Admin configuration issues during development
-    if (process.env.NODE_ENV === "development") {
-      const timestamp = Date.now();
-      const fileName = file.name.replace(/\s+/g, "_");
-
-      // Ensure we return the correct placeholder for each type
-      let mockUrl;
-      if (type === "logo") {
-        mockUrl = `/placeholder-logo.png?t=${timestamp}`;
-        console.log("🖼️ [DEV] Using logo placeholder:", mockUrl);
-      } else if (type === "profileImage") {
-        mockUrl = `/placeholder-profile.png?t=${timestamp}`;
-        console.log("🖼️ [DEV] Using profile placeholder:", mockUrl);
-      } else if (type === "banner" || type === "profileBanner") {
-        mockUrl = `/placeholder-banner.png?t=${timestamp}`;
-        console.log("🖼️ [DEV] Using banner placeholder:", mockUrl);
-      } else {
-        // Default to logo for any other type
-        mockUrl = `/placeholder-logo.png?t=${timestamp}`;
-        console.log(
-          "🖼️ [DEV] Using default placeholder for unknown type:",
-          type
-        );
-      }
-
-      console.log("🔄 [DEV] Mock upload complete. Returning URL:", mockUrl);
-
-      return NextResponse.json({
-        success: true,
-        url: mockUrl,
-        path: `mock/users/${userId}/${type}/${timestamp}-${fileName}`,
-        mock: true,
-      });
-    }
-
-    // For production, use Firebase Admin SDK
+    // Initialize Firebase Admin SDK
     const app = initFirebaseAdmin();
     if (!app) {
       console.error("Failed to initialize Firebase Admin SDK");
+
+      // Check if we're in development and missing Firebase credentials
+      if (
+        process.env.NODE_ENV === "development" &&
+        !process.env.FIREBASE_SERVICE_ACCOUNT
+      ) {
+        console.log("Development mode without Firebase credentials");
+
+        try {
+          // For development, read the file and convert it to a data URL
+          // This allows the actual uploaded image to be displayed without Firebase
+          const arrayBuffer = await file.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString("base64");
+          const dataUrl = `data:${file.type};base64,${base64}`;
+
+          console.log("Converted uploaded file to data URL");
+
+          return NextResponse.json({
+            success: true,
+            url: dataUrl,
+            path: `mock/${type}/${Date.now()}`,
+            mock: true,
+          });
+        } catch (error) {
+          console.error(
+            "Failed to create data URL from file, falling back to SVG:",
+            error
+          );
+
+          // Fall back to SVG if file processing fails
+          const colors = [
+            "#4F46E5",
+            "#3B82F6",
+            "#06B6D4",
+            "#10B981",
+            "#84CC16",
+          ];
+          const randomColor = colors[Math.floor(Math.random() * colors.length)];
+          const timestamp = Date.now();
+
+          // Create SVG for profile (square) or banner (rectangle)
+          const svg =
+            type === "profileImage"
+              ? `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="${randomColor}" />
+                <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="48" fill="white">
+                  User
+                </text>
+              </svg>`
+              : `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="200" viewBox="0 0 800 200">
+                <rect width="800" height="200" fill="${randomColor}" />
+                <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="48" fill="white">
+                  Banner
+                </text>
+              </svg>`;
+
+          // Convert to data URL
+          const dataUrl = `data:image/svg+xml;base64,${Buffer.from(
+            svg
+          ).toString("base64")}`;
+
+          return NextResponse.json({
+            success: true,
+            url: dataUrl,
+            path: `mock/${type}/${timestamp}`,
+            mock: true,
+          });
+        }
+      }
+
       return NextResponse.json(
         {
           error: "Server configuration error",
@@ -132,6 +172,8 @@ export async function POST(request: NextRequest) {
         filePath = `uploads/${userId}/${type}/${fileName}`;
       }
 
+      console.log(`📁 Server uploading to path: ${filePath}`);
+
       // Convert file to buffer
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -172,7 +214,8 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      console.log(`File uploaded successfully: ${filePath}`);
+      console.log(`✅ File uploaded successfully: ${filePath}`);
+      console.log(`🔗 Download URL: ${downloadURL}`);
 
       return NextResponse.json({
         success: true,
@@ -180,7 +223,7 @@ export async function POST(request: NextRequest) {
         path: filePath,
       });
     } catch (uploadError) {
-      console.error("Error during server-side upload:", uploadError);
+      console.error("❌ Error during server-side upload:", uploadError);
       return NextResponse.json(
         {
           error: "Upload failed",
@@ -193,7 +236,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Error processing upload request:", error);
+    console.error("❌ Error processing upload request:", error);
     return NextResponse.json(
       {
         error: "Failed to process upload request",

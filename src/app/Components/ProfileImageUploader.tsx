@@ -24,7 +24,7 @@ interface ProfileImageUploaderProps {
 // Create a default gradient banner image
 const createGradientBanner = () => {
   // Check if we're in the browser environment
-  if (typeof document === "undefined") return "/placeholder-banner.png";
+  if (typeof document === "undefined") return "/placeholders/banner.png";
 
   try {
     const canvas = document.createElement("canvas");
@@ -32,7 +32,7 @@ const createGradientBanner = () => {
     canvas.height = 200;
     const ctx = canvas.getContext("2d");
 
-    if (!ctx) return "/placeholder-banner.png";
+    if (!ctx) return "/placeholders/banner.png";
 
     // Create a gradient from blue to indigo
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
@@ -45,7 +45,7 @@ const createGradientBanner = () => {
     return canvas.toDataURL();
   } catch (error) {
     console.error("Error creating gradient banner:", error);
-    return "/placeholder-banner.png";
+    return "/placeholders/banner.png";
   }
 };
 
@@ -60,8 +60,12 @@ export default function ProfileImageUploader({
   const [localImageUrl, setLocalImageUrl] = useState(imageUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [defaultBannerUrl, setDefaultBannerUrl] = useState(
-    "/placeholder-banner.png"
+    "/placeholders/banner.png"
   );
+
+  // Constants for placeholder images
+  const PROFILE_PLACEHOLDER = "/placeholders/profile.png";
+  const BANNER_PLACEHOLDER = "/placeholders/banner.png";
 
   // Generate gradient banner image on client side
   useEffect(() => {
@@ -97,11 +101,31 @@ export default function ProfileImageUploader({
     loadSavedImage();
   }, [type, imageUrl, onImageChange]);
 
+  // Check if image is a default/placeholder image or empty
   const isDefaultImage =
-    (type === "profileImage" && localImageUrl === "/placeholder-profile.png") ||
-    (type === "profileBanner" &&
-      (localImageUrl === "/placeholder-banner.png" ||
-        localImageUrl === defaultBannerUrl));
+    !localImageUrl ||
+    localImageUrl === "/placeholder-profile.png" ||
+    localImageUrl === PROFILE_PLACEHOLDER ||
+    localImageUrl === "/placeholder-banner.png" ||
+    localImageUrl === BANNER_PLACEHOLDER ||
+    localImageUrl === defaultBannerUrl ||
+    localImageUrl.includes("/placeholders/");
+
+  // Function to determine if an image URL is a real remote image
+  const isRemoteImage = (url: string) => {
+    return (
+      (url.startsWith("http") || url.startsWith("data:")) &&
+      !url.includes("placeholder") &&
+      !url.includes("/placeholders/")
+    );
+  };
+
+  // Log the image URL when it changes for debugging
+  useEffect(() => {
+    console.log(`${type} URL:`, localImageUrl);
+    console.log(`${type} is default image:`, isDefaultImage);
+    console.log(`${type} is remote image:`, isRemoteImage(localImageUrl));
+  }, [localImageUrl, type, isDefaultImage]);
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -114,7 +138,11 @@ export default function ProfileImageUploader({
     try {
       setIsUploading(true);
 
-      // Initialize Firebase just to get auth
+      // Store the local file URL for immediate display
+      const localFileUrl = URL.createObjectURL(file);
+      console.log("Created local object URL:", localFileUrl);
+
+      // Initialize Firebase
       const { app: firebaseApp } = initFirebase();
       const auth = getAuth(firebaseApp);
 
@@ -125,34 +153,71 @@ export default function ProfileImageUploader({
       const userId = auth.currentUser.uid;
       const timestamp = Date.now();
 
-      // Try using the server API route to upload the file
+      // In development mode, we can use the local file directly
+      if (
+        process.env.NODE_ENV === "development" &&
+        !process.env.FIREBASE_SERVICE_ACCOUNT
+      ) {
+        console.log(
+          "Development mode without Firebase credentials - using local file directly"
+        );
+        // This will show the actual image without uploading to Firebase
+        await handleUploadSuccess(localFileUrl, userId, auth.currentUser);
+        return;
+      }
+
+      // Standard upload flow continues here for production...
+
+      // Trying server-side upload first to avoid CORS issues
       try {
+        console.log("Trying server-side upload to avoid CORS issues...");
         const formData = new FormData();
         formData.append("file", file);
         formData.append("userId", userId);
         formData.append("type", type);
 
-        // Upload with retry logic
-        const uploadResult = await uploadWithRetry("/api/upload", formData);
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-        if (uploadResult.success && uploadResult.url) {
-          await handleUploadSuccess(uploadResult.url, userId, auth.currentUser);
-          return;
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Server upload failed: ${error}`);
         }
 
-        console.warn(
-          "Server upload failed, falling back to direct upload:",
-          uploadResult.error
-        );
-      } catch (apiError) {
-        console.warn(
-          "Server API upload failed, falling back to direct upload:",
-          apiError
-        );
+        const result = await response.json();
+        console.log("Server upload successful:", result);
+
+        if (result.url) {
+          // Verify that the URL is valid and not a local placeholder
+          if (result.url.startsWith("http") || result.url.startsWith("data:")) {
+            console.log("Using remote image URL from server:", result.url);
+            await handleUploadSuccess(result.url, userId, auth.currentUser);
+            return;
+          } else if (process.env.NODE_ENV === "development") {
+            // In development, we may get a local URL - use it anyway
+            console.log("Using local URL in development:", result.url);
+            await handleUploadSuccess(result.url, userId, auth.currentUser);
+            return;
+          } else {
+            console.warn("Server returned non-remote URL:", result.url);
+          }
+        }
+
+        throw new Error("Server response missing URL");
+      } catch (serverError) {
+        console.warn("Server-side upload failed:", serverError);
+
+        // Only attempt direct upload if explicitly requested
+        if (process.env.NEXT_PUBLIC_ENABLE_DIRECT_UPLOAD !== "true") {
+          throw new Error("Server upload failed and direct upload is disabled");
+        }
+
+        console.log("Attempting direct upload as fallback...");
       }
 
-      // Fallback to direct upload if server upload fails
-      console.log("Using direct upload as fallback");
+      // If we get here, try direct upload as fallback (will likely fail due to CORS)
       const storage = getStorage(firebaseApp);
       const db = getFirestore(firebaseApp);
 
@@ -178,12 +243,14 @@ export default function ProfileImageUploader({
 
       try {
         // Upload the file with direct method
+        console.log("Starting direct Firebase Storage upload...");
         const snapshot = await uploadBytes(fileRef, uint8Array, metadata);
 
         // Get download URL with cache busting
         const downloadURL = `${await getDownloadURL(
           snapshot.ref
         )}?t=${timestamp}`;
+        console.log("Upload successful, URL:", downloadURL);
 
         // Update Firestore
         const userRef = doc(db, "users", userId);
@@ -194,17 +261,18 @@ export default function ProfileImageUploader({
 
         // Handle upload success
         await handleUploadSuccess(downloadURL, userId, auth.currentUser);
-      } catch (directUploadError) {
-        console.error("Direct upload failed:", directUploadError);
+      } catch (uploadError) {
+        console.error("Direct upload failed:", uploadError);
+
         // Try to extract CORS error message if present
         const errorMessage =
-          directUploadError instanceof Error
-            ? directUploadError.message
-            : String(directUploadError);
+          uploadError instanceof Error
+            ? uploadError.message
+            : String(uploadError);
 
         if (errorMessage.includes("CORS") || errorMessage.includes("cors")) {
           toast.error(
-            `CORS error: Unable to upload directly to Firebase Storage. Please try again later.`
+            `CORS error: Unable to upload to Firebase Storage directly. Please contact support.`
           );
         } else {
           toast.error(
@@ -212,7 +280,7 @@ export default function ProfileImageUploader({
           );
         }
 
-        throw directUploadError;
+        throw uploadError;
       }
     } catch (error) {
       console.error(`Error uploading ${type}:`, error);
@@ -232,16 +300,25 @@ export default function ProfileImageUploader({
     userId: string,
     currentUser: any
   ) => {
+    console.log("Processing successful upload, URL:", downloadURL);
+
     // If this is a profile image, also update in Firebase Auth
     if (type === "profileImage" && currentUser) {
-      await updateProfile(currentUser, {
-        photoURL: downloadURL,
-      });
+      try {
+        await updateProfile(currentUser, {
+          photoURL: downloadURL,
+        });
+        console.log("Updated Firebase Auth profile");
+      } catch (error) {
+        console.warn("Failed to update auth profile:", error);
+        // Continue even if this fails
+      }
     }
 
     // Save to localStorage for persistence across browser sessions
     const storageKey = `${type}-${userId}`;
     localStorage.setItem(storageKey, downloadURL);
+    console.log(`Saved to localStorage: ${storageKey}`, downloadURL);
 
     // Also save to sessionStorage for immediate availability
     sessionStorage.setItem(storageKey, downloadURL);
@@ -291,12 +368,7 @@ export default function ProfileImageUploader({
 
         const responseData = await response.json();
 
-        // Check if it's a mock response from development mode
-        if (responseData.mock) {
-          console.log("Received mock response from server:", responseData);
-          return responseData;
-        }
-
+        // Check if the API returned a valid response
         if (!response.ok) {
           // Even with a non-200 status, we might have JSON with error details
           throw new Error(
@@ -306,6 +378,12 @@ export default function ProfileImageUploader({
           );
         }
 
+        // Validate that we received a proper URL
+        if (!responseData.url) {
+          throw new Error("Server response missing URL");
+        }
+
+        console.log("Received API response:", responseData);
         return responseData;
       } catch (error) {
         attempt++;
@@ -381,7 +459,7 @@ export default function ProfileImageUploader({
 
       // Update local state with default image
       const defaultImage =
-        type === "profileImage" ? "/placeholder-profile.png" : defaultBannerUrl;
+        type === "profileImage" ? PROFILE_PLACEHOLDER : BANNER_PLACEHOLDER;
       setLocalImageUrl(defaultImage);
       onImageChange(defaultImage);
 
@@ -430,11 +508,64 @@ export default function ProfileImageUploader({
           </div>
         ) : (
           <img
+            key={localImageUrl}
             src={localImageUrl}
             alt={type === "profileImage" ? "Profile image" : "Profile banner"}
             className={`w-full h-full object-cover ${
               type === "profileImage" ? "rounded-full" : ""
             }`}
+            onError={(e) => {
+              console.error(`Failed to load image: ${localImageUrl}`);
+
+              // If image fails to load, show the default
+              if (!isRemoteImage(localImageUrl)) {
+                // For local paths that fail, use a simple colored background
+                console.log(
+                  "Local image failed to load, using simple colored background"
+                );
+
+                // Create a canvas for a simple colored background
+                try {
+                  const canvas = document.createElement("canvas");
+                  const size = type === "profileImage" ? 200 : 800;
+                  const height = type === "profileImage" ? 200 : 200;
+                  canvas.width = size;
+                  canvas.height = height;
+                  const ctx = canvas.getContext("2d");
+
+                  if (ctx) {
+                    // Draw a colored rectangle
+                    ctx.fillStyle = `hsl(${Math.random() * 360}, 70%, 80%)`;
+                    ctx.fillRect(0, 0, size, height);
+
+                    // Add text
+                    ctx.fillStyle = "white";
+                    ctx.font = "20px Arial";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(
+                      type === "profileImage" ? "User" : "Banner",
+                      size / 2,
+                      height / 2
+                    );
+
+                    // Set the image source to the canvas data URL
+                    e.currentTarget.src = canvas.toDataURL();
+                    return;
+                  }
+                } catch (canvasError) {
+                  console.error("Canvas fallback failed:", canvasError);
+                }
+              }
+
+              // If all else fails, use the placeholder
+              e.currentTarget.style.display = "none";
+              setLocalImageUrl(
+                type === "profileImage"
+                  ? PROFILE_PLACEHOLDER
+                  : BANNER_PLACEHOLDER
+              );
+            }}
           />
         )}
         <input

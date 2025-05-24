@@ -139,7 +139,7 @@ export default function Sidebar() {
               <div className="text-sm text-gray-600">1.25 / 5 GB</div>
             )}
             <Link
-              href="/upgrade"
+              href="/settings"
               className="text-sm font-medium text-blue-600 hover:text-blue-700"
             >
               {isCollapsed ? "↑" : "Upgrade"}
@@ -160,17 +160,6 @@ export default function Sidebar() {
               isCollapsed ? "flex flex-col items-center gap-2" : ""
             )}
           >
-            <Link
-              href="/help"
-              className={classNames(
-                "flex items-center gap-3 text-gray-700 hover:text-gray-900",
-                isCollapsed ? "justify-center p-2" : "text-sm"
-              )}
-              title={isCollapsed ? "Help" : undefined}
-            >
-              <FiHelpCircle className="w-5 h-5" />
-              {!isCollapsed && "Help"}
-            </Link>
             <Link
               href="/settings"
               className={classNames(

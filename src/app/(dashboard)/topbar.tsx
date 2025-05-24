@@ -317,38 +317,42 @@ export default function Topbar({ pathname }: TopbarProps) {
                 />
 
                 <div className="flex items-center relative w-full">
-                  {/* Active stage indicator that moves smoothly */}
-                  <div
-                    className={`absolute top-0 h-8 bg-[#E5FFE7] border border-gray-100 rounded-2xl transition-all duration-500 ease-in-out z-0`}
-                    style={{
-                      width: currentStage === "sign" ? "28%" : "24%",
-                      left:
-                        currentStage === "edit"
-                          ? "5%"
-                          : currentStage === "sign"
-                          ? "36%"
-                          : "70%",
-                    }}
-                  />
-
                   {/* Stage indicators */}
                   <div className="flex items-center w-full justify-between px-4">
-                    <div className="flex items-center gap-4 transition-colors duration-300 z-10">
-                      <span className="flex items-center justify-center w-6 h-6 bg-white rounded-md text-sm font-medium shadow-sm">
+                    <div
+                      className={`flex items-center gap-2 z-10 px-3 py-1 rounded-md transition-all duration-300 ease-in-out ${
+                        currentStage === "edit"
+                          ? "bg-[#E5FFE7]"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center w-6 h-6 bg-white rounded-sm text-sm font-medium shadow-sm">
                         1
-                      </span>
+                      </div>
                       <span className="text-sm font-medium">Draft</span>
                     </div>
-                    <div className="flex items-center gap-4 transition-colors duration-300 z-10">
-                      <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+                    <div
+                      className={`flex items-center gap-2 z-10 px-3 py-1 rounded-md transition-all duration-300 ease-in-out ${
+                        currentStage === "sign"
+                          ? "bg-[#E5FFE7]"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center w-6 h-6 bg-white rounded-sm text-sm font-medium shadow-sm">
                         2
-                      </span>
+                      </div>
                       <span className="text-sm font-medium">Sign</span>
                     </div>
-                    <div className="flex items-center gap-4 transition-colors duration-300 z-10">
-                      <span className="flex items-center justify-center w-6 h-6 bg-white rounded-lg text-sm font-medium shadow-sm">
+                    <div
+                      className={`flex items-center gap-2 z-10 px-3 py-1 rounded-md transition-all duration-300 ease-in-out ${
+                        currentStage === "send"
+                          ? "bg-[#E5FFE7]"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center w-6 h-6 bg-white rounded-sm text-sm font-medium shadow-sm">
                         3
-                      </span>
+                      </div>
                       <span className="text-sm font-medium">Send</span>
                     </div>
                   </div>
@@ -371,7 +375,7 @@ export default function Topbar({ pathname }: TopbarProps) {
               {currentStage !== "edit" && (
                 <button
                   onClick={handleBackClick}
-                  className="px-4 py-2 h-[40px] text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors min-w-[100px] font-medium"
+                  className="px-4 py-2 h-[40px] text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
                 >
                   Back
                 </button>
@@ -379,7 +383,7 @@ export default function Topbar({ pathname }: TopbarProps) {
               {currentStage !== "send" && (
                 <button
                   onClick={handleNext}
-                  className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-colors min-w-[100px] font-medium border-2 border-orange-500"
+                  className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
                 >
                   Next
                 </button>
