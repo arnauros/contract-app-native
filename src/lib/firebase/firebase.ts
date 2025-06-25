@@ -66,60 +66,7 @@ export function initFirebase() {
     if (firebaseApp) {
       firebaseAuth = getAuth(firebaseApp);
       firebaseDb = getFirestore(firebaseApp);
-      firebaseStorage = getStorage(firebaseApp); // Initialize storage
-
-      // Set up CORS headers for Firebase Storage requests
-      if (typeof window !== "undefined") {
-        // Add a global fetch interceptor for Firebase Storage requests
-        const originalFetch = window.fetch;
-
-        window.fetch = async function (input, init = {}) {
-          // Only intercept Firebase Storage requests
-          if (
-            typeof input === "string" &&
-            input.includes("firebasestorage.googleapis.com")
-          ) {
-            console.log("Intercepting Firebase Storage request:", input);
-
-            // Add CORS headers
-            const newInit = {
-              ...init,
-              mode: "cors" as RequestMode,
-              headers: {
-                ...init.headers,
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-cache",
-                Pragma: "no-cache",
-              },
-            };
-
-            // For OPTIONS requests, handle them specially
-            if (init.method === "OPTIONS") {
-              return new Response(null, {
-                status: 200,
-                headers: {
-                  "Access-Control-Allow-Origin": "*",
-                  "Access-Control-Allow-Methods":
-                    "GET, POST, PUT, DELETE, OPTIONS",
-                  "Access-Control-Allow-Headers":
-                    "Content-Type, Authorization, X-Requested-With",
-                  "Access-Control-Max-Age": "3600",
-                },
-              });
-            }
-
-            try {
-              return await originalFetch(input, newInit);
-            } catch (error) {
-              console.error("Firebase Storage fetch error:", error);
-              throw error;
-            }
-          }
-
-          // For all other requests, use the original fetch
-          return originalFetch(input, init);
-        };
-      }
+      firebaseStorage = getStorage(firebaseApp);
     }
 
     return {

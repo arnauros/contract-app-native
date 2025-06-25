@@ -34,6 +34,7 @@ import {
   FiExternalLink,
   FiRefreshCw,
   FiDownload,
+  FiUser,
 } from "react-icons/fi";
 import { IconType } from "react-icons";
 import { Line } from "react-chartjs-2";
@@ -62,6 +63,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { handleMockSubscriptionChange } from "@/lib/test-helpers";
 import { getAuth } from "firebase/auth";
+import FormParent, {
+  FormData,
+} from "@/app/Components/StepsComponents/formparent";
 
 ChartJS.register(
   CategoryScale,
@@ -424,6 +428,25 @@ export default function Dashboard() {
   // Add a flag to disable comments functionality
   const COMMENTS_ENABLED = false;
 
+  // Add state for FormParent (copied from /new)
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<FormData>({
+    projectBrief: "",
+    techStack: "The tech stack includes ",
+    startDate: "",
+    endDate: "",
+    attachments: [],
+    fileSummaries: {},
+  });
+
+  // Handler for FormParent (no-op for now, or you can copy from /new)
+  const handleFormParentSubmit = () => {};
+
+  // Handler for FormParent setFormData
+  const handleFormDataChange = (data: FormData) => {
+    setFormData(data);
+  };
+
   // Simplified auth check and data loading
   useEffect(() => {
     // Debug output - use logDebug instead of console.log
@@ -435,10 +458,13 @@ export default function Dashboard() {
       router.push("/login");
     }
 
-    // If authenticated, load data
+    // If authenticated, load data with a small delay to prioritize FormParent
     if (user && !loading) {
       logDebug("User authenticated, fetching data");
-      fetchContractData();
+      // Add a small delay to prioritize FormParent rendering
+      setTimeout(() => {
+        fetchContractData();
+      }, 100);
     }
   }, [user, loading]);
 
@@ -1017,16 +1043,46 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Developer note about StrictMode */}
-      {process.env.NODE_ENV === "development" && (
-        <div className="mb-4 px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded-md">
-          <p className="font-medium">Dev Note: Double logging in development</p>
-          <p>
-            This is caused by React's StrictMode which mounts components twice
-            to catch bugs.
-          </p>
+      {/* User info bar at the top right */}
+      <div className="flex justify-end items-center mb-6">
+        <Link
+          href="/settings"
+          className="flex items-center gap-2 hover:underline"
+        >
+          <FiUser className="w-5 h-5 text-gray-600" />
+          <span className="text-gray-800 text-sm font-medium">
+            {user?.email}
+          </span>
+        </Link>
+      </div>
+      {/* Personalized greeting above the form */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-800">
+          Hello, {user?.displayName || user?.email?.split("@")[0] || "there"} 👋
+        </h1>
+        <p className="text-lg text-gray-500 mt-2">How can I help you today?</p>
+      </div>
+      {/* Input field from /new, now at the top of dashboard */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-10">
+        <FormParent
+          onStageChange={setCurrentStep}
+          formData={formData}
+          setFormData={handleFormDataChange}
+        />
+        <div className="flex justify-center mt-4">
+          <span className="text-sm text-gray-600">Step {currentStep} of 3</span>
+          <div className="flex gap-2 ml-2">
+            {[1, 2, 3].map((step) => (
+              <div
+                key={step}
+                className={`w-2 h-2 rounded-full ${
+                  step === currentStep ? "bg-gray-800" : "bg-gray-300"
+                }`}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Subscription status notification */}
       {subscriptionCanceled && (
@@ -1083,41 +1139,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="flex gap-4">
-          <Link
-            href="/new-contract"
-            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-          >
-            Create New Contract
-          </Link>
-        </div>
-      </div>
-
-      {/* Add subscription status component */}
-      {isLocalDevelopment() && (
-        <div className="mb-8">
-          <SubscriptionStatus />
-        </div>
-      )}
-
-      {/* Show upgrade banner for free tier users */}
-      {isLocalDevelopment() && subscription?.tier === "free" && (
-        <div className="mb-8 bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-bold mb-2">Upgrade to Pro</h3>
-          <p className="mb-4">
-            Get unlimited contracts, premium templates, and priority support.
-          </p>
-          <Link
-            href="/pricing"
-            className="bg-white text-indigo-600 hover:bg-gray-100 py-2 px-4 rounded-md font-medium"
-          >
-            View Plans
-          </Link>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total Contracts"
@@ -1167,30 +1188,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-      {/* Overview Section */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-medium text-gray-900">Overview</h2>
-          <div className="relative">
-            <select className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              <option>Last week</option>
-              <option>Last month</option>
-              <option>Last year</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <DashboardStats />
-      </div>
 
       {/* Activity Graph */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-8">

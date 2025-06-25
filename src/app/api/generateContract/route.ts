@@ -16,6 +16,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
 
+// Simple in-memory cache for development (use Redis in production)
+const cache = new Map<string, any>();
+
 export async function POST(request: Request) {
   try {
     // Log environment variables (without exposing the full API key)
@@ -31,6 +34,21 @@ export async function POST(request: Request) {
 
     const data = await request.json();
     console.log("Received data for contract generation:", data);
+
+    // Create cache key based on input data
+    const cacheKey = JSON.stringify({
+      projectBrief: data.projectBrief,
+      techStack: data.techStack,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      attachments: data.attachments?.map((att: any) => att.summary).join("|"),
+    });
+
+    // Check cache first
+    if (cache.has(cacheKey)) {
+      console.log("Cache hit - returning cached contract");
+      return NextResponse.json(cache.get(cacheKey));
+    }
 
     try {
       // Create a base prompt that works even with minimal data
@@ -56,17 +74,22 @@ export async function POST(request: Request) {
         ? `\nAdditional Context from Uploaded Documents:\n${attachmentSummaries}\n`
         : "";
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Generate a professional Contract. Format each section with a clear header. Use any provided document summaries to enhance and customize the contract content.",
-          },
-          {
-            role: "user",
-            content: `Create a contract with the following details:
+      // Use a faster model and add timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const completion = await openai.chat.completions.create(
+        {
+          model: "gpt-4o-mini", // Back to original model
+          messages: [
+            {
+              role: "system",
+              content:
+                "Generate a professional Contract. Format each section with a clear header. Use any provided document summaries to enhance and customize the contract content.",
+            },
+            {
+              role: "user",
+              content: `Create a contract with the following details:
               ${projectInfo}${techInfo}${timelineInfo}${pdfInfo}${documentContext}
               
               ${
@@ -111,10 +134,17 @@ export async function POST(request: Request) {
               
               Do not include signatures or dates.
               Never use separator lines (---) or ALL CAPS.`,
-          },
-        ],
-        temperature: 0.7,
-      });
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000, // Keep token limit for faster response
+        },
+        {
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
 
       console.log("OpenAI API Response:", completion);
 
@@ -179,9 +209,42 @@ export async function POST(request: Request) {
 
       console.log("Generated blocks:", blocks);
 
-      return NextResponse.json({ blocks });
+      const result = { blocks };
+
+      // Cache the result
+      cache.set(cacheKey, result);
+
+      // Limit cache size
+      if (cache.size > 50) {
+        const firstKey = cache.keys().next().value;
+        if (firstKey) {
+          cache.delete(firstKey);
+        }
+      }
+
+      return NextResponse.json(result);
     } catch (openaiError: any) {
       console.error("OpenAI API Error:", openaiError);
+
+      // If it's a timeout error, provide a fallback
+      if (openaiError.name === "AbortError") {
+        console.log("OpenAI request timed out, using fallback contract");
+        return NextResponse.json({
+          blocks: [
+            {
+              type: "header",
+              data: { text: "Contract Agreement", level: 1 },
+            },
+            {
+              type: "paragraph",
+              data: {
+                text: "This is a fallback contract template. Please try again or contact support if the issue persists.",
+              },
+            },
+          ],
+        });
+      }
+
       throw new Error(`OpenAI API Error: ${openaiError.message}`);
     }
   } catch (error) {

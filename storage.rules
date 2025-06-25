@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// Firebase Storage Rules for Image Upload
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to upload and manage their own profile images
+    // Matches paths like: users/{userId}/profile_*.jpg and users/{userId}/banner_*.jpg
+    match /users/{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+                        && (fileName.matches('profile_.*') || fileName.matches('banner_.*'));
+    }
+    
+    // Alternative path structure for organized uploads
+    match /users/{userId}/{imageType}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+                        && imageType in ['profileImage', 'profileBanner', 'profile', 'banner'];
+    }
+    
+    // Allow users to upload and manage contract-related images they own
+    match /contracts/{contractId}/{imageType}/{fileName} {
+      allow read, write: if request.auth != null 
+                        && imageType in ['logo', 'banner']
+                        && (
+                          // User owns the contract
+                          resource == null || 
+                          request.auth.uid in resource.metadata.userId ||
+                          // Or check if user has subscription
+                          request.auth.token.subscriptionStatus == "active" ||
+                          request.auth.token.subscriptionStatus == "trialing"
+                        );
+    }
+    
+    // Allow public read access to all user files
+    match /users/{userId}/{allFiles=**} {
+      allow read;
+    }
+    
+    // Allow public read access to contract images (for shared contracts)
+    match /contracts/{contractId}/{imageType}/{fileName} {
+      allow read;
+    }
+    
+    // Test uploads (for debugging)
+    match /test/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

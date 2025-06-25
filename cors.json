@@ -2,11 +2,19 @@
   {
     "origin": [
       "http://localhost:3000",
-      "http://app.localhost:3000",
-      "https://your-production-domain.com"
+      "http://localhost:3001",
+      "https://*.vercel.app",
+      "https://*.firebaseapp.com",
+      "https://freelance-project-3d0b5.firebaseapp.com"
     ],
-    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"],
     "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Content-Disposition", "Content-Length"]
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Methods",
+      "Access-Control-Allow-Headers",
+      "Authorization"
+    ]
   }
 ]

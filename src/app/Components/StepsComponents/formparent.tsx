@@ -12,14 +12,14 @@ import toast from "react-hot-toast";
 import { doc, getFirestore } from "firebase/firestore";
 import { collection } from "firebase/firestore";
 
-interface FormData {
+export interface FormData {
   projectBrief: string;
   techStack: string;
   startDate: string;
   endDate: string;
   attachments: File[];
   pdf?: string;
-  fileSummaries?: { [key: string]: string };
+  fileSummaries: { [key: string]: string };
 }
 
 interface FormParentProps {
@@ -57,6 +57,9 @@ const FormParent: React.FC<FormParentProps> = ({
     }
 
     setIsLoading(true);
+    const loadingToast = toast.loading("Generating contract...");
+    const startTime = performance.now();
+
     try {
       console.log("Current user:", user);
       console.log("Form data:", formData);
@@ -66,7 +69,16 @@ const FormParent: React.FC<FormParentProps> = ({
       const contractRef = doc(collection(db, "contracts"));
       const contractId = contractRef.id;
 
-      // Generate contract content using OpenAI
+      // Update loading message
+      toast.loading("Generating contract content with AI...", {
+        id: loadingToast,
+      });
+
+      // Generate contract content using OpenAI with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+
+      const aiStartTime = performance.now();
       const response = await fetch("/api/generateContract", {
         method: "POST",
         headers: {
@@ -86,7 +98,14 @@ const FormParent: React.FC<FormParentProps> = ({
             summary: formData.fileSummaries?.[file.name],
           })),
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      const aiEndTime = performance.now();
+      console.log(
+        `AI generation took ${Math.round(aiEndTime - aiStartTime)}ms`
+      );
 
       const data = await response.json();
 
@@ -100,6 +119,10 @@ const FormParent: React.FC<FormParentProps> = ({
         throw new Error("No contract content generated");
       }
 
+      // Update loading message
+      toast.loading("Saving contract to database...", { id: loadingToast });
+
+      const dbStartTime = performance.now();
       const contractData = {
         id: contractId,
         userId: user.uid,
@@ -139,10 +162,14 @@ const FormParent: React.FC<FormParentProps> = ({
 
       console.log("Saving contract with data:", contractData);
       const result = await saveContract(contractData);
+      const dbEndTime = performance.now();
+      console.log(
+        `Database save took ${Math.round(dbEndTime - dbStartTime)}ms`
+      );
 
       if (result.error) {
         console.error("Error saving contract:", result.error);
-        toast.error(result.error);
+        toast.error(result.error, { id: loadingToast });
       } else {
         console.log("Contract saved successfully:", result);
         // Save to localStorage before redirecting
@@ -154,17 +181,40 @@ const FormParent: React.FC<FormParentProps> = ({
             version: "2.28.2",
           })
         );
-        toast.success("Contract created successfully!");
+
+        const totalTime = performance.now() - startTime;
+        console.log(
+          `Total contract generation took ${Math.round(totalTime)}ms`
+        );
+
+        toast.success(
+          `Contract created successfully! (${Math.round(totalTime)}ms)`,
+          { id: loadingToast }
+        );
         // Small delay to ensure localStorage is updated
         setTimeout(() => {
           router.push(`/Contracts/${contractId}`);
         }, 100);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating contract:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create contract"
+
+      const totalTime = performance.now() - startTime;
+      console.log(
+        `Contract generation failed after ${Math.round(totalTime)}ms`
       );
+
+      // Handle timeout errors specifically
+      if (error.name === "AbortError") {
+        toast.error("Contract generation timed out. Please try again.", {
+          id: loadingToast,
+        });
+      } else {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to create contract",
+          { id: loadingToast }
+        );
+      }
     } finally {
       setIsLoading(false);
     }

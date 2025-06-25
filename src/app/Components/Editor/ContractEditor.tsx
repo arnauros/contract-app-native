@@ -27,6 +27,7 @@ import confetti from "canvas-confetti";
 import { Contract, Signature } from "@/lib/firebase/types";
 import DragDrop from "editorjs-drag-drop";
 import Image from "@editorjs/image";
+import { ContractStatusManager, getStatusManager } from "@/lib/firebase/status";
 
 interface ContractEditorProps {
   formData: any;
@@ -131,6 +132,8 @@ export function ContractEditor({
   const [showSuccess, setShowSuccess] = useState(false);
   const [isUnsignModalOpen, setIsUnsignModalOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
+  const [statusManager, setStatusManager] =
+    useState<ContractStatusManager | null>(null);
 
   // Load saved stage on mount
   useEffect(() => {
@@ -209,6 +212,15 @@ export function ContractEditor({
     };
 
     loadUserProfile();
+  }, []);
+
+  // Initialize status manager when contract ID is available
+  useEffect(() => {
+    const contractId = window.location.pathname.split("/").pop();
+    if (contractId) {
+      const manager = getStatusManager(contractId);
+      setStatusManager(manager);
+    }
   }, []);
 
   // Simplified stage management
@@ -364,8 +376,11 @@ export function ContractEditor({
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId || !editorContent) return;
 
-    // Set saving status
+    // Set saving status and emit event
     setSaveStatus("saving");
+    window.dispatchEvent(
+      new CustomEvent("saveStatusChange", { detail: "saving" })
+    );
 
     // Clear previous timeout
     if (saveTimeout.current) {
@@ -392,21 +407,40 @@ export function ContractEditor({
           title: "Contract",
           createdAt: new Date(),
           version: 1,
-        } as any); // Type assertion to bypass the strict type checking
+        } as any);
+
+        // Update status using the centralized manager
+        if (statusManager) {
+          try {
+            await statusManager.updateStatus("draft", {
+              lastActivity: new Date().toISOString(),
+              userAgent: navigator.userAgent,
+            });
+          } catch (statusError) {
+            console.warn("Failed to update contract status:", statusError);
+          }
+        }
+
         setSaveStatus("saved");
+        window.dispatchEvent(
+          new CustomEvent("saveStatusChange", { detail: "saved" })
+        );
       } catch (error) {
         console.error("Failed to save content:", error);
         setSaveStatus("error");
+        window.dispatchEvent(
+          new CustomEvent("saveStatusChange", { detail: "error" })
+        );
         toast.error("Failed to save changes");
       }
-    }, 1000); // Debounce for 1 second
+    }, 1000);
 
     return () => {
       if (saveTimeout.current) {
         clearTimeout(saveTimeout.current);
       }
     };
-  }, [editorContent, logoUrl, bannerUrl, user?.uid]);
+  }, [editorContent, logoUrl, bannerUrl, user?.uid, statusManager]);
 
   // Handle editor locking separately
   useEffect(() => {
@@ -795,6 +829,18 @@ export function ContractEditor({
       });
       window.dispatchEvent(refreshEvent);
 
+      // Update status back to draft using centralized manager
+      if (statusManager) {
+        try {
+          await statusManager.updateStatus("draft", {
+            lastActivity: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+          });
+        } catch (statusError) {
+          console.warn("Failed to update contract status:", statusError);
+        }
+      }
+
       // No longer dispatch stage change event here, as it's handled by the calling function
       return true;
     } catch (error) {
@@ -1054,6 +1100,18 @@ export function ContractEditor({
       window.dispatchEvent(event);
 
       toast.success("Contract signed successfully!");
+
+      // Update status using centralized manager
+      if (statusManager) {
+        try {
+          await statusManager.updateStatus("signed", {
+            lastActivity: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+          });
+        } catch (statusError) {
+          console.warn("Failed to update contract status:", statusError);
+        }
+      }
     } catch (error) {
       console.error("Error signing contract:", error);
       toast.error("Failed to save signature");
@@ -1304,16 +1362,58 @@ export function ContractEditor({
       handleUnsign();
     };
 
+    const handlePdfUploadEvent = async (e: CustomEvent) => {
+      console.log("📄 PDF upload event received:", e.detail);
+      const file = e.detail;
+      if (!file || file.type !== "application/pdf") {
+        toast.error("Please select a PDF file");
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/uploadFile", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to upload PDF");
+        }
+
+        const data = await response.json();
+
+        // Update contract with PDF URL
+        const contractId = window.location.pathname.split("/").pop();
+        if (!contractId) throw new Error("No contract ID found");
+
+        await saveContract({
+          id: contractId,
+          pdf: data.url,
+          updatedAt: new Date(),
+        } as any);
+
+        toast.success("PDF uploaded successfully");
+      } catch (error) {
+        console.error("Error uploading PDF:", error);
+        toast.error("Failed to upload PDF");
+      }
+    };
+
     window.addEventListener(
       "unsignContract",
       handleUnsignEvent as EventListener
     );
+    window.addEventListener("pdfUpload", handlePdfUploadEvent as any);
 
     return () => {
       window.removeEventListener(
         "unsignContract",
         handleUnsignEvent as EventListener
       );
+      window.removeEventListener("pdfUpload", handlePdfUploadEvent as any);
     };
   }, []);
 
@@ -1461,130 +1561,7 @@ export function ContractEditor({
 
   return (
     <div className="content-wrapper relative">
-      {!showSuccess && (
-        <div className="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200">
-          <div className="h-14 flex items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-              {saveStatus === "saving" && (
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  <span>Saving...</span>
-                </div>
-              )}
-              {saveStatus === "saved" && (
-                <div className="flex items-center gap-2 text-green-600 text-sm">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  <span>Saved</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Only show PDF upload in edit stage */}
-              {stage === "edit" && (
-                <div>
-                  <button
-                    className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center h-[34px]"
-                    onClick={() =>
-                      document.getElementById("pdf-upload")?.click()
-                    }
-                  >
-                    <svg
-                      className="h-4 w-4 mr-1.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    Upload PDF
-                  </button>
-                  <input
-                    id="pdf-upload"
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handlePdfUpload}
-                    className="hidden"
-                  />
-                </div>
-              )}
-
-              {/* Stage navigation buttons */}
-              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-                <button
-                  className={`px-3 py-1.5 h-[34px] ${
-                    stage === "edit"
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                  onClick={handleEditStageClick}
-                >
-                  Edit
-                </button>
-                <button
-                  className={`px-3 py-1.5 h-[34px] ${
-                    stage === "sign"
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                  onClick={handleSignStageClick}
-                >
-                  Sign
-                </button>
-                <button
-                  className={`px-3 py-1.5 h-[34px] ${
-                    stage === "send"
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                  onClick={() => {
-                    const event = new CustomEvent("stageChange", {
-                      detail: "send",
-                    });
-                    window.dispatchEvent(event);
-                  }}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="px-12 pt-24">
+      <div className="px-12 pt-6">
         <div className="max-w-4xl mx-auto">
           {/* Banner image uploader - full width */}
           {!isLocked && stage === "edit" && (

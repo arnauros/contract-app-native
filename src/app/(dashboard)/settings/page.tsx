@@ -592,8 +592,8 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   id="name"
-                  disabled
-                  value={user?.displayName || ""}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -615,7 +615,30 @@ export default function SettingsPage() {
             </div>
             <div className="mt-6">
               <button
-                onClick={handleSave}
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    // Update Firebase Auth profile
+                    const result = await updateUserProfile(
+                      displayName,
+                      profileImageUrl
+                    );
+                    if (result.error) throw result.error;
+                    // Update Firestore user doc
+                    const db = getFirestore();
+                    await updateDoc(doc(db, "users", user.uid), {
+                      displayName,
+                      profileImageUrl,
+                      profileBannerUrl,
+                    });
+                    toast.success("Profile updated successfully!");
+                  } catch (error) {
+                    toast.error("Failed to update profile");
+                    console.error(error);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
                 disabled={saving}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
               >
