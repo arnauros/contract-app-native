@@ -1,6 +1,4 @@
 {
   "version": 2,
-  "buildCommand": "npm i --legacy-peer-deps && npm run build",
-  "outputDirectory": ".next",
   "framework": "nextjs"
 }
