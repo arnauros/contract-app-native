@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ContractEditor } from "@/app/Components/Editor/ContractEditor";
 import Skeleton from "@/app/Components/Editor/skeleton";
 import {
@@ -12,6 +12,7 @@ import {
   updateComment,
   deleteComment,
   addCommentReply,
+  saveInvoice,
 } from "@/lib/firebase/firestore";
 import { toast } from "react-hot-toast";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
@@ -194,9 +195,25 @@ const COMMENTS_ENABLED = false;
 export default function ContractPage() {
   const params = useParams();
   const id = params?.id as string;
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [formData, setFormData] = useState(null);
-  const [generatedContent, setGeneratedContent] = useState(null);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [formData, setFormData] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem(`contract-form-${id}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [generatedContent, setGeneratedContent] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem(`contract-content-${id}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [stage, setStage] = useState<Stage>("edit");
   const [contractState, setContractState] = useState<ContractState>({
     isClientSigned: false,
@@ -211,57 +228,8 @@ export default function ContractPage() {
   const hasInitialized = useRef(false);
   const lastForceRefreshTime = useRef(Date.now());
 
-  // Force a refresh of the component after mount to ensure signature state is correct
-  useEffect(() => {
-    // This will force a reload of the contract data after a short delay
-    // to ensure signatures are properly loaded
-    const timer = setTimeout(() => {
-      console.log("🔄 Forcing signature refresh after initial load");
-      loadContract();
-      lastForceRefreshTime.current = Date.now();
-
-      // Also broadcast signature state for other components
-      const contractId = id;
-      if (contractId) {
-        getSignatures(contractId)
-          .then((result) => {
-            if (result.success) {
-              const hasDesignerSignature = !!result.signatures.designer;
-              console.log("📢 Broadcasting signature state:", {
-                hasDesignerSignature,
-              });
-
-              const sigStateEvent = new CustomEvent("signatureStateChanged", {
-                detail: {
-                  contractId,
-                  hasDesignerSignature,
-                  source: "contract-page-force-refresh",
-                },
-              });
-              window.dispatchEvent(sigStateEvent);
-
-              // Force stage refresh to ensure UI is in sync
-              const currentStageValue =
-                (localStorage.getItem(`contract-stage-${id}`) as Stage) ||
-                "edit";
-              const stageEvent = new CustomEvent("stageChange", {
-                detail: {
-                  stage: currentStageValue,
-                  refreshed: true,
-                  source: "contract-page-force-refresh",
-                },
-              });
-              window.dispatchEvent(stageEvent);
-            }
-          })
-          .catch((error) => {
-            console.error("Error in force refresh:", error);
-          });
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [id]);
+  // Remove force-refresh to avoid redundant network + re-renders
+  // Signatures will be fetched in background after initial content render
 
   // Comment functionality
   const [showComments, setShowComments] = useState(false);
@@ -311,6 +279,103 @@ export default function ContractPage() {
       unsubscribe();
     };
   }, []);
+
+  const handleGenerateInvoice = async () => {
+    try {
+      if (!id) return;
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        toast.error("You must be signed in to generate an invoice");
+        return;
+      }
+
+      // Build minimal payload for invoice generation
+      const projectBrief =
+        formData?.projectBrief ||
+        (Array.isArray(generatedContent?.blocks)
+          ? generatedContent.blocks.find((b: any) => b?.data?.text)?.data
+              ?.text || ""
+          : "");
+
+      const fileSummaries = formData?.fileSummaries || {};
+      const attachments = Object.keys(fileSummaries).map((name) => ({
+        name,
+        summary: fileSummaries[name],
+      }));
+
+      const loadingToast = toast.loading("Generating invoice...");
+      setIsGeneratingInvoice(true);
+
+      const response = await fetch("/api/generateInvoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectBrief,
+          attachments,
+          currency: "USD",
+          debug: process.env.NODE_ENV === "development",
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data?.error) {
+        toast.error(data?.error || "Failed to generate invoice", {
+          id: loadingToast,
+        });
+        return;
+      }
+
+      if (!Array.isArray(data.items) || data.items.length === 0) {
+        toast.error("No invoice items generated", { id: loadingToast });
+        return;
+      }
+
+      // Prepare invoice document
+      const subtotal = data.items.reduce(
+        (sum: number, item: any) => sum + (Number(item.total) || 0),
+        0
+      );
+      const tax = typeof data.tax === "number" ? data.tax : 0;
+      const total =
+        typeof data.total === "number" ? data.total : subtotal + tax;
+
+      const firestore = getFirestore();
+      const invoiceRef = doc(collection(firestore, "invoices"));
+      const generatedId = invoiceRef.id;
+
+      const invoiceData = {
+        id: generatedId,
+        userId: auth.currentUser.uid,
+        title: data.title || "Untitled Invoice",
+        status: "draft" as const,
+        issueDate: data.issueDate || undefined,
+        dueDate: data.dueDate || undefined,
+        currency: data.currency || "USD",
+        client: data.client || {},
+        from: data.from || {},
+        items: data.items || [],
+        subtotal,
+        tax,
+        total,
+        notes: data.notes || "",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const saveRes = await saveInvoice(invoiceData as any);
+      if ((saveRes as any)?.error) {
+        toast.error((saveRes as any).error, { id: loadingToast });
+        return;
+      }
+
+      toast.success("Invoice created successfully!", { id: loadingToast });
+      router.push(`/Invoices/${generatedId}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to generate invoice");
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
 
   // Load comments when component mounts or when showComments changes
   useEffect(() => {
@@ -967,27 +1032,29 @@ export default function ContractPage() {
         const contract = response.contract;
         setFormData(contract.content?.formData || null);
         setGeneratedContent(contract.content || null);
-
-        // Load signatures separately if needed
-        const signaturesResult = await getSignatures(id);
-        if (signaturesResult.success) {
-          const { designer, client } = signaturesResult.signatures;
-
-          // Update contract state with signature information
-          setContractState((prevState) => ({
-            ...prevState,
-            isClientSigned: !!client,
-            existingSignature: !!designer || !!client,
-            clientName: client?.name || "",
-            clientSignature: client?.signature || "",
-            clientSignedAt: client?.signedAt ? new Date(client.signedAt) : null,
-            designerName: designer?.name || "",
-            designerSignature: designer?.signature || "",
-            designerSignedAt: designer?.signedAt
-              ? new Date(designer.signedAt)
-              : null,
-          }));
-        }
+        // Defer signature fetch to background
+        getSignatures(id)
+          .then((signaturesResult) => {
+            if (signaturesResult.success) {
+              const { designer, client } = signaturesResult.signatures;
+              setContractState((prevState) => ({
+                ...prevState,
+                isClientSigned: !!client,
+                existingSignature: !!designer || !!client,
+                clientName: client?.name || "",
+                clientSignature: client?.signature || "",
+                clientSignedAt: client?.signedAt
+                  ? new Date(client.signedAt)
+                  : null,
+                designerName: designer?.name || "",
+                designerSignature: designer?.signature || "",
+                designerSignedAt: designer?.signedAt
+                  ? new Date(designer.signedAt)
+                  : null,
+              }));
+            }
+          })
+          .catch((e) => console.warn("Signature fetch failed (deferred):", e));
       } else {
         toast.error("Failed to load contract");
       }
@@ -1083,6 +1150,16 @@ export default function ContractPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Generate Invoice action */}
+      <div className="flex justify-end px-4 pt-4">
+        <button
+          onClick={handleGenerateInvoice}
+          disabled={isGeneratingInvoice}
+          className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-300 ease-in-out min-w-[140px] font-medium disabled:opacity-60"
+        >
+          {isGeneratingInvoice ? "Generating..." : "Generate Invoice"}
+        </button>
+      </div>
       {/* Debug button - only in development */}
       {process.env.NODE_ENV === "development" && SHOW_DEBUG_BUTTONS && (
         <button

@@ -46,16 +46,7 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [defaultBannerUrl, setDefaultBannerUrl] = useState(
-    "/placeholder-banner.png"
-  );
-
-  // Generate gradient banner image on client side
-  useEffect(() => {
-    if (type === "banner") {
-      setDefaultBannerUrl(createGradientBanner());
-    }
-  }, [type]);
+  const [defaultBannerUrl] = useState("/placeholder-banner.png");
 
   // Ensure imageUrl has proper path
   useEffect(() => {
@@ -84,14 +75,14 @@ export default function ImageUploader({
         const userId = localStorage.getItem("userId");
         if (!userId) return;
 
-        // Check localStorage first for default images
-        const defaultImageKey = `default${
-          type === "logo" ? "ProfileImage" : "ProfileBanner"
+        // Check localStorage for current profile images
+        const imageKey = `${
+          type === "logo" ? "profileImage" : "profileBanner"
         }-${userId}`;
-        const defaultImage = localStorage.getItem(defaultImageKey);
+        const currentImage = localStorage.getItem(imageKey);
 
-        if (defaultImage) {
-          onImageChange(defaultImage);
+        if (currentImage) {
+          onImageChange(currentImage);
           return;
         }
 
@@ -102,14 +93,12 @@ export default function ImageUploader({
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const fieldName =
-            type === "logo"
-              ? "defaultProfileImageUrl"
-              : "defaultProfileBannerUrl";
+            type === "logo" ? "profileImageUrl" : "profileBannerUrl";
 
           if (userData[fieldName]) {
             onImageChange(userData[fieldName]);
             // Also save to localStorage for next time
-            localStorage.setItem(defaultImageKey, userData[fieldName]);
+            localStorage.setItem(imageKey, userData[fieldName]);
           }
         }
       } catch (error) {
@@ -122,9 +111,7 @@ export default function ImageUploader({
 
   const isDefaultImage =
     (type === "logo" && imageUrl === "/placeholder-logo.png") ||
-    (type === "banner" &&
-      (imageUrl === "/placeholder-banner.png" ||
-        imageUrl === defaultBannerUrl));
+    (type === "banner" && imageUrl === "/placeholder-banner.png");
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -426,7 +413,7 @@ export default function ImageUploader({
 
       // Update local state with default image
       onImageChange(
-        type === "logo" ? "/placeholder-logo.png" : defaultBannerUrl
+        type === "logo" ? "/placeholder-logo.png" : "/placeholder-banner.png"
       );
 
       // Remove from localStorage
@@ -454,7 +441,7 @@ export default function ImageUploader({
         style={
           type === "banner" && isDefaultImage
             ? {
-                backgroundImage: `url(${defaultBannerUrl})`,
+                backgroundImage: `url(/placeholder-banner.png)`,
                 backgroundSize: "cover",
               }
             : {}
@@ -490,8 +477,7 @@ export default function ImageUploader({
                   onImageChange("/placeholder-logo.png");
                 } else if (
                   type === "banner" &&
-                  imageUrl !== "/placeholder-banner.png" &&
-                  imageUrl !== defaultBannerUrl
+                  imageUrl !== "/placeholder-banner.png"
                 ) {
                   console.log(
                     `Resetting to default banner image after load failure`

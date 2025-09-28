@@ -20,7 +20,7 @@ import { ContractAudit } from "./ContractAudit";
 import { SigningStage } from "./SigningStage";
 import { SendStage } from "./SendStage";
 import Modal from "../Modal";
-import ImageUploader from "./ImageUploader";
+
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import confetti from "canvas-confetti";
@@ -60,14 +60,16 @@ export function ContractEditor({
       return savedLogo;
     }
 
-    // If no contract-specific logo, try to use the default profile image
+    // If no contract-specific logo, try to use the current profile image
+    // Only use profile image for logo if it's different from banner
     const userId = localStorage.getItem("userId");
     if (userId) {
-      const defaultProfileImage = localStorage.getItem(
-        `defaultProfileImage-${userId}`
-      );
-      if (defaultProfileImage) {
-        return defaultProfileImage;
+      const profileImage = localStorage.getItem(`profileImage-${userId}`);
+      const profileBanner = localStorage.getItem(`profileBanner-${userId}`);
+
+      // Only use profile image as logo if it's different from banner
+      if (profileImage && profileImage !== profileBanner) {
+        return profileImage;
       }
     }
 
@@ -86,14 +88,12 @@ export function ContractEditor({
       return savedBanner;
     }
 
-    // If no contract-specific banner, try to use the default profile banner
+    // If no contract-specific banner, try to use the current profile banner
     const userId = localStorage.getItem("userId");
     if (userId) {
-      const defaultProfileBanner = localStorage.getItem(
-        `defaultProfileBanner-${userId}`
-      );
-      if (defaultProfileBanner) {
-        return defaultProfileBanner;
+      const profileBanner = localStorage.getItem(`profileBanner-${userId}`);
+      if (profileBanner) {
+        return profileBanner;
       }
     }
 
@@ -1362,58 +1362,18 @@ export function ContractEditor({
       handleUnsign();
     };
 
-    const handlePdfUploadEvent = async (e: CustomEvent) => {
-      console.log("📄 PDF upload event received:", e.detail);
-      const file = e.detail;
-      if (!file || file.type !== "application/pdf") {
-        toast.error("Please select a PDF file");
-        return;
-      }
-
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const response = await fetch("/api/uploadFile", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to upload PDF");
-        }
-
-        const data = await response.json();
-
-        // Update contract with PDF URL
-        const contractId = window.location.pathname.split("/").pop();
-        if (!contractId) throw new Error("No contract ID found");
-
-        await saveContract({
-          id: contractId,
-          pdf: data.url,
-          updatedAt: new Date(),
-        } as any);
-
-        toast.success("PDF uploaded successfully");
-      } catch (error) {
-        console.error("Error uploading PDF:", error);
-        toast.error("Failed to upload PDF");
-      }
-    };
+    // Removed legacy pdfUpload event handler. File processing is handled via primary form input.
 
     window.addEventListener(
       "unsignContract",
       handleUnsignEvent as EventListener
     );
-    window.addEventListener("pdfUpload", handlePdfUploadEvent as any);
 
     return () => {
       window.removeEventListener(
         "unsignContract",
         handleUnsignEvent as EventListener
       );
-      window.removeEventListener("pdfUpload", handlePdfUploadEvent as any);
     };
   }, []);
 
@@ -1528,29 +1488,25 @@ export function ContractEditor({
   const replacePlaceholders = () => {
     if (!companyName || !editorRef.current || !containerRef.current) return;
 
-    // Wait for editor to be ready
-    if (editorRef.current.isReady) {
-      const paragraphs = containerRef.current.querySelectorAll(
-        '[contenteditable="true"]'
-      );
+    const editor = editorRef.current;
+    const container = containerRef.current;
+
+    const apply = () => {
+      const paragraphs = container.querySelectorAll('[contenteditable="true"]');
       paragraphs.forEach((p) => {
         const text = p.innerHTML;
         if (text && text.includes("[Your Company Name]")) {
           p.innerHTML = text.replace(/\[Your Company Name\]/g, companyName);
         }
       });
+    };
+
+    // EditorJS exposes isReady as a Promise; handle both promise and immediate
+    const isReady = (editor as any).isReady;
+    if (isReady && typeof (isReady as any).then === "function") {
+      (isReady as Promise<void>).then(() => apply()).catch(() => apply());
     } else {
-      editorRef.current.on("ready", () => {
-        const paragraphs = containerRef.current?.querySelectorAll(
-          '[contenteditable="true"]'
-        );
-        paragraphs?.forEach((p) => {
-          const text = p.innerHTML;
-          if (text && text.includes("[Your Company Name]")) {
-            p.innerHTML = text.replace(/\[Your Company Name\]/g, companyName);
-          }
-        });
-      });
+      apply();
     }
   };
 
@@ -1563,87 +1519,50 @@ export function ContractEditor({
     <div className="content-wrapper relative">
       <div className="px-12 pt-6">
         <div className="max-w-4xl mx-auto">
-          {/* Banner image uploader - full width */}
-          {!isLocked && stage === "edit" && (
-            <div className="mb-6">
-              <ImageUploader
-                type="banner"
-                contractId={window.location.pathname.split("/").pop() || ""}
-                imageUrl={bannerUrl}
-                onImageChange={(url) => {
-                  console.log("Banner image changed to:", url);
-                  setBannerUrl(url);
-                }}
-                className="w-full"
-                useDefaultIfEmpty={true}
-              />
-            </div>
-          )}
-
-          {/* Display banner if it exists */}
-          {bannerUrl !== "/placeholder-banner.png" && (
-            <div className="mb-6">
-              <img
-                src={
-                  bannerUrl +
-                  (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
-                }
-                alt="Contract banner"
-                className="w-full h-40 object-cover rounded-lg"
-                onLoad={() =>
-                  console.log("Banner image loaded successfully:", bannerUrl)
-                }
-                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                  console.error("Banner image failed to load:", bannerUrl, e);
-                  // Reset to default if loading fails
-                  if (bannerUrl !== "/placeholder-banner.png") {
-                    console.log(
-                      "Resetting to default banner after load failure in editor"
-                    );
-                    setBannerUrl("/placeholder-banner.png");
-                  }
-                }}
-              />
-            </div>
-          )}
-
-          {/* Logo and header section */}
-          <div className="flex items-center mb-6">
-            {/* Logo uploader */}
-            {!isLocked && stage === "edit" ? (
-              <ImageUploader
-                type="logo"
-                contractId={window.location.pathname.split("/").pop() || ""}
-                imageUrl={logoUrl}
-                onImageChange={(url) => {
-                  console.log("Logo image changed to:", url);
-                  setLogoUrl(url);
-                }}
-                className="mb-12 mr-8"
-                useDefaultIfEmpty={true}
-              />
-            ) : logoUrl !== "/placeholder-logo.png" ? (
-              <div className="h-32 w-32 mb-12 mr-8 rounded-lg overflow-hidden">
+          {/* Banner with overlapping profile image (matches Settings layout) */}
+          <div className="mb-12 relative group">
+            {bannerUrl !== "/placeholder-banner.png" ? (
+              <>
                 <img
                   src={
-                    logoUrl + (logoUrl.includes("?") ? "" : `?t=${Date.now()}`)
+                    bannerUrl +
+                    (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
                   }
-                  alt="Contract logo"
-                  className="w-full h-full object-cover"
-                  onLoad={() =>
-                    console.log("Logo image loaded successfully:", logoUrl)
-                  }
-                  onError={(e) => {
-                    console.error("Logo image failed to load:", logoUrl, e);
-                    // Reset to default if loading fails
-                    if (logoUrl !== "/placeholder-logo.png") {
-                      setLogoUrl("/placeholder-logo.png");
-                    }
-                  }}
+                  alt="Contract banner"
+                  className="w-full h-40 object-cover rounded-lg"
+                  title="Edit Profile Picture In Settings"
                 />
+                <div className="absolute inset-0 rounded-lg" />
+              </>
+            ) : (
+              <div
+                className="w-full h-40 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center"
+                title="Edit Profile Picture In Settings"
+              >
+                <div className="text-gray-500 text-center">
+                  <div className="text-sm font-medium">No banner image</div>
+                  <div className="text-xs mt-1">Add one in Settings</div>
+                </div>
               </div>
-            ) : null}
+            )}
+
+            {/* Overlapping circular avatar */}
+            <div className="absolute -bottom-16 left-6 h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100">
+              <img
+                src={
+                  (logoUrl !== "/placeholder-logo.png"
+                    ? logoUrl
+                    : "/placeholder-profile.png") +
+                  ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
+                }
+                alt="Profile image"
+                className="w-full h-full object-cover"
+                title="Edit Profile Picture In Settings"
+              />
+            </div>
           </div>
+          {/* Spacer to account for the overlapping avatar */}
+          <div className="h-8" />
 
           {/* Editor section with lock indicator (without dimming overlay) */}
           <div className="relative">

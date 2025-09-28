@@ -35,17 +35,20 @@ export async function POST(request: Request) {
     const data = await request.json();
     console.log("Received data for contract generation:", data);
 
-    // Create cache key based on input data
+    // Create cache key based on input data (include names + summaries + pdf to avoid stale hits)
     const cacheKey = JSON.stringify({
-      projectBrief: data.projectBrief,
-      techStack: data.techStack,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      attachments: data.attachments?.map((att: any) => att.summary).join("|"),
+      projectBrief: data.projectBrief || "",
+      techStack: data.techStack || "",
+      startDate: data.startDate || "",
+      endDate: data.endDate || "",
+      pdf: data.pdf || "",
+      attachments: (data.attachments || [])
+        .map((att: any) => `${att.name || "unknown"}:${att.summary || ""}`)
+        .join("|"),
     });
 
-    // Check cache first
-    if (cache.has(cacheKey)) {
+    // Check cache first (skip when debug flag is set)
+    if (!data?.debug && cache.has(cacheKey)) {
       console.log("Cache hit - returning cached contract");
       return NextResponse.json(cache.get(cacheKey));
     }
@@ -63,60 +66,76 @@ export async function POST(request: Request) {
           ? `Timeline: ${data.startDate || "TBD"} to ${data.endDate || "TBD"}\n`
           : "";
       const pdfInfo = data.pdf ? `PDF: ${data.pdf}\n` : "";
+      const budgetInfo =
+        typeof data.budget !== "undefined" && String(data.budget).trim() !== ""
+          ? `Budget: ${data.budget}\n`
+          : "";
 
       // Add file summaries to context
-      const attachmentSummaries = data.attachments
-        ?.filter((att: any) => att.summary)
+      // Prefer real summaries over MOCK_DEBUG when both present
+      const realSummaries = (data.attachments || []).filter(
+        (att: any) => att.summary && att.name !== "MOCK_DEBUG"
+      );
+      const attachmentSummaries = realSummaries
         .map((att: any) => `Document "${att.name}": ${att.summary}`)
         .join("\n");
 
       const documentContext = attachmentSummaries
         ? `\nAdditional Context from Uploaded Documents:\n${attachmentSummaries}\n`
         : "";
+      console.log(
+        "Document summaries provided:",
+        (data.attachments || []).filter((a: any) => !!a?.summary).length
+      );
 
-      // Use a faster model and add timeout
+      // If debug flag is set, inject an obvious marker into the prompt
+      const debugBanner = data.debug
+        ? "\n[DEBUG MODE] Inputs were applied to this contract.\n"
+        : "";
+
+      // Use a faster model and add timeout (longer to accommodate PDF-based context)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
 
       const completion = await openai.chat.completions.create(
         {
-          model: "gpt-4o-mini", // Back to original model
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
               content:
-                "Generate a professional Contract. Format each section with a clear header. Use any provided document summaries to enhance and customize the contract content.",
+                "You are a senior contracts specialist. Always ground the contract in the provided 'Additional Context' from documents. Prefer provided context over assumptions.",
             },
             {
               role: "user",
-              content: `Create a contract with the following details:
-              ${projectInfo}${techInfo}${timelineInfo}${pdfInfo}${documentContext}
-              
+              content: `Create a contract with the following details. The 'Additional Context' lines are authoritative; you MUST reflect their specifics (names, brands, scope, dates, budget) throughout the contract where relevant.
+              ${projectInfo}${techInfo}${timelineInfo}${budgetInfo}${pdfInfo}${documentContext}
+              ${debugBanner}
+
               ${
                 data.techStack
                   ? `This contract is for a client that specializes in ${data.techStack}, in the Design/Development/NoCode Designer space.`
                   : "This contract is for a design/development project in the tech space."
               }
-              
-              Use industry standard information to make it accurate and comprehensive.
-              
-              If pricing is not provided, use the average pricing for the industry as a fixed price.
-              If timeline is not provided, use the average timeline for the industry.
-              Mark any suggested values with **(Suggested)**.
-              If the stack is mentioned, make sure to include it in the contract and use a few words to describe it.
-              Make it as extensive as possible to protect both parties, while keeping it concise.
 
-              If you have to bunch multiple h2's together make it a callout block with a list inside like this:
+              Requirements:
+              - The FIRST LINE MUST BE the actual contract title (e.g., "Website Development Contract for Coca-Cola Company").
+              - Do NOT include a section header literally named "Title".
+              - Base Project Brief and Tech Stack sections on the Additional Context when provided.
+              - If brand or company names appear (e.g., Coca-Cola), use them exactly.
+              - If pricing/timeline are missing, use reasonable suggested values and mark them with **(Suggested)**. If a Budget is provided, ensure Payment Terms and totals align with it.
+              - Keep content concise but protective for both parties.
+
+              If you need to group multiple subsections under a header, use a callout-like list format, for example under Timeline:
                 ### Timeline
                 The project is expected to follow this timeline:
-
                 Project Discovery and Requirements Gathering: 1 week
                 Prototyping and Initial Design: 2 weeks
                 Development Phase: 4 weeks
                 Testing and Revisions: 2 weeks
                 Final Review and Launch: 1 week.
-              
-              Format with the following sections (add more if needed) if you create a section make it an h2:
+
+              Section outline (add more as needed; h2 for section headers):
               1. Title
               2. Project Brief
               3. Tech Stack
@@ -125,19 +144,11 @@ export async function POST(request: Request) {
               6. Confidentiality
               7. Termination
 
-              For the timeline, create realistic milestones based on the project scope.
-              If you create a timeline, make it under Timeline section and make it a list of milestones in h3.
-
-              Add any sections needed for the specific type of project (design assets, code ownership, etc.).
-
-              Use clear headings for sections, usually one or two words unless it's the contract title.
-              
-              Do not include signatures or dates.
-              Never use separator lines (---) or ALL CAPS.`,
+              Use clear headings (short labels). Do not include signatures or dates. Never use separator lines (---) or ALL CAPS.`,
             },
           ],
           temperature: 0.7,
-          max_tokens: 2000, // Keep token limit for faster response
+          max_tokens: 2000,
         },
         {
           signal: controller.signal,
@@ -159,35 +170,72 @@ export async function POST(request: Request) {
 
       const contractText = completion.choices[0].message.content;
 
+      // Determine a primary document label (filename without extension) for title fallback/reference
+      const primaryAttachment = (data.attachments || []).find(
+        (att: any) => att?.name && att?.name !== "MOCK_DEBUG"
+      );
+      const primaryDocLabel = primaryAttachment
+        ? String(primaryAttachment.name).replace(/\.[^/.]+$/, "")
+        : "";
+
       // Convert the response into EditorJS blocks
-      const lines = contractText.split("\n").filter((line) => line.trim());
+      const rawLines = contractText.split("\n").filter((line) => line.trim());
       const blocks: EditorJSBlock[] = [];
 
-      lines.forEach((line) => {
+      rawLines.forEach((line, index) => {
         const cleanLine = line.replace(/\*\*/g, "").replace(/#/g, "").trim();
 
-        // First line is always H1 title
+        // First non-empty line becomes H1 title
         if (blocks.length === 0) {
+          let title =
+            cleanLine.toLowerCase() === "title" && rawLines[index + 1]
+              ? rawLines[index + 1]
+                  .replace(/\*\*/g, "")
+                  .replace(/#/g, "")
+                  .trim()
+              : cleanLine;
+
+          // Normalize title: remove subtitles after dash/colon, trim length, and ensure it references the input document when present
+          title = title
+            .split(":")[0]
+            .replace(/[–—-].*$/, "")
+            .trim();
+          if (title.length > 80) {
+            title = title.slice(0, 80).trim();
+          }
+          if (
+            primaryDocLabel &&
+            !new RegExp(
+              primaryDocLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+              "i"
+            ).test(title)
+          ) {
+            title = `Contract for ${primaryDocLabel}`;
+          }
+
           blocks.push({
             type: "header",
-            data: {
-              text: cleanLine,
-              level: 1,
-            },
+            data: { text: title, level: 1 },
           });
+          return;
         }
+
+        // Skip a literal "Title" line that sometimes follows
+        if (cleanLine.toLowerCase() === "title") {
+          return;
+        }
+
         // Section headers
-        else if (line.match(/^(\d+\.|##|#)\s+/)) {
+        if (line.match(/^(\d+\.|##|#)\s+/)) {
           blocks.push({
             type: "header",
-            data: {
-              text: cleanLine.replace(/^\d+\.\s*/, ""),
-              level: 2,
-            },
+            data: { text: cleanLine.replace(/^\d+\.\s*/, ""), level: 2 },
           });
+          return;
         }
+
         // Bullet points
-        else if (line.match(/^\s*-\s+/)) {
+        if (line.match(/^\s*-\s+/)) {
           blocks.push({
             type: "list",
             data: {
@@ -195,24 +243,21 @@ export async function POST(request: Request) {
               items: [cleanLine.replace(/^\s*-\s+/, "")],
             },
           });
+          return;
         }
+
         // Regular paragraphs
-        else {
-          blocks.push({
-            type: "paragraph",
-            data: {
-              text: cleanLine,
-            },
-          });
-        }
+        blocks.push({ type: "paragraph", data: { text: cleanLine } });
       });
 
       console.log("Generated blocks:", blocks);
 
       const result = { blocks };
 
-      // Cache the result
-      cache.set(cacheKey, result);
+      // Cache the result (skip when debug flag is set)
+      if (!data?.debug) {
+        cache.set(cacheKey, result);
+      }
 
       // Limit cache size
       if (cache.size > 50) {
@@ -228,13 +273,87 @@ export async function POST(request: Request) {
 
       // If it's a timeout error, provide a fallback
       if (openaiError.name === "AbortError") {
+        // One quick retry with shorter token limit before falling back
+        try {
+          console.log(
+            "OpenAI request timed out; retrying once with reduced tokens"
+          );
+          const retry = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a senior contracts specialist. Always ground the contract in the provided 'Additional Context' from documents.",
+              },
+              {
+                role: "user",
+                content: `${projectInfo}${techInfo}${timelineInfo}${pdfInfo}${documentContext}\n${debugBanner}\nGenerate a concise but complete contract using the context above.`,
+              },
+            ],
+            temperature: 0.6,
+            max_tokens: 1200,
+          });
+
+          const content = retry.choices[0]?.message?.content;
+          if (content) {
+            const lines = content.split("\n").filter((line) => line.trim());
+            const blocks: EditorJSBlock[] = [];
+            lines.forEach((line) => {
+              const cleanLine = line
+                .replace(/\*\*/g, "")
+                .replace(/#/g, "")
+                .trim();
+              if (blocks.length === 0) {
+                // Normalize title as above and reference primary document when present
+                let title = cleanLine;
+                title = title
+                  .split(":")[0]
+                  .replace(/[–—-].*$/, "")
+                  .trim();
+                if (title.length > 80) {
+                  title = title.slice(0, 80).trim();
+                }
+                if (
+                  primaryDocLabel &&
+                  !new RegExp(
+                    primaryDocLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                    "i"
+                  ).test(title)
+                ) {
+                  title = `Contract for ${primaryDocLabel}`;
+                }
+                blocks.push({
+                  type: "header",
+                  data: { text: title, level: 1 },
+                });
+              } else if (line.match(/^(\d+\.|##|#)\s+/)) {
+                blocks.push({
+                  type: "header",
+                  data: { text: cleanLine.replace(/^\d+\.\s*/, ""), level: 2 },
+                });
+              } else if (line.match(/^\s*-\s+/)) {
+                blocks.push({
+                  type: "list",
+                  data: {
+                    style: "unordered",
+                    items: [cleanLine.replace(/^\s*-\s+/, "")],
+                  },
+                });
+              } else {
+                blocks.push({ type: "paragraph", data: { text: cleanLine } });
+              }
+            });
+            return NextResponse.json({ blocks });
+          }
+        } catch (retryError) {
+          console.log("Retry failed, returning fallback contract");
+        }
+
         console.log("OpenAI request timed out, using fallback contract");
         return NextResponse.json({
           blocks: [
-            {
-              type: "header",
-              data: { text: "Contract Agreement", level: 1 },
-            },
+            { type: "header", data: { text: "Contract Agreement", level: 1 } },
             {
               type: "paragraph",
               data: {

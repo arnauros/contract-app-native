@@ -10,6 +10,7 @@ import { getSignatures } from "@/lib/firebase/firestore";
 import UsersDisplay from "@/app/Components/UsersDisplay";
 import useActiveUsers from "@/lib/hooks/useActiveUsers";
 import { useAuth } from "@/lib/hooks/useAuth";
+import Link from "next/link";
 
 interface TopbarProps {
   pathname: string;
@@ -118,17 +119,9 @@ export default function Topbar({ pathname }: TopbarProps) {
     "edit" | "sign" | "send" | null
   >(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const { loggedIn } = useAuth();
+  const { loggedIn, user } = useAuth();
 
-  // PDF upload handler
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Dispatch an event to trigger PDF processing in ContractEditor
-    const event = new CustomEvent("pdfUpload", { detail: file });
-    window.dispatchEvent(event);
-  };
+  // Removed legacy PDF upload handler (processing now tied to primary form input)
 
   // Get active users for current contract
   const contractId = params?.id as string;
@@ -472,37 +465,7 @@ export default function Topbar({ pathname }: TopbarProps) {
             </div>
           )}
 
-          {/* Upload PDF Button - only show in edit stage */}
-          {isContractPage && currentStage === "edit" && (
-            <div>
-              <button
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center h-[40px] text-sm"
-                onClick={() => document.getElementById("pdf-upload")?.click()}
-              >
-                <svg
-                  className="h-4 w-4 mr-1.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                Upload PDF
-              </button>
-              <input
-                id="pdf-upload"
-                type="file"
-                accept="application/pdf"
-                onChange={handlePdfUpload}
-                className="hidden"
-              />
-            </div>
-          )}
+          {/* Removed legacy Upload PDF button */}
 
           {/* Active Users Display */}
           {isContractPage && activeUsers.length > 0 && (
@@ -510,6 +473,34 @@ export default function Topbar({ pathname }: TopbarProps) {
               <UsersDisplay users={activeUsers} />
             </div>
           )}
+
+          {/* User settings: avatar only on the right */}
+          <Link href="/settings" className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+              {user?.photoURL ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.photoURL}
+                  alt="User avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <svg
+                  className="w-5 h-5 text-gray-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              )}
+            </div>
+          </Link>
 
           {/* Navigation Controls */}
           {isContractPage && (

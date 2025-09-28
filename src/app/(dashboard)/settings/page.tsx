@@ -90,14 +90,6 @@ export default function SettingsPage() {
   const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
     "/placeholder-banner.png"
   );
-  const [defaultProfileImageUrl, setDefaultProfileImageUrl] = useState<
-    string | null
-  >(null);
-  const [defaultProfileBannerUrl, setDefaultProfileBannerUrl] = useState<
-    string | null
-  >(null);
-  const [isSettingDefaultImage, setIsSettingDefaultImage] = useState(false);
-  const [isSettingDefaultBanner, setIsSettingDefaultBanner] = useState(false);
 
   // Initialize form state from user data
   useEffect(() => {
@@ -109,17 +101,9 @@ export default function SettingsPage() {
         const userId = user.uid;
         const profileImageKey = `profileImage-${userId}`;
         const profileBannerKey = `profileBanner-${userId}`;
-        const defaultProfileImageKey = `defaultProfileImage-${userId}`;
-        const defaultProfileBannerKey = `defaultProfileBanner-${userId}`;
 
         const savedProfileImage = localStorage.getItem(profileImageKey);
         const savedProfileBanner = localStorage.getItem(profileBannerKey);
-        const savedDefaultProfileImage = localStorage.getItem(
-          defaultProfileImageKey
-        );
-        const savedDefaultProfileBanner = localStorage.getItem(
-          defaultProfileBannerKey
-        );
 
         if (savedProfileImage) {
           setProfileImageUrl(savedProfileImage);
@@ -132,14 +116,6 @@ export default function SettingsPage() {
 
         if (savedProfileBanner) {
           setProfileBannerUrl(savedProfileBanner);
-        }
-
-        if (savedDefaultProfileImage) {
-          setDefaultProfileImageUrl(savedDefaultProfileImage);
-        }
-
-        if (savedDefaultProfileBanner) {
-          setDefaultProfileBannerUrl(savedDefaultProfileBanner);
         }
       };
 
@@ -171,23 +147,6 @@ export default function SettingsPage() {
                 userData.profileBannerUrl
               );
             }
-
-            // Get default images
-            if (userData.defaultProfileImageUrl) {
-              setDefaultProfileImageUrl(userData.defaultProfileImageUrl);
-              localStorage.setItem(
-                `defaultProfileImage-${user.uid}`,
-                userData.defaultProfileImageUrl
-              );
-            }
-
-            if (userData.defaultProfileBannerUrl) {
-              setDefaultProfileBannerUrl(userData.defaultProfileBannerUrl);
-              localStorage.setItem(
-                `defaultProfileBanner-${user.uid}`,
-                userData.defaultProfileBannerUrl
-              );
-            }
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -217,78 +176,6 @@ export default function SettingsPage() {
       }
     }
   }, [user]);
-
-  // Function to set default profile image
-  const setDefaultImage = async () => {
-    if (!user) return;
-
-    try {
-      setIsSettingDefaultImage(true);
-      const db = getFirestore();
-      const userRef = doc(db, "users", user.uid);
-
-      // Check if we have a default image
-      if (!defaultProfileImageUrl) {
-        toast.error("No default profile image found. Please upload one first.");
-        return;
-      }
-
-      // Update the user's profile image with the default
-      await updateDoc(userRef, {
-        profileImageUrl: defaultProfileImageUrl,
-      });
-
-      // Also update auth profile
-      await updateUserProfile(displayName, defaultProfileImageUrl);
-
-      // Update local state and localStorage
-      setProfileImageUrl(defaultProfileImageUrl);
-      localStorage.setItem(`profileImage-${user.uid}`, defaultProfileImageUrl);
-
-      toast.success("Default profile image applied");
-    } catch (error) {
-      console.error("Error setting default image:", error);
-      toast.error("Failed to set default image");
-    } finally {
-      setIsSettingDefaultImage(false);
-    }
-  };
-
-  // Function to set default banner
-  const setDefaultBanner = async () => {
-    if (!user) return;
-
-    try {
-      setIsSettingDefaultBanner(true);
-      const db = getFirestore();
-      const userRef = doc(db, "users", user.uid);
-
-      // Check if we have a default banner
-      if (!defaultProfileBannerUrl) {
-        toast.error("No default banner found. Please upload one first.");
-        return;
-      }
-
-      // Update the user's banner with the default
-      await updateDoc(userRef, {
-        profileBannerUrl: defaultProfileBannerUrl,
-      });
-
-      // Update local state and localStorage
-      setProfileBannerUrl(defaultProfileBannerUrl);
-      localStorage.setItem(
-        `profileBanner-${user.uid}`,
-        defaultProfileBannerUrl
-      );
-
-      toast.success("Default banner applied");
-    } catch (error) {
-      console.error("Error setting default banner:", error);
-      toast.error("Failed to set default banner");
-    } finally {
-      setIsSettingDefaultBanner(false);
-    }
-  };
 
   const handleUpdateProfile = async () => {
     try {
@@ -647,63 +534,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Default Images Section */}
-          <div className="bg-white p-6 rounded-lg shadow mb-8">
-            <h2 className="text-xl font-semibold mb-6">Default Images</h2>
-            <p className="text-gray-600 mb-6">
-              Set default profile image and banner that will be used when
-              starting new contracts or sending to clients.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <h3 className="text-lg font-medium mb-3">
-                  Default Profile Image
-                </h3>
-                <ProfileImageUploader
-                  type="profileImage"
-                  imageUrl={
-                    defaultProfileImageUrl || "/placeholder-profile.png"
-                  }
-                  onImageChange={setDefaultProfileImageUrl}
-                  isDefaultUpload={true}
-                  className="mb-3"
-                />
-                <Button
-                  onClick={setDefaultImage}
-                  disabled={isSettingDefaultImage || !defaultProfileImageUrl}
-                  className="mt-2 flex items-center"
-                >
-                  <FiImage className="mr-2" />
-                  {isSettingDefaultImage
-                    ? "Setting..."
-                    : "Use as My Profile Image"}
-                </Button>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-medium mb-3">Default Banner</h3>
-                <ProfileImageUploader
-                  type="profileBanner"
-                  imageUrl={
-                    defaultProfileBannerUrl || "/placeholder-banner.png"
-                  }
-                  onImageChange={setDefaultProfileBannerUrl}
-                  isDefaultUpload={true}
-                  className="mb-3"
-                />
-                <Button
-                  onClick={setDefaultBanner}
-                  disabled={isSettingDefaultBanner || !defaultProfileBannerUrl}
-                  className="mt-2 flex items-center"
-                >
-                  <FiImage className="mr-2" />
-                  {isSettingDefaultBanner ? "Setting..." : "Use as My Banner"}
-                </Button>
-              </div>
-            </div>
-          </div>
-
           {/* Subscription Management Section */}
           <div className="bg-white p-6 rounded-lg shadow mb-8">
             <h2 className="text-xl font-semibold mb-6">
@@ -760,7 +590,7 @@ export default function SettingsPage() {
                   <li>Created a user document in Firestore</li>
                   <li>Added a stripeCustomerId field to the user document</li>
                 </ul>
-                <div className="mt-2">
+                <div className="mt-2 flex gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
@@ -769,6 +599,54 @@ export default function SettingsPage() {
                   >
                     <FiCode className="mr-1" />
                     Create Test Customer ID
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!user) return;
+                      try {
+                        const db = getFirestore();
+                        await updateDoc(doc(db, "users", user.uid), {
+                          subscription_debug: true,
+                          subscription: {
+                            status: "active",
+                            tier: "pro",
+                            currentPeriodEnd:
+                              Date.now() + 30 * 24 * 60 * 60 * 1000,
+                          },
+                        });
+                        toast.success(
+                          "Dev access enabled (subscription_debug)"
+                        );
+                      } catch (e) {
+                        console.error(e);
+                        toast.error("Failed to enable dev access");
+                      }
+                    }}
+                    className="text-xs bg-green-100 border-green-300 text-green-800 hover:bg-green-200"
+                  >
+                    Enable Dev Access
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!user) return;
+                      try {
+                        const db = getFirestore();
+                        await updateDoc(doc(db, "users", user.uid), {
+                          subscription_debug: false,
+                        });
+                        toast.success("Dev access disabled");
+                      } catch (e) {
+                        console.error(e);
+                        toast.error("Failed to disable dev access");
+                      }
+                    }}
+                    className="text-xs bg-red-100 border-red-300 text-red-800 hover:bg-red-200"
+                  >
+                    Disable Dev Access
                   </Button>
                 </div>
               </div>

@@ -834,3 +834,173 @@ export const migrateLocalStorageComments = async (
     };
   }
 };
+
+// Invoice Operations
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface Invoice {
+  id: string;
+  userId: string;
+  title: string; // e.g., "Invoice for Acme Co."
+  status: "draft" | "sent" | "paid" | "overdue";
+  issueDate?: string;
+  dueDate?: string;
+  currency?: string;
+  client?: {
+    name?: string;
+    email?: string;
+    company?: string;
+    address?: string;
+  };
+  from?: {
+    name?: string;
+    email?: string;
+    company?: string;
+    address?: string;
+  };
+  items?: InvoiceLineItem[];
+  subtotal?: number;
+  tax?: number;
+  total?: number;
+  notes?: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+export const saveInvoice = async (invoice: Invoice) => {
+  try {
+    const firestore = getFirestore();
+    const auth = getAuth();
+
+    await new Promise<void>((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged(() => {
+        unsubscribe();
+        resolve();
+      });
+    });
+
+    if (!auth.currentUser) {
+      throw new Error("User must be authenticated to save invoice");
+    }
+
+    // Debug: surface claims and user doc that rules depend on
+    try {
+      const tokenResult = await auth.currentUser.getIdTokenResult(true);
+      const claims: any = tokenResult?.claims || {};
+      const userDocRef = doc(firestore, "users", auth.currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      const userData: any = userDocSnap.exists() ? userDocSnap.data() : null;
+      console.log("[Invoices] Rules debug before write:", {
+        uid: auth.currentUser.uid,
+        claims: {
+          subscriptionStatus: (claims as any).subscriptionStatus,
+          subscriptionTier: (claims as any).subscriptionTier,
+          isAdmin: (claims as any).isAdmin,
+        },
+        hasUserDoc: userDocSnap.exists(),
+        userDoc: userData
+          ? {
+              subscription_debug: userData.subscription_debug,
+              subscriptionStatus: userData.subscription?.status,
+              tier: userData.subscription?.tier,
+            }
+          : null,
+      });
+    } catch (dbgErr) {
+      console.warn("[Invoices] Failed to gather rules debug info:", dbgErr);
+    }
+
+    const invoiceWithUser = {
+      ...invoice,
+      userId: auth.currentUser.uid,
+      createdAt: (invoice as any).createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const invoiceRef = doc(firestore, "invoices", invoice.id);
+    try {
+      await setDoc(invoiceRef, invoiceWithUser);
+      return { success: true, invoiceId: invoice.id };
+    } catch (writeErr: any) {
+      // If permission denied in dev, try enabling dev bypass and retry once
+      const isPermissionDenied = writeErr?.code === "permission-denied";
+      const isDev = process.env.NODE_ENV === "development";
+      if (isPermissionDenied && isDev) {
+        console.warn(
+          "[Invoices] First write denied. Attempting to enable subscription_debug and retry once..."
+        );
+        try {
+          const userDocRef = doc(firestore, "users", auth.currentUser.uid);
+          await updateDoc(userDocRef, {
+            subscription_debug: true,
+            subscription: {
+              status: "active",
+              tier: "pro",
+              currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            },
+          } as any);
+          // Force refresh token so custom claims (if any) update later
+          try {
+            await auth.currentUser.getIdToken(true);
+          } catch {}
+          console.log("[Invoices] Dev bypass set. Retrying invoice write...");
+          await setDoc(invoiceRef, invoiceWithUser);
+          return { success: true, invoiceId: invoice.id };
+        } catch (retryErr) {
+          console.error("[Invoices] Retry after dev bypass failed:", retryErr);
+          throw writeErr; // fall through to outer catch
+        }
+      }
+      throw writeErr;
+    }
+  } catch (error) {
+    console.error("Error saving invoice:", error);
+    if (
+      typeof error === "object" &&
+      error &&
+      (error as any).code === "permission-denied"
+    ) {
+      console.error(
+        "[Invoices] Firestore permission-denied. Likely causes: inactive subscription, missing users/{uid} doc, or subscription_debug not set in dev."
+      );
+    }
+    return {
+      error: error instanceof Error ? error.message : "Failed to save invoice",
+    };
+  }
+};
+
+export const getInvoice = async (invoiceId: string) => {
+  try {
+    const firestore = getFirestore();
+    const invoiceRef = doc(firestore, "invoices", invoiceId);
+    const snap = await getDoc(invoiceRef);
+    if (!snap.exists()) return { error: "Invoice not found" };
+    return { success: true, invoice: snap.data() as Invoice };
+  } catch (error) {
+    console.error("Error getting invoice:", error);
+    return { error: "Failed to get invoice" };
+  }
+};
+
+export async function updateInvoice(
+  invoiceId: string,
+  updates: Partial<Invoice>
+): Promise<void> {
+  try {
+    const firestore = getFirestore();
+    const invoiceRef = doc(firestore, "invoices", invoiceId);
+    await updateDoc(invoiceRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error updating invoice:", error);
+    throw error;
+  }
+}

@@ -37,17 +37,6 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { IconType } from "react-icons";
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
 import toast from "react-hot-toast";
 import { SubscriptionStatus } from "@/components/SubscriptionStatus";
 import Link from "next/link";
@@ -66,16 +55,7 @@ import { getAuth } from "firebase/auth";
 import FormParent, {
   FormData,
 } from "@/app/Components/StepsComponents/formparent";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+import Modal from "@/app/Components/Modal";
 
 interface StatCardProps {
   title: string;
@@ -409,24 +389,28 @@ export default function Dashboard() {
     completed: 0,
   });
   const [contracts, setContracts] = useState<Contract[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-  const [activityData, setActivityData] = useState<{
-    labels: string[];
-    datasets: any[];
-  }>({
-    labels: [],
-    datasets: [],
-  });
   const [subscription, setSubscription] = useState<UserSubscription | null>(
     null
   );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [contractToDelete, setContractToDelete] = useState<string | null>(null);
+  const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
+  const [isBulkDeleteContractsModalOpen, setIsBulkDeleteContractsModalOpen] =
+    useState(false);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [isBulkDeleteInvoicesModalOpen, setIsBulkDeleteInvoicesModalOpen] =
+    useState(false);
 
   // Get recent comments from all contracts
   const { comments, loading: commentsLoading } = useRecentComments(10);
 
   // Add a flag to disable comments functionality
   const COMMENTS_ENABLED = false;
+  // Toggle for showing debug tools section
+  const DEBUG_TOOLS_ENABLED = false;
 
   // Add state for FormParent (copied from /new)
   const [currentStep, setCurrentStep] = useState(1);
@@ -435,9 +419,23 @@ export default function Dashboard() {
     techStack: "The tech stack includes ",
     startDate: "",
     endDate: "",
+    budget: "",
     attachments: [],
     fileSummaries: {},
   });
+
+  // Check for project brief from hero chat on mount
+  useEffect(() => {
+    const heroProjectBrief = localStorage.getItem("hero-project-brief");
+    if (heroProjectBrief && !formData.projectBrief) {
+      setFormData((prev) => ({
+        ...prev,
+        projectBrief: heroProjectBrief,
+      }));
+      // Clear the stored brief after using it
+      localStorage.removeItem("hero-project-brief");
+    }
+  }, []);
 
   // Handler for FormParent (no-op for now, or you can copy from /new)
   const handleFormParentSubmit = () => {};
@@ -498,7 +496,6 @@ export default function Dashboard() {
       };
 
       const contractsList: Contract[] = [];
-      const activityMap = new Map<string, number>();
 
       // Process each contract
       for (const docSnapshot of querySnapshot.docs) {
@@ -564,10 +561,6 @@ export default function Dashboard() {
             }
 
             contractsList.push(contract);
-
-            // Track activity for the graph
-            const date = contract.createdAt.toDate().toLocaleDateString();
-            activityMap.set(date, (activityMap.get(date) || 0) + 1);
           }
         } catch (contractError) {
           logDebug("Error processing contract:", contractError);
@@ -580,54 +573,36 @@ export default function Dashboard() {
         stats,
       });
 
-      // Prepare activity graph data
-      const dates = Array.from(activityMap.keys()).sort();
-      const activityData = {
-        labels: dates,
-        datasets: [
-          {
-            label: "Contracts Created",
-            data: dates.map((date) => activityMap.get(date) || 0),
-            borderColor: "rgb(59, 130, 246)",
-            backgroundColor: "rgba(59, 130, 246, 0.5)",
-          },
-        ],
-      };
-
       setStats(stats);
       setContracts(contractsList);
-      setIsLoading(false);
-      setActivityData(activityData);
 
-      // Fetch subscription data (if in local development)
-      if (isLocalDevelopment()) {
-        try {
-          const fetchSubscription = async () => {
-            const subscriptionsRef = collection(firestore, "subscriptions");
-            const userSubscriptions = query(
-              subscriptionsRef,
-              where("userId", "==", user.uid)
-            );
-
-            const subscriptionSnapshot = await getDocs(userSubscriptions);
-            if (!subscriptionSnapshot.empty) {
-              const subscriptionData =
-                subscriptionSnapshot.docs[0].data() as UserSubscription;
-              setSubscription(subscriptionData);
-            } else {
-              // No subscription found - don't create a fake active one
-              logDebug("No active subscription found for user:", user.uid);
-              setSubscription(null);
-            }
-          };
-
-          fetchSubscription();
-        } catch (subscriptionError) {
-          logDebug("Error fetching subscription:", subscriptionError);
-          // Don't set a default subscription as fallback
-          setSubscription(null);
-        }
+      // Fetch invoices for this user
+      try {
+        const invoicesRef = collection(firestore, "invoices");
+        const userInvoices = query(
+          invoicesRef,
+          where("userId", "==", user.uid),
+          orderBy("createdAt", "desc")
+        );
+        const invoicesSnap = await getDocs(userInvoices);
+        const list: any[] = [];
+        invoicesSnap.forEach((d) => {
+          const data = d.data();
+          list.push({ id: d.id, ...data });
+        });
+        setInvoices(list);
+      } catch (e) {
+        console.log("Invoice fetch failed", e);
+        setInvoices([]);
       }
+
+      setIsLoading(false);
+
+      // NOTE: Skip legacy dev-only top-level `subscriptions` query to avoid
+      // Firestore permission-denied errors. We already listen to
+      // `users/{uid}` for subscription changes below, which is authoritative.
+      // If you really need this fetch in the future, gate it behind a feature
+      // flag and add matching security rules for `/subscriptions`.
     } catch (error) {
       logDebug("Error fetching contract data:", error);
       toast.error("Failed to load contracts. Please try again later.");
@@ -640,17 +615,7 @@ export default function Dashboard() {
         completed: 0,
       });
       setContracts([]);
-      setActivityData({
-        labels: [],
-        datasets: [
-          {
-            label: "Contracts Created",
-            data: [],
-            borderColor: "rgb(59, 130, 246)",
-            backgroundColor: "rgba(59, 130, 246, 0.5)",
-          },
-        ],
-      });
+      setInvoices([]);
     }
   };
 
@@ -685,8 +650,6 @@ export default function Dashboard() {
   });
 
   const handleDeleteContract = async (contractId: string) => {
-    if (!confirm("Are you sure you want to delete this contract?")) return;
-
     try {
       if (!db) throw new Error("Firebase not initialized");
       await deleteDoc(doc(db as Firestore, "contracts", contractId));
@@ -696,6 +659,54 @@ export default function Dashboard() {
       console.error("Error deleting contract:", error);
       toast.error("Failed to delete contract");
     }
+  };
+
+  const confirmDeleteContract = async () => {
+    if (!contractToDelete) return;
+    await handleDeleteContract(contractToDelete);
+    setIsDeleteModalOpen(false);
+    setContractToDelete(null);
+  };
+
+  // Bulk selection helpers for contracts
+  const toggleSelectAllContracts = () => {
+    const allIds = filteredContracts.map((c) => c.id);
+    if (selectedContractIds.length === allIds.length) {
+      setSelectedContractIds([]);
+    } else {
+      setSelectedContractIds(allIds);
+    }
+  };
+
+  const toggleContractSelection = (id: string) => {
+    setSelectedContractIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDeleteContracts = async () => {
+    try {
+      if (!db) throw new Error("Firebase not initialized");
+      const firestore = db as Firestore;
+      await Promise.all(
+        selectedContractIds.map((id) =>
+          deleteDoc(doc(firestore, "contracts", id))
+        )
+      );
+      setContracts(
+        contracts.filter((c) => !selectedContractIds.includes(c.id))
+      );
+      setSelectedContractIds([]);
+      toast.success("Selected contracts deleted");
+    } catch (error) {
+      console.error("Bulk delete contracts error:", error);
+      toast.error("Failed to delete selected contracts");
+    }
+  };
+
+  const confirmBulkDeleteContracts = async () => {
+    await handleBulkDeleteContracts();
+    setIsBulkDeleteContractsModalOpen(false);
   };
 
   const handleDownloadPDF = async (contractId: string) => {
@@ -1043,45 +1054,23 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* User info bar at the top right */}
-      <div className="flex justify-end items-center mb-6">
-        <Link
-          href="/settings"
-          className="flex items-center gap-2 hover:underline"
-        >
-          <FiUser className="w-5 h-5 text-gray-600" />
-          <span className="text-gray-800 text-sm font-medium">
-            {user?.email}
-          </span>
-        </Link>
-      </div>
+      {/* User info moved to topbar */}
+      <div className="mb-6" />
       {/* Personalized greeting above the form */}
-      <div className="mb-8">
+      <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-gray-800">
           Hello, {user?.displayName || user?.email?.split("@")[0] || "there"} 👋
         </h1>
         <p className="text-lg text-gray-500 mt-2">How can I help you today?</p>
       </div>
       {/* Input field from /new, now at the top of dashboard */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-10">
+      <div className="bg-white rounded-lg p-6 mb-10">
         <FormParent
           onStageChange={setCurrentStep}
           formData={formData}
           setFormData={handleFormDataChange}
         />
-        <div className="flex justify-center mt-4">
-          <span className="text-sm text-gray-600">Step {currentStep} of 3</span>
-          <div className="flex gap-2 ml-2">
-            {[1, 2, 3].map((step) => (
-              <div
-                key={step}
-                className={`w-2 h-2 rounded-full ${
-                  step === currentStep ? "bg-gray-800" : "bg-gray-300"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
+        {/* Single-step flow: remove step indicator */}
       </div>
 
       {/* Subscription status notification */}
@@ -1139,7 +1128,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="hidden">
         <StatCard
           title="Total Contracts"
           value={stats.total}
@@ -1189,71 +1178,6 @@ export default function Dashboard() {
           </div>
         )}
 
-      {/* Activity Graph */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-medium text-gray-900">
-            Contract Activity
-          </h2>
-          <div className="relative">
-            <select className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              <option>Last 30 days</option>
-              <option>Last 90 days</option>
-              <option>Last year</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="h-[300px]">
-          <Line
-            data={activityData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: {
-                    stepSize: 1,
-                    font: {
-                      size: 12,
-                    },
-                    color: "#6B7280",
-                  },
-                  grid: {
-                    color: "rgba(0, 0, 0, 0.05)",
-                  },
-                },
-                x: {
-                  grid: {
-                    display: false,
-                  },
-                  ticks: {
-                    font: {
-                      size: 12,
-                    },
-                    color: "#6B7280",
-                  },
-                },
-              },
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-            }}
-          />
-        </div>
-      </div>
-
       {/* Contract List */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100">
@@ -1272,21 +1196,49 @@ export default function Dashboard() {
               <option value="completed">Completed</option>
             </select>
           </div>
+          {selectedContractIds.length > 0 && (
+            <div className="mt-4 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+              <p className="text-sm text-gray-700">
+                {selectedContractIds.length} selected
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsBulkDeleteContractsModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 shadow-sm"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 w-12 text-center align-middle sticky top-0 z-10 bg-gray-50">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all contracts"
+                    checked={
+                      filteredContracts.length > 0 &&
+                      selectedContractIds.length === filteredContracts.length
+                    }
+                    onChange={toggleSelectAllContracts}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Client
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Created
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Actions
                 </th>
               </tr>
@@ -1295,8 +1247,17 @@ export default function Dashboard() {
               {filteredContracts.map((contract) => (
                 <tr
                   key={contract.id}
-                  className="hover:bg-gray-50 transition-colors"
+                  className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30"
                 >
+                  <td className="px-6 py-4 whitespace-nowrap text-center align-middle w-12">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select contract ${contract.id}`}
+                      checked={selectedContractIds.includes(contract.id)}
+                      onChange={() => toggleContractSelection(contract.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
                       {contract.content?.blocks?.[0]?.data?.text ||
@@ -1368,10 +1329,10 @@ export default function Dashboard() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => router.push(`/Contracts/${contract.id}`)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
                         title="View Contract"
                       >
                         <FiEye className="w-4 h-4" />
@@ -1381,7 +1342,7 @@ export default function Dashboard() {
                           onClick={() =>
                             router.push(`/Contracts/${contract.id}`)
                           }
-                          className="text-gray-500 hover:text-gray-700 transition-colors"
+                          className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
                           title="Edit Contract"
                         >
                           <FiEdit3 className="w-4 h-4" />
@@ -1389,14 +1350,17 @@ export default function Dashboard() {
                       )}
                       <button
                         onClick={() => handleDownloadPDF(contract.id)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
                         title="Download PDF"
                       >
                         <FiDownload className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteContract(contract.id)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        onClick={() => {
+                          setContractToDelete(contract.id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
                         title="Delete Contract"
                       >
                         <FiTrash2 className="w-4 h-4" />
@@ -1417,6 +1381,161 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Invoices List */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden mt-8">
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium text-gray-900">Your Invoices</h2>
+          </div>
+          {selectedInvoiceIds.length > 0 && (
+            <div className="mt-4 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+              <p className="text-sm text-gray-700">
+                {selectedInvoiceIds.length} selected
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsBulkDeleteInvoicesModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 shadow-sm"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-6 py-3 w-12 text-center align-middle sticky top-0 z-10 bg-gray-50">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all invoices"
+                    checked={
+                      invoices.length > 0 &&
+                      selectedInvoiceIds.length === invoices.length
+                    }
+                    onChange={() => {
+                      if (selectedInvoiceIds.length === invoices.length) {
+                        setSelectedInvoiceIds([]);
+                      } else {
+                        setSelectedInvoiceIds(invoices.map((i: any) => i.id));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                  Title
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                  Issued
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                  Total
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {invoices.map((inv: any) => (
+                <tr
+                  key={inv.id}
+                  className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-center align-middle w-12">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select invoice ${inv.id}`}
+                      checked={selectedInvoiceIds.includes(inv.id)}
+                      onChange={() =>
+                        setSelectedInvoiceIds((prev) =>
+                          prev.includes(inv.id)
+                            ? prev.filter((x) => x !== inv.id)
+                            : [...prev, inv.id]
+                        )
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {inv.title || "Untitled Invoice"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {(inv.issueDate &&
+                      new Date(inv.issueDate).toLocaleDateString()) ||
+                      (inv.createdAt?.toDate
+                        ? inv.createdAt.toDate().toLocaleDateString()
+                        : "-")}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span
+                      className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full ${
+                        inv.status === "paid"
+                          ? "bg-green-50 text-green-700"
+                          : inv.status === "overdue"
+                          ? "bg-red-50 text-red-700"
+                          : inv.status === "sent"
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-yellow-50 text-yellow-700"
+                      }`}
+                    >
+                      {inv.status || "draft"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    {new Intl.NumberFormat(undefined, {
+                      style: "currency",
+                      currency: inv.currency || "USD",
+                    }).format(typeof inv.total === "number" ? inv.total : 0)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => router.push(`/Invoices/${inv.id}`)}
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
+                        title="View Invoice"
+                      >
+                        <FiEye className="w-4 h-4" />
+                      </button>
+                      {inv.status === "draft" && (
+                        <button
+                          onClick={() => router.push(`/Invoices/${inv.id}`)}
+                          className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
+                          title="Edit Invoice"
+                        >
+                          <FiEdit3 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => router.push(`/Invoices/${inv.id}`)}
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
+                        title="Open"
+                      >
+                        <FiExternalLink className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {invoices.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500">
+                No invoices yet. Generate one from the input above.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Hide the comments section when comments are disabled */}
       {COMMENTS_ENABLED && (
         <section className="mt-8">
@@ -1428,86 +1547,153 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Debug section - temporary */}
-      <div className="mb-8 p-4 border border-orange-300 bg-orange-50 rounded-lg">
-        <h2 className="text-lg font-semibold text-orange-700 mb-2">
-          Troubleshooting: Firebase Permissions
-        </h2>
-        <p className="mb-4 text-orange-700">
-          If you're seeing "Missing or insufficient permissions" errors, use the
-          buttons below to reset your authentication claims.
-        </p>
-        <DebugClaims />
-
-        {/* Add subscription debug link */}
-        <div className="mt-4 pt-4 border-t border-orange-200">
-          <p className="mb-2 text-orange-700">
-            To verify your subscription status and cancellation:
+      {/* Debug section - temporary (hidden) */}
+      {DEBUG_TOOLS_ENABLED && (
+        <div className="mb-8 p-4 border border-orange-300 bg-orange-50 rounded-lg">
+          <h2 className="text-lg font-semibold text-orange-700 mb-2">
+            Troubleshooting: Firebase Permissions
+          </h2>
+          <p className="mb-4 text-orange-700">
+            If you're seeing "Missing or insufficient permissions" errors, use
+            the buttons below to reset your authentication claims.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/dashboard/subscription-debug"
-              className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded"
-            >
-              <span className="mr-2">View Subscription Debug</span>
-              <FiExternalLink size={14} />
-            </Link>
+          <DebugClaims />
 
-            <button
-              onClick={async () => {
-                try {
-                  const loadingToast = toast.loading(
-                    "Refreshing subscription..."
-                  );
-                  // Force a Firebase token refresh
-                  const auth = getAuth();
-                  if (auth.currentUser) {
-                    await auth.currentUser.getIdToken(true);
+          {/* Add subscription debug link */}
+          <div className="mt-4 pt-4 border-t border-orange-200">
+            <p className="mb-2 text-orange-700">
+              To verify your subscription status and cancellation:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/dashboard/subscription-debug"
+                className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded"
+              >
+                <span className="mr-2">View Subscription Debug</span>
+                <FiExternalLink size={14} />
+              </Link>
 
-                    // Call the reset-claims API
-                    const response = await fetch("/api/debug/reset-claims", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({ userId: auth.currentUser.uid }),
-                    });
-
-                    if (response.ok) {
-                      // Get a fresh token with new claims
+              <button
+                onClick={async () => {
+                  try {
+                    const loadingToast = toast.loading(
+                      "Refreshing subscription..."
+                    );
+                    // Force a Firebase token refresh
+                    const auth = getAuth();
+                    if (auth.currentUser) {
                       await auth.currentUser.getIdToken(true);
-                      toast.dismiss(loadingToast);
-                      toast.success(
-                        "Subscription refreshed! Page will reload."
-                      );
 
-                      // Reload after a short delay
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 1500);
-                    } else {
-                      toast.dismiss(loadingToast);
-                      toast.error("Failed to refresh subscription");
+                      // Call the reset-claims API
+                      const response = await fetch("/api/debug/reset-claims", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ userId: auth.currentUser.uid }),
+                      });
+
+                      if (response.ok) {
+                        // Get a fresh token with new claims
+                        await auth.currentUser.getIdToken(true);
+                        toast.dismiss(loadingToast);
+                        toast.success(
+                          "Subscription refreshed! Page will reload."
+                        );
+
+                        // Reload after a short delay
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 1500);
+                      } else {
+                        toast.dismiss(loadingToast);
+                        toast.error("Failed to refresh subscription");
+                      }
                     }
+                  } catch (error) {
+                    toast.error("Error refreshing subscription");
+                    console.error(error);
                   }
-                } catch (error) {
-                  toast.error("Error refreshing subscription");
-                  console.error(error);
-                }
-              }}
-              className="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
-            >
-              <span className="mr-2">Fix Subscription</span>
-              <FiRefreshCw size={14} />
-            </button>
+                }}
+                className="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
+              >
+                <span className="mr-2">Fix Subscription</span>
+                <FiRefreshCw size={14} />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Show the mock Stripe portal when the URL parameter is present */}
       {process.env.NODE_ENV === "development" && showMockPortal && (
         <MockStripePortal />
       )}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Delete Contract"
+        onConfirm={confirmDeleteContract}
+        confirmText="Delete"
+        cancelText="Cancel"
+      >
+        <div className="p-1">
+          <p className="text-gray-600">
+            Are you sure you want to delete this contract? This action cannot be
+            undone.
+          </p>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isBulkDeleteContractsModalOpen}
+        onClose={() => setIsBulkDeleteContractsModalOpen(false)}
+        title="Delete Selected Contracts"
+        onConfirm={confirmBulkDeleteContracts}
+        confirmText="Delete"
+        cancelText="Cancel"
+      >
+        <div className="p-1">
+          <p className="text-gray-600">
+            Delete {selectedContractIds.length} selected contract(s)? This
+            action cannot be undone.
+          </p>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isBulkDeleteInvoicesModalOpen}
+        onClose={() => setIsBulkDeleteInvoicesModalOpen(false)}
+        title="Delete Selected Invoices"
+        onConfirm={async () => {
+          try {
+            if (!db) throw new Error("Firebase not initialized");
+            const firestore = db as Firestore;
+            await Promise.all(
+              selectedInvoiceIds.map((id) =>
+                deleteDoc(doc(firestore, "invoices", id))
+              )
+            );
+            setInvoices(
+              invoices.filter((i: any) => !selectedInvoiceIds.includes(i.id))
+            );
+            setSelectedInvoiceIds([]);
+            toast.success("Selected invoices deleted");
+          } catch (e) {
+            console.error(e);
+            toast.error("Failed to delete selected invoices");
+          } finally {
+            setIsBulkDeleteInvoicesModalOpen(false);
+          }
+        }}
+        confirmText="Delete"
+        cancelText="Cancel"
+      >
+        <div className="p-1">
+          <p className="text-gray-600">
+            Delete {selectedInvoiceIds.length} selected invoice(s)? This cannot
+            be undone.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

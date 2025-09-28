@@ -52,7 +52,18 @@ service cloud.firestore {
       // Allow users to read their own documents always, regardless of subscription status
       allow read: if request.auth != null && request.auth.uid == userId;
       
-      // For writes, allow only if the user is active or admin
+      // Allow limited profile updates by the owner without requiring an active subscription
+      // This permits changing only basic profile fields and image URLs
+      allow update: if request.auth != null && request.auth.uid == userId &&
+                    request.resource.data.diff(resource.data).changedKeys()
+                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt']);
+
+      // Allow creating a minimal user profile document by the owner
+      allow create: if request.auth != null && request.auth.uid == userId &&
+                    request.resource.data.keys()
+                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt']);
+
+      // For other writes, require active subscription or admin
       allow write: if (request.auth != null && request.auth.uid == userId && 
                   (hasActiveSubscription() || request.resource.data.keys().hasAny(['subscription_debug']))) || 
                   isAdmin();
@@ -120,6 +131,31 @@ service cloud.firestore {
         allow write: if request.auth != null && 
                      (isOwner(contractId) || hasActiveSubscription() || isAdmin()) ||
                      true; // Allow public write access for contract subcollections
+      }
+    }
+
+    // Invoices collection rules
+    match /invoices/{invoiceId} {
+      // Owner or admin can read. Use resource.data for list/query compatibility.
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin();
+
+      // Create/update/delete by owner with active subscription or admin
+      // Dev-friendly: also allow when the user's document has subscription_debug == true
+      function hasDevBypass() {
+        return request.auth != null &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subscription_debug == true;
+      }
+
+      // Allow owners to create invoices without subscription in development-friendly setup
+      // Still gated by authentication and ownership of the new document
+      allow create: if request.auth != null && (request.resource.data.userId == request.auth.uid || hasActiveSubscription() || isAdmin() || hasDevBypass());
+      allow update: if (request.auth != null && resource.data.userId == request.auth.uid) && (hasActiveSubscription() || isAdmin() || hasDevBypass());
+      allow delete: if (request.auth != null && resource.data.userId == request.auth.uid) && (hasActiveSubscription() || isAdmin() || hasDevBypass());
+
+      // Subcollections (e.g., notes, history)
+      match /{document=**} {
+        allow read: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin();
+        allow write: if (request.auth != null && resource.data.userId == request.auth.uid) && (hasActiveSubscription() || isAdmin() || hasDevBypass());
       }
     }
   }

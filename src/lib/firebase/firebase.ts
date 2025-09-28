@@ -7,7 +7,11 @@ import {
   FirebaseApp,
 } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  Firestore,
+  initializeFirestore,
+} from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Firebase configuration
@@ -65,7 +69,16 @@ export function initFirebase() {
     // Initialize services
     if (firebaseApp) {
       firebaseAuth = getAuth(firebaseApp);
-      firebaseDb = getFirestore(firebaseApp);
+      // Use initializeFirestore with long-polling to avoid ad-blocker issues with WebChannel
+      try {
+        firebaseDb = initializeFirestore(firebaseApp, {
+          experimentalAutoDetectLongPolling: true,
+          ignoreUndefinedProperties: true,
+        } as any);
+      } catch (e) {
+        // Fallback for environments where initializeFirestore options differ
+        firebaseDb = getFirestore(firebaseApp);
+      }
       firebaseStorage = getStorage(firebaseApp);
     }
 

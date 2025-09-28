@@ -87,8 +87,8 @@ export default function LandingPage() {
         </Link>
       </div>
 
-      {/* Debug info (only shown in development) */}
-      {process.env.NODE_ENV === "development" && (
+      {/* Debug info (hidden for clean production look) */}
+      {false && process.env.NODE_ENV === "development" && (
         <div className="fixed bottom-4 right-4 p-4 bg-gray-100 rounded text-xs max-w-lg opacity-70 hover:opacity-100 transition-opacity">
           <h3 className="font-bold">Debug Information:</h3>
           <pre className="overflow-auto max-h-32">

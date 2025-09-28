@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import FirstStage from "./firststage";
-import SecondStage from "./secondstage";
-import ThirdStage from "./thirdstage";
+import { HeroChat } from "@/components/solar/HeroChat";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { saveContract } from "@/lib/firebase/firestore";
+import { saveContract, saveInvoice } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/hooks/useAuth";
 import toast from "react-hot-toast";
 import { doc, getFirestore } from "firebase/firestore";
@@ -17,6 +15,7 @@ export interface FormData {
   techStack: string;
   startDate: string;
   endDate: string;
+  budget?: string;
   attachments: File[];
   pdf?: string;
   fileSummaries: { [key: string]: string };
@@ -35,13 +34,88 @@ const FormParent: React.FC<FormParentProps> = ({
 }) => {
   const [currentStage, setCurrentStage] = useState(1);
   const router = useRouter();
-  const TOTAL_STAGES = 3;
+  const TOTAL_STAGES = 1;
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     router.prefetch("/Contracts/[id]");
-  }, [router]);
+
+    const handleHeroData = async () => {
+      // Check for project brief from hero chat
+      const heroProjectBrief = localStorage.getItem("hero-project-brief");
+      const heroFileReferences = localStorage.getItem("hero-file-references");
+      const heroAttachmentCount = localStorage.getItem("hero-attachment-count");
+
+      if (heroProjectBrief && !formData.projectBrief) {
+        const updates: Partial<FormData> = {
+          projectBrief: heroProjectBrief,
+        };
+
+        // Handle hero attachments if they exist
+        if (heroFileReferences && formData.attachments.length === 0) {
+          try {
+            const fileReferences = JSON.parse(heroFileReferences);
+            const restoredFiles: File[] = [];
+
+            // Restore files from sessionStorage
+            for (const ref of fileReferences) {
+              const fileData = sessionStorage.getItem(ref.sessionKey);
+              if (fileData) {
+                // Convert base64 back to File
+                const response = await fetch(fileData);
+                const blob = await response.blob();
+                const file = new File([blob], ref.name, {
+                  type: ref.type,
+                  lastModified: ref.lastModified,
+                });
+                restoredFiles.push(file);
+
+                // Clean up sessionStorage
+                sessionStorage.removeItem(ref.sessionKey);
+              }
+            }
+
+            if (restoredFiles.length > 0) {
+              updates.attachments = restoredFiles;
+              toast.success(
+                `${restoredFiles.length} file(s) restored from your initial request!`
+              );
+            }
+
+            // Clean up file references
+            localStorage.removeItem("hero-file-references");
+          } catch (error) {
+            console.error("Error restoring hero attachments:", error);
+            // Fallback to notification if restoration fails
+            if (heroAttachmentCount) {
+              toast(
+                `${heroAttachmentCount} file(s) were attached from your initial request. Please re-upload them if needed.`,
+                { icon: "ℹ️" }
+              );
+            }
+          }
+        } else if (heroAttachmentCount && formData.attachments.length === 0) {
+          // Show notification if no file references but attachment count exists
+          toast(
+            `${heroAttachmentCount} file(s) were attached from your initial request. Please re-upload them if needed.`,
+            { icon: "ℹ️" }
+          );
+        }
+
+        setFormData({
+          ...formData,
+          ...updates,
+        });
+
+        // Clear the stored data after using it
+        localStorage.removeItem("hero-project-brief");
+        localStorage.removeItem("hero-attachment-count");
+      }
+    };
+
+    handleHeroData();
+  }, [router, formData, setFormData]);
 
   const handleStageChange = (newStage: number) => {
     if (newStage > 0 && newStage <= TOTAL_STAGES) {
@@ -50,56 +124,114 @@ const FormParent: React.FC<FormParentProps> = ({
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (override?: Partial<FormData>) => {
     if (!user) {
       toast.error("You must be logged in to create a contract");
       return;
     }
 
     setIsLoading(true);
-    const loadingToast = toast.loading("Generating contract...");
+    // Determine request type (contract by default)
+    const requestType =
+      (typeof window !== "undefined" &&
+        localStorage.getItem("hero-request-type")) ||
+      "contract";
+
+    const loadingToast = toast.loading(
+      requestType === "invoice"
+        ? "Generating invoice..."
+        : "Generating contract..."
+    );
     const startTime = performance.now();
 
     try {
       console.log("Current user:", user);
       console.log("Form data:", formData);
 
+      // Compose the effective payload combining state + any overrides (avoids stale state)
+      const effective: FormData = {
+        projectBrief: override?.projectBrief ?? formData.projectBrief,
+        techStack: override?.techStack ?? formData.techStack,
+        startDate: override?.startDate ?? formData.startDate,
+        endDate: override?.endDate ?? formData.endDate,
+        budget: override?.budget ?? formData.budget,
+        attachments: override?.attachments ?? formData.attachments,
+        pdf: override?.pdf ?? formData.pdf,
+        fileSummaries: override?.fileSummaries ?? formData.fileSummaries,
+      } as FormData;
+
+      console.log("Submitting payload to generator:", {
+        projectBrief: effective.projectBrief,
+        attachments: effective.attachments?.map((f) => f.name),
+        summaries: effective.fileSummaries,
+      });
+
       // Generate a new document reference with auto-generated ID
       const db = getFirestore();
-      const contractRef = doc(collection(db, "contracts"));
-      const contractId = contractRef.id;
+      const isInvoice = requestType === "invoice";
+      const ref = doc(collection(db, isInvoice ? "invoices" : "contracts"));
+      const generatedId = ref.id;
 
       // Update loading message
-      toast.loading("Generating contract content with AI...", {
-        id: loadingToast,
-      });
+      toast.loading(
+        isInvoice
+          ? "Generating invoice content with AI..."
+          : "Generating contract content with AI...",
+        {
+          id: loadingToast,
+        }
+      );
 
       // Generate contract content using OpenAI with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
 
       const aiStartTime = performance.now();
-      const response = await fetch("/api/generateContract", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectBrief: formData.projectBrief,
-          techStack: formData.techStack,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          pdf: formData.pdf,
-          attachments: formData.attachments.map((file) => ({
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            lastModified: file.lastModified,
-            summary: formData.fileSummaries?.[file.name],
-          })),
-        }),
-        signal: controller.signal,
-      });
+      const debugMode =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("debug") === "1";
+
+      // Build attachments payload; optionally inject a mock summary in debug mode
+      const payloadAttachments = effective.attachments.map((file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+        summary: effective.fileSummaries?.[file.name],
+      }));
+
+      if (debugMode) {
+        payloadAttachments.push({
+          name: "MOCK_DEBUG",
+          type: "text/plain",
+          size: 0,
+          lastModified: Date.now(),
+          summary:
+            "MOCK SUMMARY: prioritize details about a specialty coffee shop business model in Girona, pricing, and timeline from uploaded docs and brief.",
+        } as any);
+      }
+
+      const response = await fetch(
+        isInvoice ? "/api/generateInvoice" : "/api/generateContract",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            projectBrief: effective.projectBrief,
+            techStack: isInvoice ? undefined : effective.techStack,
+            startDate: isInvoice ? undefined : effective.startDate,
+            endDate: isInvoice ? undefined : effective.endDate,
+            budget: isInvoice ? undefined : effective.budget,
+            currency: "USD",
+            pdf: isInvoice ? undefined : effective.pdf,
+            debug: debugMode,
+            attachments: payloadAttachments,
+          }),
+          signal: controller.signal,
+        }
+      );
 
       clearTimeout(timeoutId);
       const aiEndTime = performance.now();
@@ -111,89 +243,165 @@ const FormParent: React.FC<FormParentProps> = ({
 
       if (!response.ok) {
         console.error("API Error:", data);
-        throw new Error(data.error || "Failed to generate contract");
+        throw new Error(
+          data.error ||
+            (isInvoice
+              ? "Failed to generate invoice"
+              : "Failed to generate contract")
+        );
       }
 
-      if (!data.blocks) {
-        console.error("No blocks in response:", data);
-        throw new Error("No contract content generated");
+      if (!isInvoice) {
+        if (!data.blocks) {
+          console.error("No blocks in response:", data);
+          throw new Error("No contract content generated");
+        }
+      } else {
+        if (
+          !data.items ||
+          !Array.isArray(data.items) ||
+          data.items.length === 0
+        ) {
+          throw new Error("No invoice items generated");
+        }
       }
 
       // Update loading message
-      toast.loading("Saving contract to database...", { id: loadingToast });
-
-      const dbStartTime = performance.now();
-      const contractData = {
-        id: contractId,
-        userId: user.uid,
-        title:
-          data.blocks?.[0]?.type === "header"
-            ? data.blocks[0].data.text
-            : data.blocks?.[0]?.type === "paragraph"
-            ? data.blocks[0].data.text.substring(0, 50) +
-              (data.blocks[0].data.text.length > 50 ? "..." : "")
-            : "Untitled Contract",
-        content: {
-          time: Date.now(),
-          blocks: data.blocks,
-          version: "2.28.2",
-        },
-        rawContent: {
-          projectBrief: formData.projectBrief || "",
-          techStack: formData.techStack || "The tech stack includes ",
-          startDate: formData.startDate || "",
-          endDate: formData.endDate || "",
-          pdf: formData.pdf || "",
-          attachments: await Promise.all(
-            (formData.attachments || []).map(async (file) => ({
-              name: file.name,
-              type: file.type,
-              size: file.size,
-              lastModified: file.lastModified,
-              summary: formData.fileSummaries?.[file.name],
-            }))
-          ),
-        },
-        status: "draft" as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        version: 1,
-      };
-
-      console.log("Saving contract with data:", contractData);
-      const result = await saveContract(contractData);
-      const dbEndTime = performance.now();
-      console.log(
-        `Database save took ${Math.round(dbEndTime - dbStartTime)}ms`
+      toast.loading(
+        isInvoice
+          ? "Saving invoice to database..."
+          : "Saving contract to database...",
+        { id: loadingToast }
       );
 
-      if (result.error) {
-        console.error("Error saving contract:", result.error);
-        toast.error(result.error, { id: loadingToast });
-      } else {
-        console.log("Contract saved successfully:", result);
-        // Save to localStorage before redirecting
-        localStorage.setItem(
-          `contract-content-${contractId}`,
-          JSON.stringify({
+      const dbStartTime = performance.now();
+      let redirectUrl = "";
+      if (!isInvoice) {
+        const contractData = {
+          id: generatedId,
+          userId: user.uid,
+          title:
+            data.blocks?.[0]?.type === "header"
+              ? data.blocks[0].data.text
+              : data.blocks?.[0]?.type === "paragraph"
+              ? data.blocks[0].data.text.substring(0, 50) +
+                (data.blocks[0].data.text.length > 50 ? "..." : "")
+              : "Untitled Contract",
+          content: {
             time: Date.now(),
             blocks: data.blocks,
             version: "2.28.2",
-          })
-        );
+          },
+          rawContent: {
+            projectBrief: effective.projectBrief || "",
+            techStack: effective.techStack || "The tech stack includes ",
+            startDate: effective.startDate || "",
+            endDate: effective.endDate || "",
+            budget: effective.budget || "",
+            pdf: effective.pdf || "",
+            attachments: await Promise.all(
+              (effective.attachments || []).map(async (file) => ({
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                lastModified: file.lastModified,
+                summary: effective.fileSummaries?.[file.name],
+              }))
+            ),
+          },
+          status: "draft" as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          version: 1,
+        };
 
-        const totalTime = performance.now() - startTime;
+        console.log("Saving contract with data:", contractData);
+        const result = await saveContract(contractData);
+        const dbEndTime = performance.now();
         console.log(
-          `Total contract generation took ${Math.round(totalTime)}ms`
+          `Database save took ${Math.round(dbEndTime - dbStartTime)}ms`
         );
 
-        toast.success(
-          `Contract created successfully! (${Math.round(totalTime)}ms)`,
-          { id: loadingToast }
+        if (result.error) {
+          console.error("Error saving contract:", result.error);
+          toast.error(result.error, { id: loadingToast });
+        } else {
+          console.log("Contract saved successfully:", result);
+          // Save to localStorage before redirecting
+          localStorage.setItem(
+            `contract-content-${generatedId}`,
+            JSON.stringify({
+              time: Date.now(),
+              blocks: data.blocks,
+              version: "2.28.2",
+            })
+          );
+
+          const totalTime = performance.now() - startTime;
+          console.log(
+            `Total contract generation took ${Math.round(totalTime)}ms`
+          );
+
+          toast.success(
+            `Contract created successfully! (${Math.round(totalTime)}ms)`,
+            { id: loadingToast }
+          );
+          redirectUrl = `/Contracts/${generatedId}`;
+        }
+      } else {
+        // Save invoice
+        const subtotal = Array.isArray(data.items)
+          ? data.items.reduce(
+              (sum: number, item: any) => sum + (Number(item.total) || 0),
+              0
+            )
+          : 0;
+        const tax = typeof data.tax === "number" ? data.tax : 0;
+        const total =
+          typeof data.total === "number" ? data.total : subtotal + tax;
+
+        const invoiceData = {
+          id: generatedId,
+          userId: user.uid,
+          title: data.title || "Untitled Invoice",
+          status: "draft" as const,
+          issueDate: data.issueDate || undefined,
+          dueDate: data.dueDate || undefined,
+          currency: data.currency || "USD",
+          client: data.client || {},
+          from: data.from || {},
+          items: data.items || [],
+          subtotal,
+          tax,
+          total,
+          notes: data.notes || "",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        console.log("Saving invoice with data:", invoiceData);
+        const result = await saveInvoice(invoiceData as any);
+        const dbEndTime = performance.now();
+        console.log(
+          `Database save took ${Math.round(dbEndTime - dbStartTime)}ms`
         );
+
+        if ((result as any).error) {
+          console.error("Error saving invoice:", (result as any).error);
+          toast.error((result as any).error, { id: loadingToast });
+        } else {
+          const totalTime = performance.now() - startTime;
+          toast.success(
+            `Invoice created successfully! (${Math.round(totalTime)}ms)`,
+            { id: loadingToast }
+          );
+          redirectUrl = `/Invoices/${generatedId}`;
+        }
+      }
+      if (redirectUrl) {
         // Small delay to ensure localStorage is updated
         setTimeout(() => {
-          router.push(`/Contracts/${contractId}`);
+          router.push(redirectUrl);
         }, 100);
       }
     } catch (error: any) {
@@ -269,39 +477,111 @@ const FormParent: React.FC<FormParentProps> = ({
           <span className="ml-2">Creating contract...</span>
         </div>
       ) : (
-        <>
-          {currentStage === 1 && (
-            <FirstStage
-              projectBrief={formData.projectBrief}
-              onProjectBriefChange={(value: string) =>
-                setFormData({ ...formData, projectBrief: value })
+        <div className="w-full">
+          <HeroChat
+            initialMessage={formData.projectBrief}
+            onFilesProcessed={(processed) => {
+              if (processed && processed.length > 0) {
+                handleFileUpload(
+                  processed.map((p) => ({ file: p.file, summary: p.summary }))
+                );
               }
-              onNext={() => handleStageChange(2)}
-              onFileUpload={handleFileUpload}
-              attachments={formData.attachments}
-              onDeleteFile={handleDeleteFile}
-            />
-          )}
-          {currentStage === 2 && (
-            <SecondStage
-              onBack={() => handleStageChange(1)}
-              onNext={() => handleStageChange(3)}
-              techStackText={formData.techStack}
-              onTechStackChange={(value: string) =>
-                setFormData({ ...formData, techStack: value })
+            }}
+            additionalFields={
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Estimated start
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) =>
+                      handleDateChange("startDate", e.target.value)
+                    }
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Estimated end
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) =>
+                      handleDateChange("endDate", e.target.value)
+                    }
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Budget (USD)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="e.g. 5000"
+                    value={formData.budget || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, budget: e.target.value })
+                    }
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  />
+                </div>
+              </div>
+            }
+            onSubmit={async (message: string, files: File[]) => {
+              setFormData({ ...formData, projectBrief: message });
+
+              let processedSummaries: Record<string, string> = {};
+              if (files && files.length > 0) {
+                try {
+                  const results = await Promise.all(
+                    files.map(async (file) => {
+                      try {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        const res = await fetch("/api/process-document", {
+                          method: "POST",
+                          body: fd,
+                        });
+                        const data = await res.json();
+                        if (data?.summary) {
+                          processedSummaries[file.name] = data.summary;
+                        }
+                      } catch (e) {
+                        // ignore per-file errors
+                      }
+                    })
+                  );
+                } catch {}
               }
-            />
-          )}
-          {currentStage === 3 && (
-            <ThirdStage
-              onBack={() => handleStageChange(2)}
-              onNext={handleSubmit}
-              startDate={formData.startDate}
-              endDate={formData.endDate}
-              onDateChange={handleDateChange}
-            />
-          )}
-        </>
+
+              // Merge attachments and summaries
+              const mergedSummaries = {
+                ...formData.fileSummaries,
+                ...processedSummaries,
+              };
+
+              const existingNames = new Set(
+                (formData.attachments || []).map((f) => f.name)
+              );
+              const mergedAttachments = [
+                ...formData.attachments,
+                ...files.filter((f) => !existingNames.has(f.name)),
+              ];
+
+              await handleSubmit({
+                projectBrief: message,
+                attachments: mergedAttachments,
+                fileSummaries: mergedSummaries,
+              } as Partial<FormData>);
+            }}
+          />
+        </div>
       )}
     </div>
   );

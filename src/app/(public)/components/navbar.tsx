@@ -53,7 +53,7 @@ export default function Navbar() {
                 href="/"
                 className="font-bold text-xl text-gray-900 transition-colors duration-200 hover:text-orange-500"
               >
-                Your App
+                Talon
               </Link>
             </div>
           </div>
