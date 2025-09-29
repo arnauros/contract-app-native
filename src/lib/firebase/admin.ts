@@ -7,7 +7,7 @@ import { getAuth } from "firebase-admin/auth";
  */
 export function initAdmin() {
   // Skip initialization during build process
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
     console.log("Skipping Firebase Admin initialization during build");
     return false;
   }
@@ -24,7 +24,10 @@ export function initAdmin() {
       "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set"
     );
     // In development mode or build process, we can gracefully degrade
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PHASE === 'phase-production-build') {
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.NEXT_PHASE === "phase-production-build"
+    ) {
       console.warn("Running without Firebase Admin SDK");
       return false;
     }
@@ -38,7 +41,16 @@ export function initAdmin() {
     let serviceAccount;
 
     try {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      // Check if the key is base64 encoded (starts with base64 chars)
+      const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      if (key && key.match(/^[A-Za-z0-9+/=]+$/) && key.length > 100) {
+        // It's base64 encoded, decode it first
+        const decoded = Buffer.from(key, 'base64').toString('utf8');
+        serviceAccount = JSON.parse(decoded);
+      } else {
+        // It's direct JSON
+        serviceAccount = JSON.parse(key);
+      }
     } catch (parseError) {
       console.error("Failed to parse service account key:", parseError);
       if (process.env.NODE_ENV === "development") {
@@ -46,7 +58,7 @@ export function initAdmin() {
         return false;
       }
       throw new Error(
-        "Invalid FIREBASE_SERVICE_ACCOUNT_KEY format. Must be valid JSON."
+        "Invalid FIREBASE_SERVICE_ACCOUNT_KEY format. Must be valid JSON or base64-encoded JSON."
       );
     }
 
@@ -117,7 +129,10 @@ let isInitialized = false;
 
 // Try to initialize on import but don't crash if it fails
 // Skip initialization during build process
-if (typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
+if (
+  typeof window === "undefined" &&
+  process.env.NEXT_PHASE !== "phase-production-build"
+) {
   try {
     isInitialized = initAdmin();
   } catch (error) {
@@ -125,7 +140,9 @@ if (typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-productio
     isInitialized = false;
   }
 } else {
-  console.log("Skipping Firebase Admin initialization during build or client-side");
+  console.log(
+    "Skipping Firebase Admin initialization during build or client-side"
+  );
   isInitialized = false;
 }
 
@@ -133,8 +150,10 @@ if (typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-productio
 export const adminAuth = (() => {
   try {
     // Return mock object during build or when not initialized
-    if (!isInitialized || process.env.NEXT_PHASE === 'phase-production-build') {
-      console.log("Using mock Firebase Admin Auth during build or when not initialized");
+    if (!isInitialized || process.env.NEXT_PHASE === "phase-production-build") {
+      console.log(
+        "Using mock Firebase Admin Auth during build or when not initialized"
+      );
       return {
         verifyIdToken: async () => ({
           uid: "mock-user-id",
