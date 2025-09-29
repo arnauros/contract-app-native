@@ -45,7 +45,7 @@ export function initAdmin() {
       const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
       if (key && key.match(/^[A-Za-z0-9+/=]+$/) && key.length > 100) {
         // It's base64 encoded, decode it first
-        const decoded = Buffer.from(key, 'base64').toString('utf8');
+        const decoded = Buffer.from(key, "base64").toString("utf8");
         serviceAccount = JSON.parse(decoded);
       } else {
         // It's direct JSON

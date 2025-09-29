@@ -32,6 +32,11 @@ const nextConfig = {
   // Configure base path
   basePath: "",
 
+  // Disable experimental features that might cause issues
+  experimental: {
+    optimizeCss: false,
+  },
+
   // Update images configuration for domains
   images: {
     domains: ["localhost"],
