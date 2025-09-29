@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { testAddComment } from "@/app/test-comment-add";
+import { testAddComment } from "../../test-comment-add";
 import { getAuth, signInAnonymously, signOut } from "firebase/auth";
 import { initializeFirebase } from "@/lib/firebase/config";
 

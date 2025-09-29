@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Modal from "../components/Modal";
-import Button from "../components/button";
+import Modal from "../../Components/Modal";
+import Button from "../../Components/button";
 
 export default function TestModal() {
   const [isModalOpen, setIsModalOpen] = useState(false);

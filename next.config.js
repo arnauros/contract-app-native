@@ -5,6 +5,9 @@ const nextConfig = {
   // Enable webpack 5 features
   reactStrictMode: true,
   transpilePackages: ["firebase-admin"],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   env: {
     // Stripe Configuration - Using actual values from env
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:

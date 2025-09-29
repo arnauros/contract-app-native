@@ -21,8 +21,8 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
-  color: var(--foreground);
-  background: var(--background);
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
   font-family: var(--font-family);
 }
 
@@ -93,7 +93,7 @@ body {
 .common-topbar {
   height: 40px;
   width: 100%;
-  background-color: var(--background);
+  background-color: hsl(var(--background));
 }
 
 /* ProseMirror core styles */
@@ -401,7 +401,8 @@ body {
     border-color: hsl(var(--border));
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 

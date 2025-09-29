@@ -9,7 +9,7 @@ initAdmin();
 export async function GET(req: Request) {
   try {
     // Get session cookie
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("session")?.value;
 
     if (!sessionCookie) {

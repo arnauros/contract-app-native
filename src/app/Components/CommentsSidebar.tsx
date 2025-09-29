@@ -153,7 +153,7 @@ export const CommentsSidebar = ({
               </div>
 
               {/* Replies */}
-              {comment.replies?.length > 0 && (
+              {comment.replies && comment.replies.length > 0 && (
                 <div className="ml-4 mt-2 space-y-2">
                   {comment.replies.map((reply) => (
                     <div

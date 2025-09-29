@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { testFirebaseConnection } from "@/app/test-firebase";
+import { testFirebaseConnection } from "../../test-firebase";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import { initializeFirebase } from "@/lib/firebase/config";
 

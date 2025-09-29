@@ -1,5 +1,12 @@
 import { ExclamationCircleIcon } from "@heroicons/react/24/outline";
 
+interface AuditIssue {
+  id: string;
+  type: string;
+  message: string;
+  suggestions?: string[];
+}
+
 interface ContractBlockProps {
   block: any;
   issues?: AuditIssue[];

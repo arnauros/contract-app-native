@@ -1,8 +1,10 @@
-export default function MinimalContractPage({
+export default async function MinimalContractPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
+
   return (
     <html>
       <head>
@@ -18,7 +20,7 @@ export default function MinimalContractPage({
       </head>
       <body>
         <h1>Contract Viewer</h1>
-        <p>Contract ID: {params.id}</p>
+        <p>Contract ID: {id}</p>
 
         <div id="app">Loading...</div>
 
@@ -30,7 +32,7 @@ export default function MinimalContractPage({
             const appDiv = document.getElementById('app');
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
-            const id = '${params.id}';
+            const id = '${id}';
             
             if (!token) {
               appDiv.innerHTML = '<div class="error">No token provided. Please use a valid contract link.</div>';

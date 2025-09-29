@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ContractData, FileWithSummary } from "../types/contract";
+import { ContractData, FileWithSummary } from "../../types/contract";
 
 interface ContractStore {
   contractData: ContractData;

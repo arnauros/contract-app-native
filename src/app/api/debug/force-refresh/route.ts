@@ -9,7 +9,7 @@ initAdmin();
 export async function POST(req: Request) {
   try {
     // Get current session cookie
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     // Delete session cookie
     cookieStore.delete("session");

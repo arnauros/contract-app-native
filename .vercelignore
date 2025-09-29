@@ -1,0 +1,7 @@
+functions/
+*.log
+node_modules
+.firebase
+.firebaserc
+firebase.json
+global.d.ts
