@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { initFirebase } from "@/lib/firebase/firebase";
-import { signIn, signOut, checkAuthStatus } from "@/lib/firebase/authUtils";
+import { signIn, signOut } from "@/lib/firebase/authUtils";
 
 export default function AuthDebugPage() {
   const { user, loading, loggedIn, error } = useAuth();
@@ -52,7 +52,7 @@ export default function AuthDebugPage() {
     try {
       const result = await signIn(email, password);
       if (result.error) {
-        addLog(`Login error: ${result.error.code} - ${result.error.message}`);
+        addLog(`Login error: ${(result.error as any)?.code || 'Unknown'} - ${(result.error as any)?.message || String(result.error)}`);
       } else {
         addLog(`Login success: ${result.user?.email}`);
       }
@@ -68,7 +68,7 @@ export default function AuthDebugPage() {
     try {
       const result = await signOut();
       if (result.error) {
-        addLog(`Logout error: ${result.error.code} - ${result.error.message}`);
+        addLog(`Logout error: ${(result.error as any)?.code || 'Unknown'} - ${(result.error as any)?.message || String(result.error)}`);
       } else {
         addLog("Logout success");
       }
@@ -82,7 +82,13 @@ export default function AuthDebugPage() {
   const handleCheckAuthStatus = async () => {
     addLog("Checking auth status...");
     try {
-      const status = await checkAuthStatus();
+      // Simple auth status check using current user state
+      const status = {
+        isInitialized: true,
+        isAuthenticated: loggedIn,
+        user: user ? { email: user.email, uid: user.uid } : null,
+        error: error ? error.message : null
+      };
       setAuthStatusData(status);
       addLog(`Auth status check: ${JSON.stringify(status, null, 2)}`);
     } catch (err) {

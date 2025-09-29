@@ -118,14 +118,3 @@ console.log("Firebase module exports:", {
   storage: storage ? true : false,
 });
 
-// next.config.js
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
-  webpack: (config, { webpack }) => {
-    // example only – keep or remove
-    // config.plugins.push(new webpack.DefinePlugin({}));
-    return config;
-  },
-};
-module.exports = nextConfig;

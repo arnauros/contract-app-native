@@ -53,45 +53,54 @@ export async function POST(request: Request) {
       return NextResponse.json(cache.get(cacheKey));
     }
 
+    // Create a base prompt that works even with minimal data
+    const projectInfo = data.projectBrief
+      ? `Project: ${data.projectBrief}\n`
+      : "";
+    const techInfo = data.techStack
+      ? `Technical Scope: ${data.techStack}\n`
+      : "";
+    const timelineInfo =
+      data.startDate || data.endDate
+        ? `Timeline: ${data.startDate || "TBD"} to ${data.endDate || "TBD"}\n`
+        : "";
+    const pdfInfo = data.pdf ? `PDF: ${data.pdf}\n` : "";
+    const budgetInfo =
+      typeof data.budget !== "undefined" && String(data.budget).trim() !== ""
+        ? `Budget: ${data.budget}\n`
+        : "";
+
+    // Add file summaries to context
+    // Prefer real summaries over MOCK_DEBUG when both present
+    const realSummaries = (data.attachments || []).filter(
+      (att: any) => att.summary && att.name !== "MOCK_DEBUG"
+    );
+    const attachmentSummaries = realSummaries
+      .map((att: any) => `Document "${att.name}": ${att.summary}`)
+      .join("\n");
+
+    const documentContext = attachmentSummaries
+      ? `\nAdditional Context from Uploaded Documents:\n${attachmentSummaries}\n`
+      : "";
+    console.log(
+      "Document summaries provided:",
+      (data.attachments || []).filter((a: any) => !!a?.summary).length
+    );
+
+    // If debug flag is set, inject an obvious marker into the prompt
+    const debugBanner = data.debug
+      ? "\n[DEBUG MODE] Inputs were applied to this contract.\n"
+      : "";
+
+    // Determine a primary document label (filename without extension) for title fallback/reference
+    const primaryAttachment = (data.attachments || []).find(
+      (att: any) => att?.name && att?.name !== "MOCK_DEBUG"
+    );
+    const primaryDocLabel = primaryAttachment
+      ? String(primaryAttachment.name).replace(/\.[^/.]+$/, "")
+      : "";
+
     try {
-      // Create a base prompt that works even with minimal data
-      const projectInfo = data.projectBrief
-        ? `Project: ${data.projectBrief}\n`
-        : "";
-      const techInfo = data.techStack
-        ? `Technical Scope: ${data.techStack}\n`
-        : "";
-      const timelineInfo =
-        data.startDate || data.endDate
-          ? `Timeline: ${data.startDate || "TBD"} to ${data.endDate || "TBD"}\n`
-          : "";
-      const pdfInfo = data.pdf ? `PDF: ${data.pdf}\n` : "";
-      const budgetInfo =
-        typeof data.budget !== "undefined" && String(data.budget).trim() !== ""
-          ? `Budget: ${data.budget}\n`
-          : "";
-
-      // Add file summaries to context
-      // Prefer real summaries over MOCK_DEBUG when both present
-      const realSummaries = (data.attachments || []).filter(
-        (att: any) => att.summary && att.name !== "MOCK_DEBUG"
-      );
-      const attachmentSummaries = realSummaries
-        .map((att: any) => `Document "${att.name}": ${att.summary}`)
-        .join("\n");
-
-      const documentContext = attachmentSummaries
-        ? `\nAdditional Context from Uploaded Documents:\n${attachmentSummaries}\n`
-        : "";
-      console.log(
-        "Document summaries provided:",
-        (data.attachments || []).filter((a: any) => !!a?.summary).length
-      );
-
-      // If debug flag is set, inject an obvious marker into the prompt
-      const debugBanner = data.debug
-        ? "\n[DEBUG MODE] Inputs were applied to this contract.\n"
-        : "";
 
       // Use a faster model and add timeout (longer to accommodate PDF-based context)
       const controller = new AbortController();
@@ -170,13 +179,6 @@ export async function POST(request: Request) {
 
       const contractText = completion.choices[0].message.content;
 
-      // Determine a primary document label (filename without extension) for title fallback/reference
-      const primaryAttachment = (data.attachments || []).find(
-        (att: any) => att?.name && att?.name !== "MOCK_DEBUG"
-      );
-      const primaryDocLabel = primaryAttachment
-        ? String(primaryAttachment.name).replace(/\.[^/.]+$/, "")
-        : "";
 
       // Convert the response into EditorJS blocks
       const rawLines = contractText.split("\n").filter((line) => line.trim());

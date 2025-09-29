@@ -6,4 +6,4 @@ export { app, db, auth, initFirebase };
 
 // Export other Firebase-related functionality
 export * from "./firestore";
-export * from "./types";
+export type { Contract, ViewTracking, ContractAudit, Signature, ButtonProps, ContractAccessErrorType } from "./types";
