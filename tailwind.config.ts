@@ -1,14 +1,11 @@
 import type { Config } from "tailwindcss";
-import typography from "@tailwindcss/typography";
-import forms from "@tailwindcss/forms";
-import animate from "tailwindcss-animate";
 
 const config: Config = {
   darkMode: ["class"],
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   safelist: [
@@ -47,6 +44,35 @@ const config: Config = {
     "fade-out",
     "modal-backdrop",
     "modal-content",
+    // Common Tailwind classes that might be missed
+    "flex",
+    "grid",
+    "block",
+    "inline-block",
+    "hidden",
+    "w-full",
+    "h-full",
+    "p-4",
+    "m-4",
+    "text-center",
+    "text-left",
+    "text-right",
+    "font-bold",
+    "font-semibold",
+    "rounded",
+    "rounded-lg",
+    "shadow",
+    "shadow-lg",
+    "border",
+    "border-gray-300",
+    "bg-white",
+    "bg-gray-100",
+    "text-black",
+    "text-gray-600",
+    "hover:bg-gray-200",
+    "focus:outline-none",
+    "focus:ring-2",
+    "focus:ring-blue-500",
   ],
   theme: {
     extend: {
@@ -99,6 +125,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [forms, typography, animate],
+  plugins: [require("tailwindcss-animate")],
 };
 export default config;
