@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { STRIPE_PRICE_IDS } from "@/lib/stripe/config";
 import { isLocalDevelopment, env } from "@/lib/utils";
@@ -59,7 +59,7 @@ const SolarLogo = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-export default function PricingPage() {
+function PricingContent() {
   // Early check to prevent duplicate rendering
   const renderToken = useRef(Math.random().toString(36).substring(2, 15));
   const [shouldRender, setShouldRender] = useState(true);
@@ -677,5 +677,20 @@ export default function PricingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <PricingContent />
+    </Suspense>
   );
 }

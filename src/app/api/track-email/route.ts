@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { initAdmin } from "@/lib/firebase/admin";
 import { getFirestore } from "firebase-admin/firestore";
 
-// Initialize Firebase Admin if not already initialized
-if (!getApps().length) {
-  const serviceAccount = JSON.parse(
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY || "{}"
-  );
-
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
-}
-
-const db = getFirestore();
+// Initialize Firebase Admin safely
+const adminInitialized = initAdmin();
+const db = adminInitialized ? getFirestore() : null;
 
 export async function GET(request: Request) {
   try {
@@ -25,11 +16,15 @@ export async function GET(request: Request) {
       return new NextResponse("Email ID is required", { status: 400 });
     }
 
-    // Update email tracking info in Firestore
-    await db.collection("emailTracking").doc(emailId).update({
-      opened: true,
-      openedAt: new Date(),
-    });
+    // Update email tracking info in Firestore (if admin is initialized)
+    if (db) {
+      await db.collection("emailTracking").doc(emailId).update({
+        opened: true,
+        openedAt: new Date(),
+      });
+    } else {
+      console.log("Firebase Admin not initialized, skipping email tracking");
+    }
 
     // Return a 1x1 transparent pixel
     const pixel = Buffer.from(

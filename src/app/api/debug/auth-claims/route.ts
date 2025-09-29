@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "firebase-admin/auth";
-import { initAdmin } from "@/lib/firebase/admin";
-
-// Initialize Firebase Admin
-initAdmin();
+import { adminAuth } from "@/lib/firebase/admin";
 
 export async function POST(req: Request) {
   try {
@@ -16,10 +12,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const auth = getAuth();
-
     // Get the user and their custom claims
-    const user = await auth.getUser(userId);
+    const user = await adminAuth.getUser(userId);
     const customClaims = user.customClaims || {};
 
     // Return the user information and claims

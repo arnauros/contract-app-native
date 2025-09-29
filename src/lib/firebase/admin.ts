@@ -6,6 +6,12 @@ import { getAuth } from "firebase-admin/auth";
  * @returns boolean indicating success
  */
 export function initAdmin() {
+  // Skip initialization during build process
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    console.log("Skipping Firebase Admin initialization during build");
+    return false;
+  }
+
   // If already initialized, return
   if (getApps().length > 0) {
     console.log("Firebase Admin already initialized");
@@ -17,9 +23,9 @@ export function initAdmin() {
     console.error(
       "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set"
     );
-    // In development mode, we can gracefully degrade
-    if (process.env.NODE_ENV === "development") {
-      console.warn("Running in development mode without Firebase Admin SDK");
+    // In development mode or build process, we can gracefully degrade
+    if (process.env.NODE_ENV === "development" || process.env.NEXT_PHASE === 'phase-production-build') {
+      console.warn("Running without Firebase Admin SDK");
       return false;
     }
     throw new Error(
@@ -110,19 +116,25 @@ export function initAdmin() {
 let isInitialized = false;
 
 // Try to initialize on import but don't crash if it fails
-try {
-  isInitialized = initAdmin();
-} catch (error) {
-  console.error("Failed to auto-initialize Firebase Admin:", error);
+// Skip initialization during build process
+if (typeof window === 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
+  try {
+    isInitialized = initAdmin();
+  } catch (error) {
+    console.error("Failed to auto-initialize Firebase Admin:", error);
+    isInitialized = false;
+  }
+} else {
+  console.log("Skipping Firebase Admin initialization during build or client-side");
   isInitialized = false;
 }
 
 // Safe version of getAuth that handles cases where admin isn't initialized
 export const adminAuth = (() => {
   try {
-    if (!isInitialized && process.env.NODE_ENV === "development") {
-      // Return a mock object in development mode
-      console.log("Using mock Firebase Admin Auth in development");
+    // Return mock object during build or when not initialized
+    if (!isInitialized || process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log("Using mock Firebase Admin Auth during build or when not initialized");
       return {
         verifyIdToken: async () => ({
           uid: "mock-user-id",
@@ -138,6 +150,18 @@ export const adminAuth = (() => {
           );
           return "mock-session-cookie-" + Date.now();
         },
+        getUser: async (uid: string) => ({
+          uid: uid || "mock-user-id",
+          email: "mock@example.com",
+          displayName: "Mock User",
+          customClaims: {},
+          emailVerified: true,
+          disabled: false,
+          metadata: {
+            creationTime: new Date().toISOString(),
+            lastSignInTime: new Date().toISOString(),
+          },
+        }),
         // Add other methods as needed
       };
     }
@@ -145,26 +169,35 @@ export const adminAuth = (() => {
   } catch (error) {
     console.error("Error getting adminAuth:", error);
     // Return a mock object that will gracefully degrade
-    if (process.env.NODE_ENV === "development") {
-      console.log("Using mock Firebase Admin Auth after error");
-      return {
-        verifyIdToken: async () => ({
-          uid: "mock-user-id",
-          email: "mock@example.com",
-        }),
-        createSessionCookie: async (
-          token: string,
-          options: { expiresIn: number }
-        ) => {
-          console.log(
-            "Mock createSessionCookie called with token:",
-            token?.slice(0, 10) + "..."
-          );
-          return "mock-session-cookie-" + Date.now();
+    console.log("Using mock Firebase Admin Auth after error");
+    return {
+      verifyIdToken: async () => ({
+        uid: "mock-user-id",
+        email: "mock@example.com",
+      }),
+      createSessionCookie: async (
+        token: string,
+        options: { expiresIn: number }
+      ) => {
+        console.log(
+          "Mock createSessionCookie called with token:",
+          token?.slice(0, 10) + "..."
+        );
+        return "mock-session-cookie-" + Date.now();
+      },
+      getUser: async (uid: string) => ({
+        uid: uid || "mock-user-id",
+        email: "mock@example.com",
+        displayName: "Mock User",
+        customClaims: {},
+        emailVerified: true,
+        disabled: false,
+        metadata: {
+          creationTime: new Date().toISOString(),
+          lastSignInTime: new Date().toISOString(),
         },
-        // Add other methods as needed
-      };
-    }
-    throw error;
+      }),
+      // Add other methods as needed
+    };
   }
 })();

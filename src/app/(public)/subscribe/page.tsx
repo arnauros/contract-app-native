@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp } from "@/lib/firebase/authUtils";
 import { useSubscription } from "@/lib/hooks/useSubscription";
@@ -51,7 +51,7 @@ const StepIndicator = ({ currentStep }: { currentStep: number }) => {
   );
 };
 
-export default function SubscribePage() {
+function SubscribeContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -382,5 +382,20 @@ export default function SubscribePage() {
         <SubscribeDebug />
       </div>
     </div>
+  );
+}
+
+export default function SubscribePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SubscribeContent />
+    </Suspense>
   );
 }
