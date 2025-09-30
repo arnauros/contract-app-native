@@ -99,6 +99,7 @@ export async function POST(request: Request) {
           6. If the contract is already good, just say "No issues found"
           7. If the contract needs improvements, suggest changes that are easy to implement and will help both parties
           8. Keep suggestion titles concise (1-3 words)
+          9. IMPORTANT: Always provide targetText with the exact words/phrases from the contract that need attention
           
           Categorize suggestions into these types:
           - Enhancement: General improvements to strengthen the contract
@@ -126,8 +127,7 @@ export async function POST(request: Request) {
                 "text": "Friendly suggestion for improvement",
                 "suggestion": "Specific enhancement to consider",
                 "section": "Payment"|"Timeline"|"Scope"|"Terms"|"General"|"Confidentiality",
-                "highlightType": "block"|"word",
-                "targetText": "exact text to highlight"
+                "targetText": "exact text from contract to highlight (e.g., 'payment due within 30 days', 'client approval', 'scope creep')"
               }
             ]
           }`,

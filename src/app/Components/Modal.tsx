@@ -26,9 +26,9 @@ const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-[99999]" />
-      <div className="fixed inset-0 flex items-center justify-center z-[100000]">
-        <div className="bg-white rounded-lg p-6 w-[400px] shadow-xl">
+      <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop" />
+      <div className="fixed inset-0 flex items-center justify-center modal-content">
+        <div className="bg-white rounded-lg p-6 w-[400px] shadow-xl max-h-[90vh] overflow-y-auto">
           <h2 className="text-xl font-semibold mb-4">{title}</h2>
           <div className="mb-4">{children}</div>
           {onConfirm && (
@@ -39,10 +39,7 @@ const Modal: React.FC<ModalProps> = ({
               >
                 {cancelText}
               </button>
-              <button
-                onClick={onConfirm}
-                className={confirmButtonStyle}
-              >
+              <button onClick={onConfirm} className={confirmButtonStyle}>
                 {confirmText}
               </button>
             </div>

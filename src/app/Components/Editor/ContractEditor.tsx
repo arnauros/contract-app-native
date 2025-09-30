@@ -896,38 +896,166 @@ export function ContractEditor({
     }
   };
 
-  const highlightBlock = (position: any, type: string) => {
+  const highlightBlock = (
+    position: any,
+    type: string,
+    targetText?: string,
+    isAutoHighlight = false
+  ) => {
+    // Handle clear highlights request
+    if (type === "clear") {
+      clearHighlights();
+      return;
+    }
+
+    const editorElement = containerRef.current;
+    if (!editorElement || !position) {
+      return;
+    }
+
+    const blocks = editorElement.querySelectorAll(".ce-block");
+    if (!blocks.length) {
+      return;
+    }
+
+    // Handle both object and number position formats
+    const blockIndex =
+      typeof position === "number" ? position : position.blockIndex;
+    const targetBlock = blocks[blockIndex];
+    if (!targetBlock) {
+      return;
+    }
+
+    // Don't clear highlights - let all suggestions stay highlighted
+
+    // Only highlight specific words if target text is provided
+    if (targetText && targetText.trim()) {
+      applyTextHighlighting(targetBlock, targetText, type);
+    }
+
+    // Only scroll and pulse on manual clicks (not auto-highlighting)
+    if (!isAutoHighlight) {
+      // Scroll to the block
+      targetBlock.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      // Pulse the highlighted words
+      const highlightedWords = targetBlock.querySelectorAll(
+        `.audit-word-highlight-${type}`
+      );
+      highlightedWords.forEach((word) => {
+        word.classList.add("audit-pulse");
+        setTimeout(() => {
+          word.classList.remove("audit-pulse");
+        }, 1000);
+      });
+    }
+  };
+
+  const applyTextHighlighting = (
+    block: Element,
+    targetText: string,
+    type: string
+  ) => {
+    // Find the contenteditable element within the block
+    const contentEditableElement = block.querySelector(
+      '[contenteditable="true"]'
+    );
+    if (!contentEditableElement) {
+      return;
+    }
+
+    // Get the text content
+    const textContent = contentEditableElement.textContent || "";
+
+    // Check if target text exists
+    if (!textContent.toLowerCase().includes(targetText.toLowerCase())) {
+      return;
+    }
+
+    // Create a regex to find the target text (case insensitive)
+    const regex = new RegExp(
+      `(${targetText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+      "gi"
+    );
+
+    // Replace with highlighted version
+    const highlightedHTML = textContent.replace(regex, (match) => {
+      return `<span class="audit-word-highlight audit-word-highlight-${type}" data-highlight-type="${type}">${match}</span>`;
+    });
+
+    if (highlightedHTML !== textContent) {
+      contentEditableElement.innerHTML = highlightedHTML;
+
+      // Force a re-render by triggering a change event
+      const event = new Event("input", { bubbles: true });
+      contentEditableElement.dispatchEvent(event);
+    }
+  };
+
+  const clearHighlights = () => {
     const editorElement = containerRef.current;
     if (!editorElement) return;
 
-    const blocks = editorElement.querySelectorAll(".ce-block");
-    if (!blocks || !position) return;
+    // Clear word highlights only
+    const highlightedWords = editorElement.querySelectorAll(
+      ".audit-word-highlight"
+    );
+    highlightedWords.forEach((word) => {
+      const parent = word.parentNode;
+      if (parent) {
+        parent.replaceChild(
+          document.createTextNode(word.textContent || ""),
+          word
+        );
+        parent.normalize(); // Merge adjacent text nodes
+      }
+    });
+  };
 
-    const targetBlock = blocks[position.blockIndex];
-    if (!targetBlock) return;
-
-    if (!targetBlock.classList.contains("audit-highlight")) {
-      targetBlock.classList.add("audit-highlight");
-      targetBlock.classList.add(`audit-highlight-${type}`);
+  // Test function to verify highlighting works
+  const testHighlighting = () => {
+    console.log("🧪 Testing highlighting...");
+    const editorElement = containerRef.current;
+    if (!editorElement) {
+      console.log("❌ No editor element found");
+      return;
     }
 
-    targetBlock.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
+    const blocks = editorElement.querySelectorAll(".ce-block");
+    console.log("📦 Found blocks:", blocks.length);
 
-    const suggestionCard = document.querySelector(
-      `[data-issue-id="${position.id}"]`
-    );
-    if (suggestionCard) {
-      suggestionCard.scrollIntoView({ behavior: "smooth", block: "center" });
-      suggestionCard.classList.add("suggestion-highlight");
-      setTimeout(
-        () => suggestionCard.classList.remove("suggestion-highlight"),
-        2000
-      );
+    if (blocks.length > 0) {
+      const firstBlock = blocks[0];
+      console.log("🎯 Testing on first block:", firstBlock);
+
+      // Add a test highlight
+      const testSpan = document.createElement("span");
+      testSpan.className =
+        "audit-word-highlight audit-word-highlight-enhancement";
+      testSpan.textContent = "TEST HIGHLIGHT";
+      testSpan.style.backgroundColor = "red";
+      testSpan.style.color = "white";
+      testSpan.style.padding = "2px 4px";
+      testSpan.style.borderRadius = "3px";
+
+      firstBlock.appendChild(testSpan);
+      console.log("✅ Test highlight added");
+
+      // Remove after 3 seconds
+      setTimeout(() => {
+        testSpan.remove();
+        console.log("🧹 Test highlight removed");
+      }, 3000);
     }
   };
+
+  // Expose test function to window for debugging
+  useEffect(() => {
+    (window as any).testHighlighting = testHighlighting;
+  }, []);
 
   const handleSendContract = async (
     clientName: string,
@@ -1321,7 +1449,7 @@ export function ContractEditor({
             {isLocked && (
               <>
                 {/* Prominent top bar indicator */}
-                <div className="absolute top-0 left-0 right-0 bg-gray-100 border-y border-gray-200 p-3 flex items-center justify-center z-10">
+                <div className="absolute top-0 left-0 right-0 bg-gray-100 border-y border-gray-200 p-3 flex items-center justify-center lock-indicator">
                   <div className="flex items-center gap-2">
                     <LockClosedIcon className="h-5 w-5 text-gray-600" />
                     <span className="text-sm font-medium text-gray-700">
@@ -1407,8 +1535,8 @@ export function ContractEditor({
         {/* Side panel - only show if not in success state */}
         {!showSuccess && (
           <div
-            className="fixed right-8 top-32 w-80 bg-white rounded-lg shadow-sm flex flex-col"
-            style={{ zIndex: 20, height: "calc(100vh - 180px)" }}
+            className="fixed right-8 top-32 w-80 bg-white rounded-lg shadow-sm flex flex-col side-panel"
+            style={{ height: "calc(100vh - 180px)" }}
           >
             {stage === "edit" && (
               <ContractAudit
@@ -1437,31 +1565,150 @@ export function ContractEditor({
 
       <style jsx global>{`
         .suggestions-scroll {
-          scrollbar-width: none; /* Firefox */
-          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
         }
 
         .suggestions-scroll::-webkit-scrollbar {
-          display: none; /* Chrome, Safari, Opera */
+          width: 6px;
         }
 
-        .suggestions-scroll:hover {
-          scrollbar-width: thin;
-          -ms-overflow-style: auto;
-        }
-
-        .suggestions-scroll:hover::-webkit-scrollbar {
-          display: block;
-          width: 4px;
-        }
-
-        .suggestions-scroll:hover::-webkit-scrollbar-track {
+        .suggestions-scroll::-webkit-scrollbar-track {
           background: transparent;
+        }
+
+        .suggestions-scroll::-webkit-scrollbar-thumb {
+          background-color: transparent;
+          border-radius: 3px;
+          transition: background-color 0.2s ease;
         }
 
         .suggestions-scroll:hover::-webkit-scrollbar-thumb {
           background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Block-level highlights */
+        .audit-highlight {
+          position: relative;
+          transition: all 0.3s ease;
+        }
+
+        .audit-highlight::before {
+          content: "";
+          position: absolute;
+          left: -8px;
+          top: 0;
+          bottom: 0;
+          width: 4px;
           border-radius: 2px;
+          z-index: 1;
+        }
+
+        .audit-highlight-enhancement::before {
+          background-color: #8b5cf6;
+        }
+
+        .audit-highlight-protection::before {
+          background-color: #3b82f6;
+        }
+
+        .audit-highlight-clarity::before {
+          background-color: #10b981;
+        }
+
+        .audit-highlight-communication::before {
+          background-color: #f59e0b;
+        }
+
+        /* Word-level highlights - selection style */
+        .audit-word-highlight {
+          background-color: #3b82f6 !important;
+          color: white !important;
+          padding: 1px 2px !important;
+          border-radius: 2px !important;
+          display: inline !important;
+          font-weight: normal !important;
+          text-decoration: none !important;
+          cursor: pointer !important;
+          transition: all 0.2s ease !important;
+          position: relative !important;
+          z-index: 2 !important;
+        }
+
+        .audit-word-highlight:hover {
+          background-color: #2563eb !important;
+          transform: scale(1.05) !important;
+        }
+
+        .audit-word-highlight-enhancement {
+          background-color: #8b5cf6 !important;
+          color: white !important;
+        }
+
+        .audit-word-highlight-enhancement:hover {
+          background-color: #7c3aed !important;
+        }
+
+        .audit-word-highlight-protection {
+          background-color: #3b82f6 !important;
+          color: white !important;
+        }
+
+        .audit-word-highlight-protection:hover {
+          background-color: #2563eb !important;
+        }
+
+        .audit-word-highlight-clarity {
+          background-color: #10b981 !important;
+          color: white !important;
+        }
+
+        .audit-word-highlight-clarity:hover {
+          background-color: #059669 !important;
+        }
+
+        .audit-word-highlight-communication {
+          background-color: #f59e0b !important;
+          color: white !important;
+        }
+
+        .audit-word-highlight-communication:hover {
+          background-color: #d97706 !important;
+        }
+
+        /* Pulse animation for manual clicks */
+        .audit-pulse {
+          animation: auditPulse 1.5s ease-in-out;
+        }
+
+        @keyframes auditPulse {
+          0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
+          }
+          25% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.4);
+          }
+          50% {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.2);
+          }
+          75% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.1);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+          }
+        }
+
+        /* Suggestion card highlight */
+        .suggestion-highlight {
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          transition: all 0.3s ease;
         }
       `}</style>
 

@@ -1302,9 +1302,7 @@ export default function Dashboard() {
                       {!contract.content?.projectBrief &&
                       !contract.content?.startDate &&
                       !contract.content?.techStack &&
-                      !contract.content?.clientName ? (
-                        "Click to add contract details"
-                      ) : (
+                      !contract.content?.clientName ? null : (
                         <>
                           {contract.content?.projectBrief
                             ? `Scope: ${contract.content.projectBrief.substring(

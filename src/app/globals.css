@@ -313,24 +313,45 @@ body {
   transition: opacity 0.5s ease-out !important;
 }
 
-/* Add these styles for modal handling */
-#modal-root {
-  position: relative;
-  z-index: 9999;
-}
-
-/* Ensure other fixed elements don't overlap */
+/* Z-index hierarchy for proper modal stacking */
+/* Base elements */
 .fixed {
   z-index: 1;
 }
 
-/* Higher z-index for modals */
+/* UI components */
+.ui-component {
+  z-index: 10;
+}
+
+/* Lock indicators and banners */
+.lock-indicator {
+  z-index: 100;
+}
+
+/* Side panels and overlays */
+.side-panel {
+  z-index: 200;
+}
+
+/* Toast notifications */
+.toast-notification {
+  z-index: 1000;
+}
+
+/* Modal system */
 .modal-backdrop {
-  z-index: 99999;
+  z-index: 9999;
 }
 
 .modal-content {
-  z-index: 100000;
+  z-index: 10000;
+}
+
+/* Ensure modals are always on top */
+.modal-root {
+  position: relative;
+  z-index: 9999;
 }
 /* Custom heading styles for the contract editor */
 
