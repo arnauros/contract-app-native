@@ -14,6 +14,7 @@ import {
   CheckIcon,
   XMarkIcon,
   ArrowPathIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { debounce } from "lodash";
@@ -66,7 +67,7 @@ interface UserDocument {
 
 interface ContractAuditProps {
   editorContent?: any;
-  onFixClick: () => void;
+  onFixClick: (issue: AuditIssue, index: number) => Promise<void>;
   onIssueClick: (
     blockIndex: number,
     type: string,
@@ -207,6 +208,38 @@ export function ContractAudit({
         if (audit) {
           setHasRunAudit(true);
           console.log("📄 Loading cached audit results");
+          console.log(
+            "🔍 Audit data structure:",
+            JSON.stringify(audit, null, 2)
+          );
+
+          // Check if cached audit has correct block indices
+          const hasValidBlockIndices = audit.issues?.every((issue: any) => {
+            const blockIndex = issue.position?.blockIndex;
+            return (
+              blockIndex !== undefined && blockIndex >= 0 && blockIndex < 24
+            ); // Assuming max 24 blocks
+          });
+
+          // Also check if any block index is 24 (out of range)
+          const hasOutOfRangeIndices = audit.issues?.some((issue: any) => {
+            const blockIndex = issue.position?.blockIndex;
+            return blockIndex === 24;
+          });
+
+          if (!hasValidBlockIndices || hasOutOfRangeIndices) {
+            console.log(
+              "⚠️ Cached audit has invalid block indices, clearing cache..."
+            );
+            console.log(
+              "🔍 Invalid indices found:",
+              audit.issues?.map((issue: any) => issue.position?.blockIndex)
+            );
+            // Clear the cached audit data
+            await saveContractAudit(contractId, null);
+            return;
+          }
+
           setAuditData(audit as unknown as AuditResponse);
           setShowSuggestions(true);
           setSuggestionsShown(true);
@@ -298,14 +331,52 @@ export function ContractAudit({
     };
   }, [auditData?.issues, appliedSuggestions, suggestionHistory]);
 
-  // Handle applying a suggestion
-  const handleApplySuggestion = (index: number) => {
-    setAppliedSuggestions((prev) => new Set([...prev, index]));
-    setSuggestionHistory((prev) => [
-      ...prev,
-      { action: "apply", index, timestamp: Date.now() },
-    ]);
-    toast.success("Suggestion applied!");
+  // Handle applying a suggestion with AI improvement
+  const handleApplySuggestion = async (index: number) => {
+    console.log("🎯 Sparkle icon clicked for index:", index);
+    const issue = auditData?.issues[index];
+    console.log("📋 Issue data:", issue);
+
+    if (!issue) {
+      console.error("❌ Issue not found at index:", index);
+      toast.error("Suggestion not found");
+      return;
+    }
+
+    console.log("🔍 Checking conditions:", {
+      hasTargetText: !!issue.targetText,
+      hasOnFixClick: !!onFixClick,
+      targetText: issue.targetText,
+    });
+
+    // Check if we have targetText for AI improvement
+    if (issue.targetText && onFixClick) {
+      try {
+        console.log("🚀 Calling AI text improvement...");
+        // Call the AI text improvement function from ContractEditor
+        await onFixClick(issue, index);
+
+        // Mark as applied after successful AI improvement
+        setAppliedSuggestions((prev) => new Set([...prev, index]));
+        setSuggestionHistory((prev) => [
+          ...prev,
+          { action: "apply", index, timestamp: Date.now() },
+        ]);
+        console.log("✅ AI suggestion applied successfully");
+      } catch (error) {
+        console.error("❌ Error applying AI suggestion:", error);
+        toast.error("Failed to apply AI suggestion");
+      }
+    } else {
+      console.log("⚠️ Falling back to simple application");
+      // Fallback to simple application without AI
+      setAppliedSuggestions((prev) => new Set([...prev, index]));
+      setSuggestionHistory((prev) => [
+        ...prev,
+        { action: "apply", index, timestamp: Date.now() },
+      ]);
+      toast.success("Suggestion applied!");
+    }
   };
 
   // Handle undoing a suggestion
@@ -377,6 +448,7 @@ export function ContractAudit({
 
     try {
       setIsLoading(true);
+      console.log("🚀 Running fresh audit with debugging...");
 
       // Run the audit
       const response = await fetch("/api/auditContract", {
@@ -390,6 +462,15 @@ export function ContractAudit({
       }
 
       const data = await response.json();
+      console.log("📊 Fresh audit data received:", data);
+      console.log(
+        "🔍 Issues with targetText:",
+        data.issues?.map((issue: any) => ({
+          text: issue.text,
+          targetText: issue.targetText,
+          hasTargetText: !!issue.targetText,
+        }))
+      );
 
       // Save to Firestore first to ensure persistence
       if (contractId) {
@@ -410,12 +491,17 @@ export function ContractAudit({
       // Auto-highlight all new suggestions at once
       setTimeout(() => {
         if (data.issues && data.issues.length > 0) {
+          console.log("🎨 Auto-highlighting fresh audit suggestions...");
+          // Clear all highlights first
+          onIssueClick(-1, "clear", undefined);
+          // Then apply all highlights
           data.issues.forEach((issue) => {
             if (issue.position?.blockIndex !== undefined) {
               onIssueClick(
                 issue.position.blockIndex,
                 issue.type,
-                issue.targetText
+                issue.targetText,
+                true // isAutoHighlight = true
               );
             }
           });
@@ -685,6 +771,13 @@ export function ContractAudit({
                       (i) => i === issue
                     );
                     const isApplied = appliedSuggestions.has(originalIndex);
+                    console.log("🔍 Suggestion state:", {
+                      originalIndex,
+                      isApplied,
+                      issueText: issue.text,
+                      hasTargetText: !!issue.targetText,
+                      targetText: issue.targetText,
+                    });
                     return (
                       <div
                         key={index}
@@ -747,12 +840,16 @@ export function ContractAudit({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    console.log(
+                                      "✨ Sparkle button clicked for originalIndex:",
+                                      originalIndex
+                                    );
                                     handleApplySuggestion(originalIndex);
                                   }}
-                                  className="p-1 text-gray-600 hover:bg-gray-100 rounded"
-                                  title="Apply suggestion"
+                                  className="p-1 text-gray-600 hover:bg-gray-100 rounded group"
+                                  title="AI Improve Text"
                                 >
-                                  <CheckIcon className="w-4 h-4" />
+                                  <SparklesIcon className="w-4 h-4 group-hover:text-purple-600 transition-colors" />
                                 </button>
                               )}
                               {issue.autoFix && (

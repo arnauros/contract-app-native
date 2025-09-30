@@ -902,39 +902,62 @@ export function ContractEditor({
     targetText?: string,
     isAutoHighlight = false
   ) => {
+    console.log("🎯 highlightBlock called:", {
+      position,
+      type,
+      targetText,
+      isAutoHighlight,
+    });
+
     // Handle clear highlights request
     if (type === "clear") {
+      console.log("🧹 Clearing all highlights");
       clearHighlights();
       return;
     }
 
     const editorElement = containerRef.current;
     if (!editorElement || !position) {
+      console.log("❌ No editor element or position:", {
+        editorElement: !!editorElement,
+        position,
+      });
       return;
     }
 
     const blocks = editorElement.querySelectorAll(".ce-block");
+    console.log("📦 Found blocks:", blocks.length);
     if (!blocks.length) {
+      console.log("❌ No blocks found");
       return;
     }
 
     // Handle both object and number position formats
     const blockIndex =
       typeof position === "number" ? position : position.blockIndex;
+    console.log("🔢 Block index:", blockIndex);
+
     const targetBlock = blocks[blockIndex];
     if (!targetBlock) {
+      console.log("❌ Target block not found at index:", blockIndex);
       return;
     }
 
-    // Don't clear highlights - let all suggestions stay highlighted
+    console.log("✅ Target block found:", targetBlock);
+    console.log("🔍 Target block HTML:", targetBlock.outerHTML);
+    console.log("🔍 Target block text content:", targetBlock.textContent);
 
     // Only highlight specific words if target text is provided
     if (targetText && targetText.trim()) {
+      console.log("🎨 Applying text highlighting for:", targetText);
       applyTextHighlighting(targetBlock, targetText, type);
+    } else {
+      console.log("⚠️ No target text provided for highlighting");
     }
 
     // Only scroll and pulse on manual clicks (not auto-highlighting)
     if (!isAutoHighlight) {
+      console.log("👆 Manual click - scrolling and pulsing");
       // Scroll to the block
       targetBlock.scrollIntoView({
         behavior: "smooth",
@@ -945,12 +968,18 @@ export function ContractEditor({
       const highlightedWords = targetBlock.querySelectorAll(
         `.audit-word-highlight-${type}`
       );
+      console.log(
+        "💫 Found highlighted words to pulse:",
+        highlightedWords.length
+      );
       highlightedWords.forEach((word) => {
         word.classList.add("audit-pulse");
         setTimeout(() => {
           word.classList.remove("audit-pulse");
         }, 1000);
       });
+    } else {
+      console.log("🤖 Auto-highlight - no scroll/pulse");
     }
   };
 
@@ -959,50 +988,116 @@ export function ContractEditor({
     targetText: string,
     type: string
   ) => {
-    // Find the contenteditable element within the block
-    const contentEditableElement = block.querySelector(
-      '[contenteditable="true"]'
-    );
-    if (!contentEditableElement) {
-      return;
-    }
-
-    // Get the text content
-    const textContent = contentEditableElement.textContent || "";
-
-    // Check if target text exists
-    if (!textContent.toLowerCase().includes(targetText.toLowerCase())) {
-      return;
-    }
-
-    // Create a regex to find the target text (case insensitive)
-    const regex = new RegExp(
-      `(${targetText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-      "gi"
-    );
-
-    // Replace with highlighted version
-    const highlightedHTML = textContent.replace(regex, (match) => {
-      return `<span class="audit-word-highlight audit-word-highlight-${type}" data-highlight-type="${type}">${match}</span>`;
+    console.log("🎨 applyTextHighlighting called:", {
+      block,
+      targetText,
+      type,
     });
 
-    if (highlightedHTML !== textContent) {
-      contentEditableElement.innerHTML = highlightedHTML;
+    // Get all text content from the entire block, not just contenteditable
+    const blockTextContent = block.textContent || "";
+    console.log("📝 Block text content:", blockTextContent);
+    console.log("🎯 Looking for target text:", targetText);
+    console.log("🔍 Target text length:", targetText.length);
+    console.log("🔍 Block text length:", blockTextContent.length);
 
-      // Force a re-render by triggering a change event
-      const event = new Event("input", { bubbles: true });
-      contentEditableElement.dispatchEvent(event);
+    // Check if target text exists in the entire block
+    const targetLower = targetText.toLowerCase();
+    const blockLower = blockTextContent.toLowerCase();
+    const found = blockLower.includes(targetLower);
+
+    console.log("🔍 Case-insensitive search result:", found);
+    if (!found) {
+      console.log("❌ Target text not found in block content");
+      console.log("🔍 Target text (lowercase):", targetLower);
+      console.log("🔍 Block text (lowercase):", blockLower);
+
+      // Try to find partial matches
+      const words = targetLower.split(" ");
+      console.log("🔍 Target words:", words);
+      words.forEach((word, index) => {
+        const wordFound = blockLower.includes(word);
+        console.log(
+          `🔍 Word ${index + 1} "${word}": ${wordFound ? "✅" : "❌"}`
+        );
+      });
+
+      return;
     }
+
+    console.log("✅ Target text found in block content");
+
+    // Find all text nodes in the block that contain the target text
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+
+    const textNodes: Text[] = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (
+        node.textContent &&
+        node.textContent.toLowerCase().includes(targetText.toLowerCase())
+      ) {
+        textNodes.push(node as Text);
+      }
+    }
+
+    console.log(
+      "🔍 Found text nodes containing target text:",
+      textNodes.length
+    );
+
+    // Highlight each text node that contains the target text
+    textNodes.forEach((textNode) => {
+      const textContent = textNode.textContent || "";
+      const regex = new RegExp(
+        `(${targetText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+        "gi"
+      );
+
+      const highlightedHTML = textContent.replace(regex, (match) => {
+        return `<span class="audit-word-highlight audit-word-highlight-${type}" data-highlight-type="${type}">${match}</span>`;
+      });
+
+      if (highlightedHTML !== textContent) {
+        console.log("✅ Highlighting text node:", textContent);
+
+        // Create a temporary element to parse the HTML
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = highlightedHTML;
+
+        // Replace the text node with the highlighted content
+        const parent = textNode.parentNode;
+        if (parent) {
+          // Insert all child nodes from the temp div
+          while (tempDiv.firstChild) {
+            parent.insertBefore(tempDiv.firstChild, textNode);
+          }
+          // Remove the original text node
+          parent.removeChild(textNode);
+        }
+      }
+    });
+
+    console.log("🎨 Text highlighting completed");
   };
 
   const clearHighlights = () => {
+    console.log("🧹 clearHighlights called");
     const editorElement = containerRef.current;
-    if (!editorElement) return;
+    if (!editorElement) {
+      console.log("❌ No editor element found for clearing highlights");
+      return;
+    }
 
     // Clear word highlights only
     const highlightedWords = editorElement.querySelectorAll(
       ".audit-word-highlight"
     );
+    console.log(
+      "🗑️ Found highlighted words to clear:",
+      highlightedWords.length
+    );
+
     highlightedWords.forEach((word) => {
       const parent = word.parentNode;
       if (parent) {
@@ -1013,6 +1108,137 @@ export function ContractEditor({
         parent.normalize(); // Merge adjacent text nodes
       }
     });
+
+    console.log("✅ Highlights cleared");
+  };
+
+  const handleAITextReplacement = async (issue: any, originalIndex: number) => {
+    console.log("🚀 AI Text Replacement started:", { issue, originalIndex });
+
+    if (!editorRef.current) {
+      console.log("❌ Editor not initialized");
+      return;
+    }
+
+    try {
+      console.log("🌐 Calling OpenAI API...");
+      // Call OpenAI API to get improved text
+      const response = await fetch("/api/improve-text", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          originalText: issue.targetText,
+          suggestion: issue.suggestion,
+          type: issue.type,
+          context: issue.targetText, // Use the target text as context
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get AI improvement");
+      }
+
+      const { improvedText } = await response.json();
+      console.log("🤖 AI Response received:", improvedText);
+      console.log("🧹 Cleaned text:", improvedText.replace(/^"|"$/g, ""));
+
+      // Get current editor data
+      const editorData = await editorRef.current.save();
+      console.log("📝 Current editor data:", editorData);
+
+      // Find the block that contains the target text
+      const blockIndex = issue.position?.blockIndex;
+      if (blockIndex === undefined || !editorData.blocks[blockIndex]) {
+        console.log("❌ Block index not found:", blockIndex);
+        return;
+      }
+
+      const targetBlock = editorData.blocks[blockIndex];
+      console.log("🎯 Target block:", targetBlock);
+
+      // Update the block with improved text
+      const updatedBlocks = [...editorData.blocks];
+      updatedBlocks[blockIndex] = {
+        ...targetBlock,
+        data: {
+          ...targetBlock.data,
+          text: improvedText.replace(/^"|"$/g, ""), // Remove surrounding quotes from AI response
+        },
+      };
+
+      console.log("📝 Updated block:", updatedBlocks[blockIndex]);
+
+      // Show visual effect
+      await showAITypingEffect(blockIndex);
+
+      // Update the editor with new data using a more reliable method
+      console.log("🔄 Updating editor with new blocks...");
+
+      // Method 1: Try to update the specific block directly
+      try {
+        const block = editorRef.current.blocks.getBlockByIndex(blockIndex);
+        if (block) {
+          console.log("📝 Found block to update:", block);
+          await block.holder.dispatchEvent(
+            new Event("input", { bubbles: true })
+          );
+
+          // Update the block content
+          const blockElement = block.holder.querySelector(
+            '[contenteditable="true"]'
+          );
+          if (blockElement) {
+            blockElement.textContent = improvedText.replace(/^"|"$/g, "");
+            blockElement.dispatchEvent(new Event("input", { bubbles: true }));
+            console.log("✅ Block updated directly");
+          }
+        }
+      } catch (blockError) {
+        console.log(
+          "⚠️ Direct block update failed, trying render method:",
+          blockError
+        );
+
+        // Method 2: Fallback to render method
+        await editorRef.current.render({
+          blocks: updatedBlocks,
+        });
+      }
+
+      // Save the changes
+      await saveContract();
+
+      toast.success("AI suggestion applied!");
+      console.log("🎉 AI suggestion applied successfully!");
+    } catch (error) {
+      console.error("Error applying AI suggestion:", error);
+      toast.error("Failed to apply AI suggestion");
+    }
+  };
+
+  // Simplified AI text replacement - no complex animation needed
+  const showAITypingEffect = async (blockIndex: number) => {
+    console.log("✨ Showing AI typing effect for block:", blockIndex);
+
+    // Find the block element and add a subtle animation
+    const editorElement = containerRef.current;
+    if (editorElement) {
+      const blocks = editorElement.querySelectorAll(".ce-block");
+      const targetBlock = blocks[blockIndex];
+
+      if (targetBlock) {
+        // Add a subtle glow effect
+        targetBlock.style.transition = "all 0.3s ease";
+        targetBlock.style.boxShadow = "0 0 20px rgba(168, 85, 247, 0.3)";
+
+        // Remove the effect after a short delay
+        setTimeout(() => {
+          targetBlock.style.boxShadow = "";
+        }, 1000);
+      }
+    }
   };
 
   // Test function to verify highlighting works
@@ -1030,32 +1256,20 @@ export function ContractEditor({
     if (blocks.length > 0) {
       const firstBlock = blocks[0];
       console.log("🎯 Testing on first block:", firstBlock);
+      console.log("🔍 First block text:", firstBlock.textContent);
 
-      // Add a test highlight
-      const testSpan = document.createElement("span");
-      testSpan.className =
-        "audit-word-highlight audit-word-highlight-enhancement";
-      testSpan.textContent = "TEST HIGHLIGHT";
-      testSpan.style.backgroundColor = "red";
-      testSpan.style.color = "white";
-      testSpan.style.padding = "2px 4px";
-      testSpan.style.borderRadius = "3px";
+      // Test the applyTextHighlighting function directly
+      const testText = firstBlock.textContent?.split(" ")[0] || "test";
+      console.log("🧪 Testing with text:", testText);
 
-      firstBlock.appendChild(testSpan);
-      console.log("✅ Test highlight added");
-
-      // Remove after 3 seconds
-      setTimeout(() => {
-        testSpan.remove();
-        console.log("🧹 Test highlight removed");
-      }, 3000);
+      applyTextHighlighting(firstBlock, testText, "enhancement");
     }
   };
 
   // Expose test function to window for debugging
   useEffect(() => {
     (window as any).testHighlighting = testHighlighting;
-  }, []);
+  }, [testHighlighting]);
 
   const handleSendContract = async (
     clientName: string,
@@ -1541,7 +1755,7 @@ export function ContractEditor({
             {stage === "edit" && (
               <ContractAudit
                 editorContent={editorContent}
-                onFixClick={() => onAuditFix?.()}
+                onFixClick={handleAITextReplacement}
                 onIssueClick={highlightBlock}
               />
             )}
@@ -1641,39 +1855,43 @@ export function ContractEditor({
         }
 
         .audit-word-highlight-enhancement {
-          background-color: #8b5cf6 !important;
-          color: white !important;
+          background-color: rgba(139, 92, 246, 0.15) !important;
+          color: #6b21a8 !important;
+          border: 1px solid rgba(139, 92, 246, 0.2) !important;
         }
 
         .audit-word-highlight-enhancement:hover {
-          background-color: #7c3aed !important;
+          background-color: rgba(139, 92, 246, 0.25) !important;
         }
 
         .audit-word-highlight-protection {
-          background-color: #3b82f6 !important;
-          color: white !important;
+          background-color: rgba(59, 130, 246, 0.15) !important;
+          color: #1d4ed8 !important;
+          border: 1px solid rgba(59, 130, 246, 0.2) !important;
         }
 
         .audit-word-highlight-protection:hover {
-          background-color: #2563eb !important;
+          background-color: rgba(59, 130, 246, 0.25) !important;
         }
 
         .audit-word-highlight-clarity {
-          background-color: #10b981 !important;
-          color: white !important;
+          background-color: rgba(16, 185, 129, 0.15) !important;
+          color: #047857 !important;
+          border: 1px solid rgba(16, 185, 129, 0.2) !important;
         }
 
         .audit-word-highlight-clarity:hover {
-          background-color: #059669 !important;
+          background-color: rgba(16, 185, 129, 0.25) !important;
         }
 
         .audit-word-highlight-communication {
-          background-color: #f59e0b !important;
-          color: white !important;
+          background-color: rgba(245, 158, 11, 0.15) !important;
+          color: #b45309 !important;
+          border: 1px solid rgba(245, 158, 11, 0.2) !important;
         }
 
         .audit-word-highlight-communication:hover {
-          background-color: #d97706 !important;
+          background-color: rgba(245, 158, 11, 0.25) !important;
         }
 
         /* Pulse animation for manual clicks */

@@ -46,16 +46,33 @@ const findBlockIndex = (
 ): number => {
   if (!blocks?.length) return -1;
 
+  console.log("🔍 findBlockIndex called:", { section, targetText });
+  console.log("📦 Total blocks:", blocks.length);
+
   // First try to find by exact text if provided
   if (targetText) {
-    const exactMatch = blocks.findIndex((block) => {
+    console.log("🎯 Looking for target text:", targetText);
+
+    const exactMatch = blocks.findIndex((block, index) => {
       const blockText = block.data?.text || "";
-      const hasMatch = blockText
-        .toLowerCase()
-        .includes(targetText.toLowerCase());
+      const targetLower = targetText.toLowerCase();
+      const blockLower = blockText.toLowerCase();
+      const hasMatch = blockLower.includes(targetLower);
+
+      console.log(`📝 Block ${index}:`, {
+        type: block.type,
+        text: blockText,
+        targetText: targetText,
+        hasMatch,
+        targetLower,
+        blockLower,
+        data: block.data,
+      });
+
       return hasMatch && blockText.trim().length > 0;
     });
 
+    console.log("✅ Exact match found at index:", exactMatch);
     if (exactMatch >= 0) return exactMatch;
   }
 
