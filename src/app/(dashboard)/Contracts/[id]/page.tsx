@@ -118,8 +118,6 @@ type Stage = "edit" | "sign" | "send";
 const initializeCommentHandling = () => {
   // Safety check to prevent "comment not found" errors
   if (typeof window !== "undefined") {
-    console.log("🛡️ Initializing comment error handling protection");
-
     const hideErrorMessages = () => {
       try {
         const errorElements = document.querySelectorAll(
@@ -171,7 +169,6 @@ const initializeCommentHandling = () => {
       attributes: true,
       characterData: true,
     });
-    console.log("🔍 DOM observer set up to watch for error elements");
 
     // Also run on regular intervals for extra safety
     const interval = setInterval(() => {
@@ -179,7 +176,6 @@ const initializeCommentHandling = () => {
     }, 500);
 
     return () => {
-      console.log("🧹 Cleaning up comment error handling");
       observer.disconnect();
       clearInterval(interval);
     };
@@ -255,27 +251,15 @@ export default function ContractPage() {
   // Listen for auth state changes
   useEffect(() => {
     const auth = getAuth();
-    console.log("🔐 Setting up auth state listener");
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("🔐 Auth state changed:", user?.uid || "No user");
       if (user) {
-        console.log("🔐 User is signed in:", {
-          uid: user.uid,
-          isAnonymous: user.isAnonymous,
-          email: user.email,
-          displayName: user.displayName,
-        });
       } else {
-        console.log(
-          "🔐 No user is signed in, will attempt anonymous sign-in when needed"
-        );
       }
       setUser(user);
     });
 
     return () => {
-      console.log("🔐 Cleaning up auth state listener");
       unsubscribe();
     };
   }, []);
@@ -889,6 +873,9 @@ export default function ContractPage() {
           );
           setCurrentStage("edit");
           localStorage.setItem(`contract-stage-${id}`, "edit");
+
+          // Also update the stage state to ensure UI consistency
+          setStage("edit");
         }
 
         // Force reload signatures from Firestore to ensure state consistency
@@ -912,20 +899,11 @@ export default function ContractPage() {
   // Update the safety check for signatures to better handle direct URL navigation
   useEffect(() => {
     const checkSignatures = async () => {
-      console.log("🔍 ContractPage: Running signature safety check", {
-        currentStage,
-      });
-
       // Always check fresh signature status from Firestore
       try {
         const result = await getSignatures(id);
         const hasDesignerSignature = !!result.signatures?.designer;
         const hasClientSignature = !!result.signatures?.client;
-
-        console.log("📝 ContractPage: Current signature state", {
-          hasDesignerSignature,
-          hasClientSignature,
-        });
 
         // Check if this was an explicit edit button click
         const editButtonClicked =
@@ -1077,42 +1055,15 @@ export default function ContractPage() {
   }, [id]);
 
   // Add a debug helper for the component render
-  useEffect(() => {
-    console.log("🔍 CONTRACT PAGE RENDER", {
-      id,
-      isLoading,
-      showComments,
-      commentsCount: comments.length,
-      user: user?.uid || "none",
-    });
-  });
+  useEffect(() => {});
 
   // Add debugging for component mounting
   useEffect(() => {
-    console.log("🔍 CONTRACT PAGE MOUNTED", {
-      id,
-      hasInitialized: hasInitialized.current,
-    });
-
     // Debugging contract data on mount
-    return () => {
-      console.log("🔍 CONTRACT PAGE UNMOUNTING");
-    };
+    return () => {};
   }, [id]);
 
   const toggleComments = () => {
-    console.log(
-      "💬 Toggling comments visibility from",
-      showComments,
-      "to",
-      !showComments
-    );
-    console.log("💬 Current comments state:", {
-      count: comments.length,
-      visibleCount: comments.filter((c) => !c.isDismissed).length,
-      editingCount: comments.filter((c) => c.isEditing).length,
-      commentData: comments,
-    });
     setShowComments(!showComments);
   };
 

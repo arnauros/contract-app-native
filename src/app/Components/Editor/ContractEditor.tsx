@@ -9,13 +9,11 @@ import Paragraph from "@editorjs/paragraph";
 import { LockClosedIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { LockClosedIcon as LockClosedSolidIcon } from "@heroicons/react/24/solid";
 import { toast } from "react-hot-toast";
+import { saveContract, updateContractStatus } from "@/lib/firebase/firestore";
 import {
-  saveContract,
-  getSignatures,
-  removeSignature,
-  saveSignature,
-  updateContractStatus,
-} from "@/lib/firebase/firestore";
+  saveSignatureToManager,
+  removeSignatureFromManager,
+} from "@/lib/signature/SignatureManager";
 import { ContractAudit } from "./ContractAudit";
 import { SigningStage } from "./SigningStage";
 import { SendStage } from "./SendStage";
@@ -28,6 +26,7 @@ import { Contract, Signature } from "@/lib/firebase/types";
 import DragDrop from "editorjs-drag-drop";
 import Image from "@editorjs/image";
 import { ContractStatusManager, getStatusManager } from "@/lib/firebase/status";
+import { useSignatureState } from "@/lib/hooks/useSignatureState";
 
 interface ContractEditorProps {
   formData: any;
@@ -119,21 +118,34 @@ export function ContractEditor({
           ],
         };
   });
-  const [isLocked, setIsLocked] = useState(false);
-  const [hasSignature, setHasSignature] = useState(false);
-  const initialLoadDone = useRef(false);
   const { user } = useAuth();
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">(
     "saved"
   );
   const saveTimeout = useRef<NodeJS.Timeout>();
-  const [designerSignature, setDesignerSignature] = useState<any>(null);
-  const [clientSignature, setClientSignature] = useState<any>(null);
+  const initialLoadDone = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isUnsignModalOpen, setIsUnsignModalOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>("");
+  const [showUnsignModal, setShowUnsignModal] = useState(false);
   const [statusManager, setStatusManager] =
     useState<ContractStatusManager | null>(null);
+
+  // Centralized signature state management - ONLY source of truth
+  const contractId =
+    typeof window !== "undefined"
+      ? window.location.pathname.split("/").pop()
+      : null;
+  const { signatureState, canEdit, reason, invalidateCache } =
+    useSignatureState({
+      contractId: contractId || "",
+      autoRefresh: true,
+    });
+
+  // Derived state from SignatureManager
+  const isLocked = !canEdit;
+  const hasSignature = signatureState.hasDesignerSignature;
+  const designerSignature = signatureState.designerSignature;
+  const clientSignature = signatureState.clientSignature;
 
   // Load saved stage on mount
   useEffect(() => {
@@ -150,31 +162,7 @@ export function ContractEditor({
     }
   }, []);
 
-  // Load signatures from Firestore
-  useEffect(() => {
-    const loadSignatures = async () => {
-      const contractId = window.location.pathname.split("/").pop();
-      if (!contractId) return;
-
-      try {
-        const result = await getSignatures(contractId);
-        if (result.success) {
-          setDesignerSignature(result.signatures.designer);
-          setClientSignature(result.signatures.client);
-
-          // If either signature exists, lock the editor
-          if (result.signatures.designer || result.signatures.client) {
-            setHasSignature(true);
-            setIsLocked(true);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load signatures:", error);
-      }
-    };
-
-    loadSignatures();
-  }, []);
+  // Signature state is now managed by SignatureManager - no local state needed
 
   // Load user profile data including company name
   useEffect(() => {
@@ -228,102 +216,26 @@ export function ContractEditor({
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
-    console.log("📄 ContractEditor: Stage management", {
-      stage,
-      hasSignature,
-      isLocked,
-    });
-
-    // Get fresh signature status from both localStorage and component state
-    // Try multiple sources for reliability
-    const designerSig = localStorage.getItem(
-      `contract-designer-signature-${contractId}`
-    );
-
-    // For debugging, check all possible sources of signature data
-    let designerSigFromState = !!designerSignature;
-    let designerSigFromStorage = !!designerSig;
-
-    // Final determination of signature presence - check both sources
-    const hasDesignerSignature = designerSigFromState || designerSigFromStorage;
+    // Use centralized signature state
+    const hasDesignerSignature = signatureState.hasDesignerSignature;
     const hasContent = editorContent && Object.keys(editorContent).length > 0;
 
-    console.log("📝 ContractEditor: Current signature state", {
-      hasDesignerSignature,
-      designerSigFromStorage,
-      designerSigFromState,
-      stage,
-      isLocked,
-    });
-
-    // Force the editor to be unlocked in edit mode, regardless of signature status
+    // Lock state based on signature status and stage
     let newLockState = false;
     if (stage === "edit") {
-      // Edit mode is always unlocked
-      newLockState = false;
-      console.log("🔓 Edit mode - unlocking editor");
+      // Edit mode is locked if we have a designer signature
+      newLockState = hasDesignerSignature;
     } else if (stage === "sign") {
       // In sign stage, lock if we have a designer signature from any source
       newLockState = hasDesignerSignature;
-
-      // Double check localStorage one more time
-      if (!newLockState) {
-        // One final check - parse the localStorage item to ensure we're not missing anything
-        try {
-          const sigData = localStorage.getItem(
-            `contract-designer-signature-${contractId}`
-          );
-          if (sigData && JSON.parse(sigData)) {
-            console.log(
-              "🔒 Found signature data in localStorage during final check"
-            );
-            newLockState = true;
-          }
-        } catch (e) {
-          console.log("Error parsing localStorage signature data:", e);
-        }
-      }
-
-      console.log(
-        `${newLockState ? "🔒" : "🔓"} Sign mode - ${
-          newLockState ? "locking" : "unlocking"
-        } editor (hasDesignerSignature: ${hasDesignerSignature})`
-      );
     } else if (stage === "send") {
       // Send mode is always locked
       newLockState = true;
-      console.log("🔒 Send mode - locking editor");
     }
 
-    // Only update lock state if it's changing
-    if (isLocked !== newLockState) {
-      console.log(`🔄 Changing lock state from ${isLocked} to ${newLockState}`);
-      setIsLocked(newLockState);
+    // Lock state is now derived from SignatureManager - no manual updates needed
 
-      // Force DOM update for lock state
-      setTimeout(() => {
-        // Update the lock indicator visibility based on stage and lock state
-        const lockIndicator = document.querySelector(
-          ".absolute.top-0.left-0.right-0.bg-gray-100"
-        );
-
-        if (lockIndicator) {
-          if (newLockState) {
-            (lockIndicator as HTMLElement).style.display = "flex";
-          } else {
-            (lockIndicator as HTMLElement).style.display = "none";
-          }
-        }
-      }, 50);
-    }
-
-    // Always set hasSignature based on current state
-    if (hasSignature !== hasDesignerSignature) {
-      console.log(
-        `🔄 Changing signature state from ${hasSignature} to ${hasDesignerSignature}`
-      );
-      setHasSignature(hasDesignerSignature);
-    }
+    // State is derived from SignatureManager
 
     // Save current stage to localStorage
     localStorage.setItem(`contract-stage-${contractId}`, stage);
@@ -342,34 +254,8 @@ export function ContractEditor({
       toast.error("Please create your contract before proceeding");
     }
 
-    // Re-fetch signatures when changing to sign stage
-    if (stage === "sign") {
-      const contractId = window.location.pathname.split("/").pop();
-      if (contractId) {
-        getSignatures(contractId)
-          .then((result) => {
-            if (result.success) {
-              if (result.signatures.designer) {
-                setDesignerSignature(result.signatures.designer);
-              }
-              if (result.signatures.client) {
-                setClientSignature(result.signatures.client);
-              }
-            }
-          })
-          .catch((error) => {
-            console.error("Error fetching signatures:", error);
-          });
-      }
-    }
-  }, [
-    stage,
-    editorContent,
-    designerSignature,
-    isLocked,
-    hasSignature,
-    clientSignature,
-  ]);
+    // Signature state is now managed by SignatureManager - no manual loading needed
+  }, [stage, editorContent, signatureState, isLocked, hasSignature]);
 
   // Save content to localStorage whenever it changes
   useEffect(() => {
@@ -595,10 +481,7 @@ export function ContractEditor({
             }
           }
 
-          // Check for designer signature
-          const designerSignature = localStorage.getItem(
-            `contract-designer-signature-${contractId}`
-          );
+          // SIMPLIFIED: Check Firestore for signature status
           const status = designerSignature ? "pending" : "draft";
 
           // Save to Firestore
@@ -729,27 +612,16 @@ export function ContractEditor({
       const contractId = window.location.pathname.split("/").pop();
       if (!contractId) throw new Error("No contract ID found");
 
-      console.log("🔄 Initiating signature removal process", { contractId });
+      // Remove signature using SignatureManager
+      const result = await removeSignatureFromManager(contractId, "designer");
+      if (!result.success) {
+        throw new Error(result.error || "Failed to remove signature");
+      }
 
-      // Remove from localStorage
-      localStorage.removeItem(`contract-designer-signature-${contractId}`);
-      localStorage.removeItem(`contract-signature-cache-${contractId}`);
-
-      // Clear any potential localStorage items that might be full
-      clearLocalStorageSpace(contractId);
-
-      // Remove from Firestore and update contract status
-      await removeSignature(contractId, "designer");
-      console.log("✅ Signature removed from Firestore");
-
-      // Update local state for designer signature only
-      setDesignerSignature(null);
-      setHasSignature(false);
-      setIsLocked(false);
+      // State is now managed by SignatureManager - no local updates needed
 
       // Force unlock the editor if it exists
       if (editorRef.current) {
-        console.log("🔓 Unlocking editor");
         if (editorRef.current.readOnly?.isEnabled) {
           editorRef.current.readOnly.toggle();
         }
@@ -796,21 +668,7 @@ export function ContractEditor({
         }, 100);
       }
 
-      // Re-fetch client signature to ensure it's still displayed if present
-      try {
-        const result = await getSignatures(contractId);
-        if (result.success && result.signatures.client) {
-          setClientSignature(result.signatures.client);
-          console.log(
-            "ℹ️ Client signature preserved:",
-            result.signatures.client
-          );
-        } else {
-          console.log("ℹ️ No client signature found after refresh");
-        }
-      } catch (error) {
-        console.error("Error re-fetching client signature:", error);
-      }
+      // Client signature state is managed by SignatureManager
 
       // Update contract status
       await updateContractStatus(contractId, {
@@ -818,6 +676,12 @@ export function ContractEditor({
         updatedAt: new Date().toISOString(),
       });
       console.log("✅ Contract status updated to draft");
+
+      // Invalidate signature cache to ensure fresh state
+      const { signatureManager } = await import(
+        "@/lib/signature/SignatureManager"
+      );
+      signatureManager.invalidateCache(contractId);
 
       // Refresh internal signature state for any component that might need it
       const refreshEvent = new CustomEvent("signatureStateChanged", {
@@ -841,36 +705,23 @@ export function ContractEditor({
         }
       }
 
-      // No longer dispatch stage change event here, as it's handled by the calling function
+      // Force stage change to edit mode and update localStorage
+      const stageEvent = new CustomEvent("stageChange", {
+        detail: { stage: "edit", source: "handleUnsign" },
+      });
+      window.dispatchEvent(stageEvent);
+
+      // Update localStorage to persist the stage change
+      localStorage.setItem(`contract-stage-${contractId}`, "edit");
+
+      toast.success(
+        "Signature removed successfully - contract is now editable"
+      );
       return true;
     } catch (error) {
       console.error("Error removing signature:", error);
       toast.error("Failed to remove signature");
       return false;
-    }
-  };
-
-  const handleUnsignConfirm = async () => {
-    try {
-      await handleUnsign();
-      setIsUnsignModalOpen(false);
-
-      // Explicitly transition to edit mode after signature removal
-      const editEvent = new CustomEvent("stageChange", {
-        detail: {
-          stage: "edit",
-          confirmed: true,
-          source: "unsign-confirm",
-          allowWithSignatures: false,
-        },
-      });
-      window.dispatchEvent(editEvent);
-
-      // Show a success toast explaining what happened
-      toast.success("Signature removed. You can now edit the contract.");
-    } catch (error) {
-      console.error("Error during unsign:", error);
-      toast.error("Failed to remove signature");
     }
   };
 
@@ -901,106 +752,7 @@ export function ContractEditor({
       // Clear any cached signature data to ensure we get a fresh state
       localStorage.removeItem(`contract-signature-cache-${contractId}`);
 
-      // Force refresh the signature state
-      getSignatures(contractId)
-        .then((result) => {
-          if (result.success) {
-            // Save any signatures to localStorage for better persistence
-            if (result.signatures.designer) {
-              try {
-                localStorage.setItem(
-                  `contract-designer-signature-${contractId}`,
-                  JSON.stringify({
-                    signature: result.signatures.designer.signature,
-                    name: result.signatures.designer.name,
-                    signedAt:
-                      result.signatures.designer.signedAt?.toDate?.() ||
-                      new Date(),
-                  })
-                );
-              } catch (e) {
-                console.error("Failed to save signature to localStorage:", e);
-              }
-            }
-
-            setDesignerSignature(result.signatures.designer || null);
-            setClientSignature(result.signatures.client || null);
-
-            // Update hasSignature state based on fresh data
-            const hasDesignerSig = !!result.signatures.designer;
-            setHasSignature(hasDesignerSig);
-
-            console.log("📝 Updated signature state before stage change:", {
-              hasDesignerSignature: hasDesignerSig,
-              designerSignature: result.signatures.designer,
-            });
-
-            // Force a second stage change to refresh components with new signature data
-            setTimeout(() => {
-              const refreshEvent = new CustomEvent("stageChange", {
-                detail: {
-                  stage: "sign",
-                  refreshed: true,
-                  source: "handleSignStageClick-after-fetch",
-                },
-              });
-              window.dispatchEvent(refreshEvent);
-
-              // Also dispatch signature state change event for better coordination
-              const sigStateEvent = new CustomEvent("signatureStateChanged", {
-                detail: {
-                  contractId,
-                  hasDesignerSignature: hasDesignerSig,
-                  designerSignature: result.signatures.designer,
-                  source: "handleSignStageClick",
-                },
-              });
-              window.dispatchEvent(sigStateEvent);
-
-              // Force reload of the component with updated signature data
-              // This simulates a page refresh but more targeted
-              setTimeout(() => {
-                // Update internal state directly to force reactivity
-                setDesignerSignature(result.signatures.designer || null);
-                setHasSignature(hasDesignerSig);
-
-                // Force another refresh with a slight delay for the state to settle
-                setTimeout(() => {
-                  const finalRefreshEvent = new CustomEvent("stageChange", {
-                    detail: {
-                      stage: "sign",
-                      refreshed: true,
-                      source: "handleSignStageClick-final-refresh",
-                    },
-                  });
-                  window.dispatchEvent(finalRefreshEvent);
-                }, 150);
-              }, 100);
-            }, 100);
-          } else {
-            // Just dispatch a refresh event if there was no signature data
-            const refreshEvent = new CustomEvent("stageChange", {
-              detail: {
-                stage: "sign",
-                refreshed: true,
-                source: "handleSignStageClick-no-data",
-              },
-            });
-            window.dispatchEvent(refreshEvent);
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching signatures:", error);
-          // Still switch to sign stage even if there was an error
-          const event = new CustomEvent("stageChange", {
-            detail: {
-              stage: "sign",
-              refreshed: true,
-              source: "handleSignStageClick-error",
-            },
-          });
-          window.dispatchEvent(event);
-        });
+      // Signature state is managed by SignatureManager - no manual operations needed
     } else {
       // Fallback if no contract ID
       const event = new CustomEvent("stageChange", {
@@ -1038,30 +790,7 @@ export function ContractEditor({
         signedAt: new Date().toISOString(),
       };
 
-      // Try to save to localStorage with error handling for quota issues
-      try {
-        localStorage.setItem(
-          `contract-designer-signature-${contractId}`,
-          JSON.stringify(signatureData)
-        );
-      } catch (storageError) {
-        console.warn("localStorage quota exceeded, clearing space...");
-
-        // Clear other items related to this contract to make space
-        if (clearLocalStorageSpace(contractId)) {
-          // Try again
-          try {
-            localStorage.setItem(
-              `contract-designer-signature-${contractId}`,
-              JSON.stringify(signatureData)
-            );
-          } catch (retryError) {
-            console.error(
-              "Still failed to save signature to localStorage after clearing space"
-            );
-          }
-        }
-      }
+      // SIMPLIFIED: No localStorage - only Firestore
 
       // Save to Firestore
       const firestoreSignature = {
@@ -1072,28 +801,38 @@ export function ContractEditor({
         name,
       };
 
-      const result = await saveSignature(
+      const result = await saveSignatureToManager(
         contractId,
         "designer",
         firestoreSignature
       );
-      if (result.error) {
-        throw new Error(result.error);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to save signature");
       }
 
-      // Update local state
-      setDesignerSignature({
-        ...firestoreSignature,
-        signedAt: { toDate: () => firestoreSignature.signedAt },
-      });
-      setHasSignature(true);
-      setIsLocked(true);
+      // State is now managed by SignatureManager - no local updates needed
 
       // Update contract status
       await updateContractStatus(contractId, {
         status: "signed",
         updatedAt: new Date().toISOString(),
       });
+
+      // Invalidate signature cache to ensure fresh state
+      const { signatureManager } = await import(
+        "@/lib/signature/SignatureManager"
+      );
+      signatureManager.invalidateCache(contractId);
+
+      // Dispatch signature state change event
+      const signatureEvent = new CustomEvent("signatureStateChanged", {
+        detail: {
+          contractId,
+          hasDesignerSignature: true,
+          source: "handleSignatureComplete",
+        },
+      });
+      window.dispatchEvent(signatureEvent);
 
       // Trigger stage change to send
       const event = new CustomEvent("stageChange", { detail: "send" });
@@ -1270,7 +1009,9 @@ export function ContractEditor({
       window.dispatchEvent(event);
       return;
     }
-    setIsUnsignModalOpen(true);
+    // If designer signature exists, redirect to sign stage to handle unsigning
+    const event = new CustomEvent("stageChange", { detail: "sign" });
+    window.dispatchEvent(event);
   };
 
   // Handle when top buttons are clicked to navigate between stages
@@ -1284,8 +1025,9 @@ export function ContractEditor({
 
     // If designer signature exists, prompt to remove it before editing
     if (hasDesignerSig) {
-      // Open the unsign confirmation modal instead of proceeding
-      setIsUnsignModalOpen(true);
+      // Redirect to sign stage to handle unsigning
+      const event = new CustomEvent("stageChange", { detail: "sign" });
+      window.dispatchEvent(event);
       return;
     }
 
@@ -1300,8 +1042,7 @@ export function ContractEditor({
     // Set flag to indicate this was an explicit edit button click
     localStorage.setItem("explicit-edit-click", "true");
 
-    // Force unlock when going to edit mode
-    setIsLocked(false);
+    // Lock state is managed by SignatureManager
 
     // Force unlock the editor if it exists
     if (editorRef.current) {
@@ -1383,9 +1124,14 @@ export function ContractEditor({
       const source = e.detail?.source || "unknown";
       console.log(`📝 Unsign request received from: ${source}`);
 
-      // If user has a signature, show unsign modal
+      // LEGAL PROTECTION: If user has a signature, show confirmation before unsigning
       if (designerSignature) {
-        setIsUnsignModalOpen(true);
+        console.log(
+          "🚨 LEGAL BLOCK: Signature present, showing unsign confirmation"
+        );
+
+        // Show our custom modal instead of browser confirm
+        setShowUnsignModal(true);
       } else {
         // No signature, can safely go to edit mode
         const event = new CustomEvent("stageChange", {
@@ -1412,6 +1158,17 @@ export function ContractEditor({
     };
   }, [designerSignature]);
 
+  // Modal handlers for unsign confirmation
+  const handleUnsignConfirm = () => {
+    setShowUnsignModal(false);
+    handleUnsign();
+  };
+
+  const handleUnsignCancel = () => {
+    setShowUnsignModal(false);
+    toast("Signature removal cancelled");
+  };
+
   // Listen for global stage change events
   useEffect(() => {
     const handleStageChange = (e: CustomEvent) => {
@@ -1422,14 +1179,9 @@ export function ContractEditor({
       const allowWithSignatures = e.detail?.allowWithSignatures === true;
       const source = e.detail?.source || "unknown";
 
-      console.log(
-        `📝 Stage change event received: ${newStage} (source: ${source})`
-      );
-
       // Handle any transition to edit mode
       if (newStage === "edit") {
-        // Force unlock the editor explicitly
-        setIsLocked(false);
+        // Lock state is managed by SignatureManager
 
         // If we have a valid editor reference, unlock it
         if (editorRef.current) {
@@ -1569,7 +1321,7 @@ export function ContractEditor({
             {isLocked && (
               <>
                 {/* Prominent top bar indicator */}
-                <div className="absolute top-0 left-0 right-0 bg-gray-100 border-y border-gray-200 p-3 flex items-center justify-center z-[2]">
+                <div className="absolute top-0 left-0 right-0 bg-gray-100 border-y border-gray-200 p-3 flex items-center justify-center z-10">
                   <div className="flex items-center gap-2">
                     <LockClosedIcon className="h-5 w-5 text-gray-600" />
                     <span className="text-sm font-medium text-gray-700">
@@ -1587,8 +1339,8 @@ export function ContractEditor({
             />
           </div>
 
-          {/* Signatures Display */}
-          {(hasSignature || clientSignature) && (
+          {/* Signatures Display - Only show when there are actual signatures */}
+          {(designerSignature || clientSignature) && (
             <div
               className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4"
               style={{ zIndex: 99999 }}
@@ -1601,7 +1353,7 @@ export function ContractEditor({
                       <p className="font-medium text-gray-900">
                         Designer Signature
                       </p>
-                      {designerSignature ? (
+                      {designerSignature && (
                         <>
                           <p className="text-gray-500">
                             {designerSignature.name}
@@ -1617,10 +1369,6 @@ export function ContractEditor({
                             className="h-16 border-b border-gray-300 mt-2"
                           />
                         </>
-                      ) : (
-                        <p className="text-gray-400 text-xs">
-                          Not currently signed
-                        </p>
                       )}
                     </div>
                   </div>
@@ -1631,7 +1379,7 @@ export function ContractEditor({
                       <p className="font-medium text-gray-900">
                         Client Signature
                       </p>
-                      {clientSignature ? (
+                      {clientSignature && (
                         <>
                           <p className="text-gray-500">
                             {clientSignature.name}
@@ -1647,8 +1395,6 @@ export function ContractEditor({
                             className="h-16 border-b border-gray-300 mt-2"
                           />
                         </>
-                      ) : (
-                        <p className="text-gray-400 text-xs">Not signed yet</p>
                       )}
                     </div>
                   </div>
@@ -1662,7 +1408,7 @@ export function ContractEditor({
         {!showSuccess && (
           <div
             className="fixed right-8 top-32 w-80 bg-white rounded-lg shadow-sm flex flex-col"
-            style={{ zIndex: 99998, height: "calc(100vh - 180px)" }}
+            style={{ zIndex: 20, height: "calc(100vh - 180px)" }}
           >
             {stage === "edit" && (
               <ContractAudit
@@ -1719,36 +1465,48 @@ export function ContractEditor({
         }
       `}</style>
 
+      {/* Unsign Confirmation Modal */}
       <Modal
-        isOpen={isUnsignModalOpen}
-        onClose={() => setIsUnsignModalOpen(false)}
-        title="Unsign Contract"
+        isOpen={showUnsignModal}
+        onClose={handleUnsignCancel}
+        title="Remove Signature"
+        onConfirm={handleUnsignConfirm}
+        confirmText="Remove Signature"
+        confirmButtonStyle="bg-red-600 hover:bg-red-700 text-white"
+        cancelText="Cancel"
       >
-        <div className="p-6">
-          <p className="text-gray-600 mb-4">
-            To edit this contract, you must first remove your signature.
-            <span className="font-medium">
-              {" "}
-              Once you edit the contract, you will need to sign it again.
-            </span>
-          </p>
-          <p className="text-gray-500 mb-4 text-sm">
-            Editing a signed contract invalidates the previous signature since
-            the content is changing.
-          </p>
-          <div className="flex justify-end gap-4">
-            <button
-              onClick={() => setIsUnsignModalOpen(false)}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleUnsignConfirm}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              Remove Signature
-            </button>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-8 w-8 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Legal Warning
+              </h3>
+              <p className="text-sm text-gray-500">
+                This action has legal implications
+              </p>
+            </div>
+          </div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+            <p className="text-sm text-yellow-800">
+              This contract has been signed. Removing the signature will allow
+              editing but may have legal implications. Are you sure you want to
+              remove your signature?
+            </p>
           </div>
         </div>
       </Modal>

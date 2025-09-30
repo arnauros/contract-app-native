@@ -548,16 +548,27 @@ export default function Dashboard() {
 
             stats.total++;
 
-            // Determine contract status based on signatures
-            if (designerSignature.exists() && clientSignature.exists()) {
+            // Use the actual contract status from Firestore, but fallback to signature-based logic
+            const actualStatus = contract.status;
+
+            if (actualStatus === "signed") {
               stats.completed++;
               contract.status = "signed";
-            } else if (designerSignature.exists()) {
+            } else if (actualStatus === "pending") {
               stats.pendingClient++;
               contract.status = "pending";
             } else {
-              stats.pendingMe++;
-              contract.status = "draft";
+              // Fallback to signature-based logic for contracts without explicit status
+              if (designerSignature.exists() && clientSignature.exists()) {
+                stats.completed++;
+                contract.status = "signed";
+              } else if (designerSignature.exists()) {
+                stats.pendingClient++;
+                contract.status = "pending";
+              } else {
+                stats.pendingMe++;
+                contract.status = "draft";
+              }
             }
 
             contractsList.push(contract);
@@ -576,21 +587,44 @@ export default function Dashboard() {
       setStats(stats);
       setContracts(contractsList);
 
-      // Fetch invoices for this user
+      // Fetch invoices for this user using a more efficient approach
       try {
-        const invoicesRef = collection(firestore, "invoices");
-        const userInvoices = query(
-          invoicesRef,
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc")
-        );
-        const invoicesSnap = await getDocs(userInvoices);
-        const list: any[] = [];
-        invoicesSnap.forEach((d) => {
-          const data = d.data();
-          list.push({ id: d.id, ...data });
-        });
-        setInvoices(list);
+        console.log(`Fetching invoices for user: ${user.uid}`);
+
+        // Try to get invoices using a direct query first
+        try {
+          const invoicesRef = collection(firestore, "invoices");
+          const userInvoices = query(
+            invoicesRef,
+            where("userId", "==", user.uid)
+          );
+          const invoicesSnap = await getDocs(userInvoices);
+          const list: any[] = [];
+
+          invoicesSnap.forEach((d) => {
+            const data = d.data();
+            list.push({ id: d.id, ...data });
+          });
+
+          // Sort by createdAt manually
+          list.sort((a, b) => {
+            const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+            const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+            return bTime.getTime() - aTime.getTime();
+          });
+
+          console.log(`Fetched ${list.length} invoices for user ${user.uid}`);
+          setInvoices(list);
+        } catch (queryError) {
+          console.log("Query failed, trying alternative approach:", queryError);
+
+          // Fallback: try to read individual invoices if we know their IDs
+          // For now, just set empty array and let the user know
+          console.log(
+            "Invoice query failed - user may need subscription_debug flag set"
+          );
+          setInvoices([]);
+        }
       } catch (e) {
         console.log("Invoice fetch failed", e);
         setInvoices([]);
@@ -1506,7 +1540,9 @@ export default function Dashboard() {
                       </button>
                       {inv.status === "draft" && (
                         <button
-                          onClick={() => router.push(`/Invoices/${inv.id}`)}
+                          onClick={() =>
+                            router.push(`/Invoices/${inv.id}/edit`)
+                          }
                           className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
                           title="Edit Invoice"
                         >

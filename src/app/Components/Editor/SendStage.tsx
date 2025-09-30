@@ -272,53 +272,9 @@ export function SendStage({ onSend, title }: SendStageProps) {
         // Continue with localStorage fallback
       }
 
-      // 2. Fall back to localStorage if needed
-      if (!designerSignature) {
-        const savedDesignerSignature = localStorage.getItem(
-          `contract-designer-signature-${contractId}`
-        );
-        if (savedDesignerSignature) {
-          try {
-            const parsedData = JSON.parse(savedDesignerSignature);
-            designerSignature = parsedData.signature || "";
-            designerName = parsedData.name || "Designer";
-            designerDate = parsedData.signedAt
-              ? new Date(parsedData.signedAt).toLocaleDateString()
-              : new Date().toLocaleDateString();
-          } catch (e) {
-            console.error(
-              "Error parsing designer signature from localStorage:",
-              e
-            );
-          }
-        } else {
-          // Legacy fallback
-          designerSignature = localStorage.getItem("contract-signature") || "";
-          designerName = user?.displayName || "Designer";
-          designerDate = new Date().toLocaleDateString();
-        }
-      }
+      // SIMPLIFIED: No localStorage fallback - only Firestore
 
-      if (!clientSignature) {
-        const savedClientSignature = localStorage.getItem(
-          `client-signature-${contractId}`
-        );
-        if (savedClientSignature) {
-          try {
-            const parsedData = JSON.parse(savedClientSignature);
-            clientSignature = parsedData.signature || "";
-            clientName = parsedData.name || "Client";
-            clientDate = parsedData.signedAt
-              ? new Date(parsedData.signedAt).toLocaleDateString()
-              : "";
-          } catch (e) {
-            console.error(
-              "Error parsing client signature from localStorage:",
-              e
-            );
-          }
-        }
-      }
+      // SIMPLIFIED: No localStorage fallback for client signature
 
       // Also check contract meta for recipient info
       if (!clientName) {

@@ -6,6 +6,7 @@ import Modal from "@/app/Components/Modal";
 import { toast } from "react-hot-toast";
 import { FiMenu } from "react-icons/fi";
 import { useSidebar } from "@/lib/context/SidebarContext";
+import { useCanEditContract } from "@/lib/hooks/useSignatureState";
 import { getSignatures } from "@/lib/firebase/firestore";
 import UsersDisplay from "@/app/Components/UsersDisplay";
 import useActiveUsers from "@/lib/hooks/useActiveUsers";
@@ -127,6 +128,9 @@ export default function Topbar({ pathname }: TopbarProps) {
   const contractId = params?.id as string;
   const { activeUsers } = useActiveUsers(contractId);
 
+  // Centralized signature state management
+  const { canEdit, reason, isLoading } = useCanEditContract(contractId);
+
   // Initialize stage from localStorage on load
   useEffect(() => {
     const contractId = params?.id;
@@ -138,7 +142,6 @@ export default function Topbar({ pathname }: TopbarProps) {
           savedStage === "sign" ||
           savedStage === "send")
       ) {
-        console.log("🎭 Initializing stage from localStorage:", savedStage);
         setCurrentStage(savedStage as "edit" | "sign" | "send");
       }
     }
@@ -184,7 +187,6 @@ export default function Topbar({ pathname }: TopbarProps) {
       // Set transition flag
       setIsTransitioning(true);
 
-      console.log("🎭 Stage change:", newStage);
       setCurrentStage(newStage as "edit" | "sign" | "send");
 
       // Also save the current stage to localStorage for persistence
@@ -211,9 +213,8 @@ export default function Topbar({ pathname }: TopbarProps) {
     };
   }, [handleStageChange]);
 
-  // Navigation rules with signature checking
+  // Navigation rules with centralized signature checking - LEGAL WORKFLOW PROTECTION
   const handleBackClick = async () => {
-    const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
     // Handle navigation based on current stage
@@ -222,43 +223,24 @@ export default function Topbar({ pathname }: TopbarProps) {
       const event = new CustomEvent("stageChange", { detail: "sign" });
       window.dispatchEvent(event);
     } else if (currentStage === "sign") {
-      // Check for designer signature before going from sign to edit
-      try {
-        // Check both localStorage and Firestore for signatures
-        const localSignature = localStorage.getItem(
-          `contract-designer-signature-${contractId}`
+      // Use centralized signature checking
+      if (!canEdit) {
+        console.log("🚨 LEGAL BLOCK:", reason);
+        toast.error(
+          reason ||
+            "Cannot edit signed contract. Remove signature first to edit."
         );
 
-        // Check if we have a designer signature
-        let hasDesignerSignature = !!localSignature;
+        // Show the unsign modal/prompt instead of allowing navigation
+        const event = new CustomEvent("requestUnsignPrompt", {
+          detail: { source: "topbar-back-blocked" },
+        });
+        window.dispatchEvent(event);
 
-        // Also check Firestore if needed
-        if (!hasDesignerSignature && contractId) {
-          try {
-            const firestoreSignatures = await getSignatures(contractId);
-            if (firestoreSignatures.success) {
-              hasDesignerSignature = !!firestoreSignatures.signatures.designer;
-            }
-          } catch (error) {
-            console.error("Error fetching signatures:", error);
-          }
-        }
-
-        // If designer has signed, send special event to trigger unsign modal
-        if (hasDesignerSignature) {
-          console.log("Designer signature present, need confirmation to edit");
-          const event = new CustomEvent("requestUnsignPrompt", {
-            detail: { source: "topbar-back" },
-          });
-          window.dispatchEvent(event);
-        } else {
-          // No signature, can safely go to edit mode
-          const event = new CustomEvent("stageChange", { detail: "edit" });
-          window.dispatchEvent(event);
-        }
-      } catch (error) {
-        console.error("Error checking signatures:", error);
-        // Default to normal behavior if there's an error
+        // DO NOT proceed with navigation - this is the key fix
+        return;
+      } else {
+        // Can safely go to edit mode
         const event = new CustomEvent("stageChange", { detail: "edit" });
         window.dispatchEvent(event);
       }
@@ -474,7 +456,29 @@ export default function Topbar({ pathname }: TopbarProps) {
             </div>
           )}
 
-          {/* User settings: avatar only on the right */}
+          {/* Navigation Controls */}
+          {isContractPage && (
+            <div className="flex gap-2">
+              {currentStage !== "edit" && (
+                <button
+                  onClick={handleBackClick}
+                  className="px-4 py-2 h-[40px] text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
+                >
+                  Back
+                </button>
+              )}
+              {currentStage !== "send" && (
+                <button
+                  onClick={handleNext}
+                  className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
+                >
+                  Next
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* User settings: avatar moved to furthest right */}
           <Link href="/settings" className="flex items-center">
             <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
               {user?.photoURL ? (
@@ -501,28 +505,6 @@ export default function Topbar({ pathname }: TopbarProps) {
               )}
             </div>
           </Link>
-
-          {/* Navigation Controls */}
-          {isContractPage && (
-            <div className="flex gap-2">
-              {currentStage !== "edit" && (
-                <button
-                  onClick={handleBackClick}
-                  className="px-4 py-2 h-[40px] text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
-                >
-                  Back
-                </button>
-              )}
-              {currentStage !== "send" && (
-                <button
-                  onClick={handleNext}
-                  className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
-                >
-                  Next
-                </button>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </header>

@@ -3,6 +3,7 @@ import "./globals.css";
 import { Roboto, Inter } from "next/font/google";
 import { Providers } from "./providers";
 import ClientWrapper from "./ClientWrapper";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Initialize fonts
 const roboto = Roboto({
@@ -80,6 +81,7 @@ export default function RootLayout({
         <Providers>
           <ClientWrapper>{children}</ClientWrapper>
         </Providers>
+        <SpeedInsights />
       </body>
     </html>
   );

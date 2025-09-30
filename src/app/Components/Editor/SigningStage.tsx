@@ -28,35 +28,12 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
       const contractId = window.location.pathname.split("/").pop();
       if (!contractId) return;
 
-      console.log("🖊️ SigningStage: Initial mount force refresh", {
-        hasInitialSignature,
-        designerSignature,
-      });
-
-      // Check localStorage as a fallback
-      const savedSignatureData = localStorage.getItem(
-        `contract-designer-signature-${contractId}`
-      );
-
-      const hasStoredSignature = !!savedSignatureData;
-
-      // If we have a signature from props or localStorage, update state
-      if (hasInitialSignature || hasStoredSignature) {
+      // SIMPLIFIED: Only use props - no localStorage
+      if (hasInitialSignature) {
         setIsSigned(true);
-
-        if (hasInitialSignature && designerSignature?.name) {
+        if (designerSignature?.name) {
           setName(designerSignature.name);
-        } else if (hasStoredSignature) {
-          try {
-            const parsedData = JSON.parse(savedSignatureData!);
-            if (parsedData && parsedData.name) {
-              setName(parsedData.name);
-            }
-          } catch (e) {
-            console.error("Error parsing saved signature data:", e);
-          }
         }
-
         // Force a component update
         forceRefreshKey.current = Date.now();
       }
@@ -70,67 +47,22 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
     const contractId = window.location.pathname.split("/").pop();
     if (!contractId) return;
 
-    console.log("🖊️ SigningStage: Checking signature state", {
-      designerSignature,
-      isSigned,
-      forceRefreshKey: forceRefreshKey.current,
-    });
-
     // Track whether we found a signature
     let foundSignature = false;
 
     // First check Firestore signature (from props)
     if (designerSignature) {
-      console.log("✅ Found signature in props:", designerSignature);
       setName(designerSignature.name || "");
       setIsSigned(true);
       foundSignature = true;
 
-      // Make sure this is also in localStorage for consistent state
-      try {
-        localStorage.setItem(
-          `contract-designer-signature-${contractId}`,
-          JSON.stringify({
-            signature: designerSignature.signature,
-            name: designerSignature.name,
-            signedAt: designerSignature.signedAt?.toDate?.() || new Date(),
-          })
-        );
-        console.log("✅ Saved signature from props to localStorage");
-      } catch (e) {
-        console.error("Error saving signature to localStorage:", e);
-      }
+      // SIMPLIFIED: No localStorage - only Firestore
     }
 
-    // If not in props, check localStorage as fallback (or as additional verification)
-    if (!foundSignature) {
-      try {
-        const savedSignature = localStorage.getItem(
-          `contract-designer-signature-${contractId}`
-        );
-
-        if (savedSignature) {
-          console.log("✅ Found signature in localStorage");
-          try {
-            const signatureData = JSON.parse(savedSignature);
-            setName(signatureData.name || "");
-            setIsSigned(true);
-            foundSignature = true;
-          } catch (parseError) {
-            console.error(
-              "Error parsing signature from localStorage:",
-              parseError
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error accessing localStorage:", error);
-      }
-    }
+    // SIMPLIFIED: No localStorage checks - only props
 
     // If no signature was found from any source, reset state
     if (!foundSignature) {
-      console.log("❌ No signature found from any source");
       setIsSigned(false);
       setName("");
 
@@ -337,20 +269,23 @@ export function SigningStage({ onSign, designerSignature }: SigningStageProps) {
             <CheckIcon className="h-6 w-6 text-green-600" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900">
-            Contract Already Signed
+            Contract Signed
           </h2>
           <p className="text-gray-600">
             This contract has been signed by {name}.
           </p>
           <p className="text-sm text-gray-500 mb-4">
-            You can proceed to send the contract
+            You can proceed to send the contract to your client.
           </p>
 
-          <div className="mt-4 text-sm text-gray-500">
-            <p>
-              To edit the contract, first remove your signature or go to the
-              Edit tab.
-            </p>
+          <div className="mt-6">
+            <button
+              onClick={handleReset}
+              disabled={isRemoving}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isRemoving ? "Removing..." : "Remove Signature"}
+            </button>
           </div>
         </div>
       </div>

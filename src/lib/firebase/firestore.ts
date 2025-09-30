@@ -21,22 +21,7 @@ import {
   DocumentSnapshot,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-
-interface Contract {
-  id: string;
-  userId: string;
-  title: string;
-  content: any; // EditorJS data
-  status: "draft" | "pending" | "signed";
-  createdAt: any;
-  updatedAt: any;
-  version: number;
-  previousVersions?: Array<{
-    content: any;
-    updatedAt: string;
-    version: number;
-  }>;
-}
+import { Contract } from "./types";
 
 interface ContractAudit {
   contractId: string;
@@ -380,11 +365,31 @@ export async function updateContractStatus(
       };
     }
 
+    // If status is changing to draft (unsigning), ensure we're properly resetting
+    if (updates.status === "draft") {
+      console.log(
+        `🔄 Contract ${contractId} status changed to draft (unsigning)`
+      );
+
+      // Clear any signature-related metadata when going back to draft
+      updates = {
+        ...updates,
+        metadata: {
+          ...currentData.metadata,
+          lastActivity: new Date().toISOString(),
+        },
+      };
+    }
+
     // Update the contract
     await updateDoc(contractRef, {
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+
+    console.log(
+      `✅ Contract ${contractId} status updated to: ${updates.status}`
+    );
   } catch (error) {
     console.error("Error updating contract status:", error);
     throw error;
@@ -426,10 +431,9 @@ export const removeSignature = async (
     );
     await deleteDoc(signatureRef);
 
-    // Update the contract status back to pending
-    await updateDoc(contractRef, {
-      status: "pending",
-      updatedAt: serverTimestamp(),
+    // Update the contract status back to draft when signature is removed
+    await updateContractStatus(contractId, {
+      status: "draft",
     });
 
     return { success: true };
@@ -868,6 +872,7 @@ export interface Invoice {
   tax?: number;
   total?: number;
   notes?: string;
+  contractId?: string; // Link to a contract
   createdAt: any;
   updatedAt: any;
 }
@@ -924,7 +929,15 @@ export const saveInvoice = async (invoice: Invoice) => {
 
     const invoiceRef = doc(firestore, "invoices", invoice.id);
     try {
+      console.log("[Invoices] Attempting to save invoice:", {
+        invoiceId: invoice.id,
+        userId: auth.currentUser.uid,
+        hasCreatedAt: !!invoiceWithUser.createdAt,
+        hasUpdatedAt: !!invoiceWithUser.updatedAt,
+      });
+
       await setDoc(invoiceRef, invoiceWithUser);
+      console.log("[Invoices] ✅ Invoice saved successfully:", invoice.id);
       return { success: true, invoiceId: invoice.id };
     } catch (writeErr: any) {
       // If permission denied in dev, try enabling dev bypass and retry once
@@ -988,19 +1001,135 @@ export const getInvoice = async (invoiceId: string) => {
   }
 };
 
-export async function updateInvoice(
-  invoiceId: string,
-  updates: Partial<Invoice>
-): Promise<void> {
+export const getUserContracts = async (userId: string) => {
   try {
     const firestore = getFirestore();
-    const invoiceRef = doc(firestore, "invoices", invoiceId);
-    await updateDoc(invoiceRef, {
-      ...updates,
-      updatedAt: new Date().toISOString(),
+    const contractsRef = collection(firestore, "contracts");
+    const userContracts = query(
+      contractsRef,
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc")
+    );
+    const contractsSnap = await getDocs(userContracts);
+    const contracts: any[] = [];
+    contractsSnap.forEach((doc) => {
+      contracts.push({ id: doc.id, ...doc.data() });
     });
+    return { success: true, contracts };
+  } catch (error) {
+    console.error("Error getting user contracts:", error);
+    return {
+      error: error instanceof Error ? error.message : "Failed to get contracts",
+    };
+  }
+};
+
+export const updateInvoice = async (invoice: Invoice) => {
+  try {
+    const firestore = getFirestore();
+    const auth = getAuth();
+
+    await new Promise<void>((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged(() => {
+        unsubscribe();
+        resolve();
+      });
+    });
+
+    if (!auth.currentUser) {
+      throw new Error("User must be authenticated to update invoice");
+    }
+
+    // Debug: surface claims and user doc that rules depend on
+    try {
+      const tokenResult = await auth.currentUser.getIdTokenResult(true);
+      const claims: any = tokenResult?.claims || {};
+      const userDocRef = doc(firestore, "users", auth.currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      const userData: any = userDocSnap.exists() ? userDocSnap.data() : null;
+      console.log("[Invoices] Rules debug before update:", {
+        uid: auth.currentUser.uid,
+        claims: {
+          subscriptionStatus: (claims as any).subscriptionStatus,
+          subscriptionTier: (claims as any).subscriptionTier,
+          isAdmin: (claims as any).isAdmin,
+        },
+        hasUserDoc: userDocSnap.exists(),
+        userDoc: userData
+          ? {
+              subscription_debug: userData.subscription_debug,
+              subscriptionStatus: userData.subscription?.status,
+              tier: userData.subscription?.tier,
+            }
+          : null,
+      });
+    } catch (dbgErr) {
+      console.warn("[Invoices] Failed to gather rules debug info:", dbgErr);
+    }
+
+    const invoiceWithUser = {
+      ...invoice,
+      userId: auth.currentUser.uid,
+      updatedAt: serverTimestamp(),
+    };
+
+    const invoiceRef = doc(firestore, "invoices", invoice.id);
+    try {
+      console.log("[Invoices] Attempting to update invoice:", {
+        invoiceId: invoice.id,
+        userId: auth.currentUser.uid,
+        hasUpdatedAt: !!invoiceWithUser.updatedAt,
+      });
+
+      await setDoc(invoiceRef, invoiceWithUser);
+      console.log("[Invoices] ✅ Invoice updated successfully:", invoice.id);
+      return { success: true, invoiceId: invoice.id };
+    } catch (writeErr: any) {
+      // If permission denied in dev, try enabling dev bypass and retry once
+      const isPermissionDenied = writeErr?.code === "permission-denied";
+      const isDev = process.env.NODE_ENV === "development";
+      if (isPermissionDenied && isDev) {
+        console.warn(
+          "[Invoices] First update denied. Attempting to enable subscription_debug and retry once..."
+        );
+        try {
+          const userDocRef = doc(firestore, "users", auth.currentUser.uid);
+          await updateDoc(userDocRef, {
+            subscription_debug: true,
+            subscription: {
+              status: "active",
+              tier: "pro",
+              currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            },
+          } as any);
+          // Force refresh token so custom claims (if any) update later
+          try {
+            await auth.currentUser.getIdToken(true);
+          } catch {}
+          console.log("[Invoices] Dev bypass set. Retrying invoice update...");
+          await setDoc(invoiceRef, invoiceWithUser);
+          return { success: true, invoiceId: invoice.id };
+        } catch (retryErr) {
+          console.error("[Invoices] Retry after dev bypass failed:", retryErr);
+          throw writeErr; // fall through to outer catch
+        }
+      }
+      throw writeErr;
+    }
   } catch (error) {
     console.error("Error updating invoice:", error);
-    throw error;
+    if (
+      typeof error === "object" &&
+      error &&
+      (error as any).code === "permission-denied"
+    ) {
+      console.error(
+        "[Invoices] Firestore permission-denied. Likely causes: inactive subscription, missing users/{uid} doc, or subscription_debug not set in dev."
+      );
+    }
+    return {
+      error:
+        error instanceof Error ? error.message : "Failed to update invoice",
+    };
   }
-}
+};

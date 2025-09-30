@@ -143,7 +143,6 @@ export class ContractStatusManager {
       }
 
       await updateDoc(contractRef, updateData);
-      console.log(`✅ Synced status "${statusToSync}" to Firestore`);
     } catch (error) {
       console.error("Error syncing to Firestore:", error);
       throw error;
@@ -216,8 +215,6 @@ export class ContractStatusManager {
         `contract-status-${this.contractId}`,
         JSON.stringify(statusData)
       );
-
-      console.log(`✅ Synced status "${status}" to localStorage`);
     } catch (error) {
       console.error("Error syncing to localStorage:", error);
     }

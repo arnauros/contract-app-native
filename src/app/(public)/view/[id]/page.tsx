@@ -1716,7 +1716,7 @@ export default function ViewPage() {
 
         {/* Modals and Overlays - Highest z-index */}
         {showSignatureModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100]">
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[99999]">
             <div className="bg-white rounded-xl p-8 w-[450px] max-w-[90%] relative shadow-xl">
               {/* Close button */}
               <button
@@ -1955,7 +1955,7 @@ export default function ViewPage() {
 
                 return (
                   <div
-                    className="fixed z-[60]"
+                    className="fixed z-20"
                     style={{
                       left: `${safeX}px`,
                       top: `${safeY}px`,

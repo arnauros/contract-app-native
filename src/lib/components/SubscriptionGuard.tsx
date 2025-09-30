@@ -104,21 +104,16 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Don't do anything while loading
     if (authLoading || subscriptionLoading) {
-      console.log("SubscriptionGuard: Still loading, skipping access check");
       return;
     }
 
     // If we've already checked access, don't repeat
     if (accessChecked) {
-      console.log(
-        `SubscriptionGuard: Access already checked, hasAccess: ${hasAccess}`
-      );
       return;
     }
 
     // If no user, redirect to login
     if (!user) {
-      console.log("SubscriptionGuard: No user, redirecting to login");
       router.push("/login");
       return;
     }
@@ -126,10 +121,7 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
     // First, check the cookie directly - this is the fastest way and accounts for
     // the case where a user cancels and resubscribes
     const cookieAccess = hasCookieAccess();
-    console.log(`SubscriptionGuard: Cookie access check: ${cookieAccess}`);
-
     if (cookieAccess) {
-      console.log("SubscriptionGuard: Access granted via cookie");
       setHasAccess(true);
       setAccessChecked(true);
       return;

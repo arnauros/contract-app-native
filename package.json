@@ -62,6 +62,7 @@
     "@types/formidable": "^3.4.5",
     "@types/pdfkit": "^0.13.9",
     "@types/react-signature-canvas": "^1.0.6",
+    "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.7.7",
     "canvas-confetti": "^1.9.3",
     "chart.js": "^4.4.9",

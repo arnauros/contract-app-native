@@ -11,18 +11,14 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // Simple debug logging
-  useEffect(() => {
-    console.log("RouteGuard: ", { user: !!user, loading });
-  }, [user, loading]);
+  useEffect(() => {}, [user, loading]);
 
   // IMPORTANT: If loading is taking longer than 5 seconds, proceed anyway
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
     if (loading) {
-      timeoutId = setTimeout(() => {
-        console.log("RouteGuard: Loading timeout exceeded, proceeding anyway");
-      }, 5000);
+      timeoutId = setTimeout(() => {}, 5000);
     }
 
     return () => {

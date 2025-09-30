@@ -105,7 +105,7 @@ export function PinnedComment({
       {/* Comment popup - only shown when expanded */}
       {isExpanded && (
         <div
-          className="absolute top-8 left-0 bg-white rounded-lg shadow-lg w-72 z-[9999]"
+          className="absolute top-8 left-0 bg-white rounded-lg shadow-lg w-72 z-30"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-3 border-b border-gray-100">

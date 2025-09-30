@@ -8,6 +8,7 @@ interface ModalProps {
   children: React.ReactNode;
   onConfirm?: () => void;
   confirmText?: string;
+  confirmButtonStyle?: string;
   cancelText?: string;
 }
 
@@ -18,6 +19,7 @@ const Modal: React.FC<ModalProps> = ({
   children,
   onConfirm,
   confirmText = "Confirm",
+  confirmButtonStyle = "px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700",
   cancelText = "Cancel",
 }) => {
   if (!isOpen) return null;
@@ -39,7 +41,7 @@ const Modal: React.FC<ModalProps> = ({
               </button>
               <button
                 onClick={onConfirm}
-                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className={confirmButtonStyle}
               >
                 {confirmText}
               </button>

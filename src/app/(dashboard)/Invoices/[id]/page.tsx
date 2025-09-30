@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getInvoice } from "@/lib/firebase/firestore";
+import { getInvoice, getContract } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/hooks/useAuth";
 import toast from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import { Edit, ArrowLeft } from "lucide-react";
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -13,6 +15,7 @@ export default function InvoiceDetailPage() {
   const { id } = (params as any) || {};
 
   const [invoice, setInvoice] = useState<any | null>(null);
+  const [contract, setContract] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,7 +26,20 @@ export default function InvoiceDetailPage() {
         if ((res as any).error) {
           toast.error((res as any).error);
         } else {
-          setInvoice((res as any).invoice);
+          const invoiceData = (res as any).invoice;
+          setInvoice(invoiceData);
+
+          // Load contract details if linked
+          if (invoiceData.contractId) {
+            try {
+              const contractRes = await getContract(invoiceData.contractId);
+              if ((contractRes as any).success) {
+                setContract((contractRes as any).contract);
+              }
+            } catch (contractError) {
+              console.log("Failed to load contract details:", contractError);
+            }
+          }
         }
       } catch (e) {
         toast.error("Failed to load invoice");
@@ -45,8 +61,26 @@ export default function InvoiceDetailPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{invoice.title || "Invoice"}</h1>
-        <div className="text-sm text-gray-500">Status: {invoice.status}</div>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-2xl font-semibold">
+            {invoice.title || "Invoice"}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-gray-500">Status: {invoice.status}</div>
+          <Button onClick={() => router.push(`/Invoices/${id}/edit`)} size="sm">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
@@ -139,6 +173,59 @@ export default function InvoiceDetailPage() {
           }).format(invoice.total || 0)}
         </div>
       </div>
+      {invoice.contractId && (
+        <div>
+          <h3 className="font-medium mb-1">Linked Contract</h3>
+          <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="font-medium">
+                  {contract?.title ||
+                    `Contract ${invoice.contractId.slice(0, 8)}`}
+                </p>
+                <div className="text-xs text-gray-500 mt-1 space-y-1">
+                  <p>ID: {invoice.contractId}</p>
+                  {contract?.status && (
+                    <p className="capitalize">
+                      Status:{" "}
+                      <span
+                        className={`font-medium ${
+                          contract.status === "signed"
+                            ? "text-green-600"
+                            : contract.status === "pending"
+                            ? "text-yellow-600"
+                            : contract.status === "draft"
+                            ? "text-gray-500"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {contract.status}
+                      </span>
+                    </p>
+                  )}
+                  {contract?.clientName && <p>Client: {contract.clientName}</p>}
+                  {contract?.createdAt && (
+                    <p>
+                      Created:{" "}
+                      {contract.createdAt.toDate?.()?.toLocaleDateString() ||
+                        new Date(contract.createdAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/Contracts/${invoice.contractId}`)}
+                className="ml-4"
+              >
+                View Contract
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {invoice.notes && (
         <div>
           <h3 className="font-medium mb-1">Notes</h3>

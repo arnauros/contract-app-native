@@ -36,7 +36,6 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log("ClientApp mounted, pathname:", pathname);
     hasMounted.current = true;
 
     if (typeof window !== "undefined") {
@@ -55,7 +54,6 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
     }
 
     return () => {
-      console.log("ClientApp unmounting");
       if (typeof window !== "undefined") {
         CLIENT_APP_MOUNTED = false;
       }
@@ -84,11 +82,6 @@ export default function ClientApp({ children }: { children: React.ReactNode }) {
   // Log whether this route requires subscription - only log once
   useEffect(() => {
     if (!hasMounted.current) return;
-
-    console.log("Route protection:", {
-      path: pathname,
-      requiresSubscription: isSubscriptionProtectedRoute,
-    });
   }, [pathname, isSubscriptionProtectedRoute]);
 
   // If in a subscription-protected route, wrap with SubscriptionGuard
