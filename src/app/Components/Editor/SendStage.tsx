@@ -109,6 +109,7 @@ export function SendStage({ onSend, title }: SendStageProps) {
         recipientName: clientName,
         viewToken: viewToken,
         sentAt: serverTimestamp(),
+        designerEmail: user.email, // Store designer email for notifications
       });
 
       // Send the email using Firebase function

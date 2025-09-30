@@ -27,7 +27,7 @@
     "test:firebase": "node -r dotenv/config --experimental-specifier-resolution=node --loader ts-node/esm src/lib/firebase/test.ts"
   },
   "dependencies": {
-    "@editorjs/editorjs": "^2.30.6",
+    "@editorjs/editorjs": "^2.31.0",
     "@editorjs/header": "^2.8.8",
     "@editorjs/image": "^2.10.0",
     "@editorjs/list": "^1.10.0",

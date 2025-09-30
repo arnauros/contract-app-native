@@ -326,6 +326,27 @@ export default function PublicContractViewPage() {
       setShowSignatureModal(false);
       toast.success("Contract signed successfully!");
 
+      // Send notification to designer about client signature
+      try {
+        const { notifyDesignerClientSigned } = await import(
+          "@/lib/email/notifications"
+        );
+        const notificationResult = await notifyDesignerClientSigned(
+          id,
+          signerName
+        );
+        if (notificationResult.success) {
+          console.log("✅ Designer notified about client signature");
+        } else {
+          console.warn(
+            "⚠️ Failed to notify designer:",
+            notificationResult.error
+          );
+        }
+      } catch (notificationError) {
+        console.warn("⚠️ Error sending notification:", notificationError);
+      }
+
       // Refresh page to update UI
       window.location.reload();
     } catch (error) {

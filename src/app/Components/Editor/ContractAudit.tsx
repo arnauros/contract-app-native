@@ -333,26 +333,16 @@ export function ContractAudit({
 
   // Handle applying a suggestion with AI improvement
   const handleApplySuggestion = async (index: number) => {
-    console.log("🎯 Sparkle icon clicked for index:", index);
     const issue = auditData?.issues[index];
-    console.log("📋 Issue data:", issue);
 
     if (!issue) {
-      console.error("❌ Issue not found at index:", index);
       toast.error("Suggestion not found");
       return;
     }
 
-    console.log("🔍 Checking conditions:", {
-      hasTargetText: !!issue.targetText,
-      hasOnFixClick: !!onFixClick,
-      targetText: issue.targetText,
-    });
-
     // Check if we have targetText for AI improvement
     if (issue.targetText && onFixClick) {
       try {
-        console.log("🚀 Calling AI text improvement...");
         // Call the AI text improvement function from ContractEditor
         await onFixClick(issue, index);
 
@@ -362,13 +352,11 @@ export function ContractAudit({
           ...prev,
           { action: "apply", index, timestamp: Date.now() },
         ]);
-        console.log("✅ AI suggestion applied successfully");
       } catch (error) {
-        console.error("❌ Error applying AI suggestion:", error);
+        console.error("Error applying AI suggestion:", error);
         toast.error("Failed to apply AI suggestion");
       }
     } else {
-      console.log("⚠️ Falling back to simple application");
       // Fallback to simple application without AI
       setAppliedSuggestions((prev) => new Set([...prev, index]));
       setSuggestionHistory((prev) => [
@@ -463,14 +451,6 @@ export function ContractAudit({
 
       const data = await response.json();
       console.log("📊 Fresh audit data received:", data);
-      console.log(
-        "🔍 Issues with targetText:",
-        data.issues?.map((issue: any) => ({
-          text: issue.text,
-          targetText: issue.targetText,
-          hasTargetText: !!issue.targetText,
-        }))
-      );
 
       // Save to Firestore first to ensure persistence
       if (contractId) {
@@ -771,13 +751,6 @@ export function ContractAudit({
                       (i) => i === issue
                     );
                     const isApplied = appliedSuggestions.has(originalIndex);
-                    console.log("🔍 Suggestion state:", {
-                      originalIndex,
-                      isApplied,
-                      issueText: issue.text,
-                      hasTargetText: !!issue.targetText,
-                      targetText: issue.targetText,
-                    });
                     return (
                       <div
                         key={index}
@@ -840,10 +813,6 @@ export function ContractAudit({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    console.log(
-                                      "✨ Sparkle button clicked for originalIndex:",
-                                      originalIndex
-                                    );
                                     handleApplySuggestion(originalIndex);
                                   }}
                                   className="p-1 text-gray-600 hover:bg-gray-100 rounded group"

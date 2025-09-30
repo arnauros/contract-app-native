@@ -248,6 +248,110 @@ body {
   padding: 0.6em 0 1rem !important;
 }
 
+/* EditorJS dropdown and toolbar styling */
+.ce-toolbar__settings-btn {
+  font-size: 14px !important;
+}
+
+.ce-toolbar__settings-btn[data-level="1"] {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.ce-toolbar__settings-btn[data-level="2"] {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+}
+
+/* Settings dropdown items */
+.ce-toolbar__settings {
+  font-size: 14px !important;
+}
+
+.ce-toolbar__settings [data-level="1"] {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.ce-toolbar__settings [data-level="2"] {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+}
+
+/* Alternative selectors for EditorJS dropdown */
+.codex-editor .ce-toolbar__settings-btn {
+  font-size: 14px !important;
+}
+
+.codex-editor .ce-toolbar__settings-btn[data-level="1"] {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Header block styling */
+.ce-header[data-level="1"] {
+  font-size: 2em !important;
+  font-weight: bold !important;
+}
+
+.ce-header[data-level="2"] {
+  font-size: 1.5em !important;
+  font-weight: 600 !important;
+}
+
+/* Comprehensive EditorJS dropdown styling - catch all possible selectors */
+.codex-editor [data-level="1"],
+.codex-editor .ce-toolbar__settings-btn[data-level="1"],
+.codex-editor .ce-toolbar__settings [data-level="1"],
+.codex-editor .ce-settings__button[data-level="1"],
+.codex-editor .ce-popover__item[data-level="1"] {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.codex-editor [data-level="2"],
+.codex-editor .ce-toolbar__settings-btn[data-level="2"],
+.codex-editor .ce-toolbar__settings [data-level="2"],
+.codex-editor .ce-settings__button[data-level="2"],
+.codex-editor .ce-popover__item[data-level="2"] {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+}
+
+/* Force larger text for any H1 references in dropdowns */
+.codex-editor .ce-toolbar__settings,
+.codex-editor .ce-popover,
+.codex-editor .ce-settings {
+  font-size: 14px !important;
+}
+
+/* Target specific dropdown items by text content */
+.codex-editor .ce-toolbar__settings [data-level="1"],
+.codex-editor .ce-popover [data-level="1"],
+.codex-editor .ce-settings [data-level="1"] {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Additional selectors for EditorJS dropdown elements */
+.codex-editor .ce-toolbar__settings-btn,
+.codex-editor .ce-toolbar__settings,
+.codex-editor .ce-popover,
+.codex-editor .ce-settings {
+  font-family: inherit !important;
+}
+
+/* Target the actual dropdown items */
+.codex-editor .ce-toolbar__settings [data-level="1"] *,
+.codex-editor .ce-popover [data-level="1"] *,
+.codex-editor .ce-settings [data-level="1"] * {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Force styling on all elements containing "H1" text */
+/* Note: :contains() is not a valid CSS selector, so these styles are handled via JavaScript */
+
 .ce-toolbar__actions {
   padding-right: 10px !important;
 }

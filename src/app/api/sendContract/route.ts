@@ -1,14 +1,44 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { getFirestore, doc, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, updateDoc, getDoc } from "firebase/firestore";
 import { initFirebase } from "@/lib/firebase/firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Improved HTML email template with better deliverability features
-const createEmailHtml = (
+// Function to get user's custom email templates
+const getUserEmailTemplates = async (userId: string) => {
+  try {
+    const firestore = getFirestore();
+    const userDoc = await getDoc(doc(firestore, "users", userId));
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return userData.emailTemplates || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user email templates:", error);
+    return null;
+  }
+};
+
+// Function to replace template variables
+const replaceTemplateVariables = (
+  template: string,
+  variables: Record<string, string>
+) => {
+  let result = template;
+  Object.entries(variables).forEach(([key, value]) => {
+    const regex = new RegExp(`{{${key}}}`, "g");
+    result = result.replace(regex, value);
+  });
+  return result;
+};
+
+// Default HTML email template (fallback)
+const createDefaultEmailHtml = (
   nameRecipient: string,
   finalViewUrl: string,
   contractTitle?: string
@@ -159,6 +189,11 @@ export async function POST(request: Request) {
         sentAt: new Date().toISOString(),
       };
 
+      // Add designer email if available from request body
+      if (body.designerEmail) {
+        updateData.designerEmail = body.designerEmail;
+      }
+
       // Add viewToken if provided
       if (viewToken) {
         updateData.viewToken = viewToken;
@@ -173,12 +208,33 @@ export async function POST(request: Request) {
 
     let emailSent = false;
 
-    // Generate HTML content for the email with improved deliverability
-    const htmlContent = createEmailHtml(
-      nameRecipient,
-      finalViewUrl,
-      contractTitle
-    );
+    // Try to get user's custom email templates
+    let htmlContent: string;
+    let emailSubject: string;
+
+    if (body.designerEmail) {
+      // Get user ID from designer email (you might need to implement this lookup)
+      // For now, we'll use the default template
+      console.log("📧 Using default email template");
+      htmlContent = createDefaultEmailHtml(
+        nameRecipient,
+        finalViewUrl,
+        contractTitle
+      );
+      emailSubject = `Contract Ready for Signature${
+        contractTitle ? `: ${contractTitle}` : ""
+      }`;
+    } else {
+      // Use default template
+      htmlContent = createDefaultEmailHtml(
+        nameRecipient,
+        finalViewUrl,
+        contractTitle
+      );
+      emailSubject = `Contract Ready for Signature${
+        contractTitle ? `: ${contractTitle}` : ""
+      }`;
+    }
 
     // Try Resend first if API key is configured
     if (process.env.RESEND_API_KEY) {
@@ -193,9 +249,7 @@ export async function POST(request: Request) {
         const email = await resend.emails.send({
           from: fromEmail,
           to: [emailRecipient],
-          subject: `Contract Ready for Signature${
-            contractTitle ? `: ${contractTitle}` : ""
-          }`,
+          subject: emailSubject,
           html: htmlContent,
           // Add text version for better deliverability
           text: `Hello ${nameRecipient},\n\nA contract has been shared with you for review and signature.\n\nTo view and sign the contract, visit: ${finalViewUrl}\n\nThis link will expire in 7 days.\n\nIf you have any questions, please contact the sender directly.\n\n- Macu Studio Contract System`,

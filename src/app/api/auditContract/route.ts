@@ -144,14 +144,29 @@ export async function POST(request: Request) {
                 "text": "Friendly suggestion for improvement",
                 "suggestion": "Specific enhancement to consider",
                 "section": "Payment"|"Timeline"|"Scope"|"Terms"|"General"|"Confidentiality",
-                "targetText": "exact text from contract to highlight (e.g., 'payment due within 30 days', 'client approval', 'scope creep')"
+                "targetText": "EXACT text from the contract that needs improvement - copy it word-for-word from the contract content above"
               }
             ]
           }`,
         },
         {
           role: "user",
-          content: JSON.stringify(blocks),
+          content: `Here is the complete contract content for analysis:
+
+${blocks
+  .map((block: any, index: number) => {
+    if (block.type === "paragraph") {
+      return `${index + 1}. ${block.data.text}`;
+    } else if (block.type === "header") {
+      return `\n## ${block.data.text}\n`;
+    } else if (block.type === "list") {
+      return block.data.items.map((item: string) => `- ${item}`).join("\n");
+    }
+    return "";
+  })
+  .join("\n")}
+
+Please analyze this complete contract and provide suggestions that consider the full context.`,
         },
       ],
       response_format: { type: "json_object" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import Modal from "@/app/Components/Modal";
 import { toast } from "react-hot-toast";
@@ -113,6 +113,7 @@ function SavingIndicator() {
 export default function Topbar({ pathname }: TopbarProps) {
   const { toggleSidebar } = useSidebar();
   const params = useParams();
+  const router = useRouter();
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
@@ -328,6 +329,50 @@ export default function Topbar({ pathname }: TopbarProps) {
     return "Dashboard / Contracts";
   };
 
+  // Get breadcrumb as JSX with clickable links
+  const getBreadcrumbJSX = () => {
+    if (pathname.startsWith("/Contracts/") && params?.id) {
+      return (
+        <>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Dashboard
+          </button>
+          <span className="text-gray-400 mx-2">/</span>
+          <span className="text-gray-500">#{params.id}</span>
+        </>
+      );
+    }
+    if (pathname === "/new") {
+      return (
+        <>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Dashboard
+          </button>
+          <span className="text-gray-400 mx-2">/</span>
+          <span className="text-gray-500">New Contract</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          Dashboard
+        </button>
+        <span className="text-gray-400 mx-2">/</span>
+        <span className="text-gray-500">Contracts</span>
+      </>
+    );
+  };
+
   // Helper function to get stage index
   const getStageIndex = (stage: "edit" | "sign" | "send") => {
     const stages = ["edit", "sign", "send"];
@@ -377,7 +422,7 @@ export default function Topbar({ pathname }: TopbarProps) {
       <div className="flex items-center justify-between h-14 px-4">
         <div className="flex items-center gap-4">
           {isContractPage && (
-            <span className="text-gray-500 text-sm">{getBreadcrumb()}</span>
+            <div className="text-sm">{getBreadcrumbJSX()}</div>
           )}
         </div>
         <div className="flex-1 flex justify-center">

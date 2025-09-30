@@ -447,6 +447,62 @@ export function ContractEditor({
           editor.readOnly.toggle();
         }
 
+        // Fix EditorJS dropdown styling
+        const fixEditorJSDropdownStyling = () => {
+          const observer = new MutationObserver(() => {
+            // Find all dropdown elements
+            const dropdowns = document.querySelectorAll(
+              ".ce-toolbar__settings, .ce-popover, .ce-settings"
+            );
+            dropdowns.forEach((dropdown) => {
+              // Target H1 elements in dropdowns
+              const h1Elements = dropdown.querySelectorAll('[data-level="1"]');
+              // Also find elements containing "H1 Heading 1" text
+              const allElements = dropdown.querySelectorAll("*");
+              allElements.forEach((element) => {
+                if (element.textContent?.includes("H1 Heading 1")) {
+                  h1Elements.push(element);
+                }
+              });
+              h1Elements.forEach((element) => {
+                (element as HTMLElement).style.fontSize = "16px";
+                (element as HTMLElement).style.fontWeight = "600";
+              });
+
+              // Target H2 elements in dropdowns
+              const h2Elements = dropdown.querySelectorAll('[data-level="2"]');
+              // Also find elements containing "H2 Heading 2" text
+              allElements.forEach((element) => {
+                if (element.textContent?.includes("H2 Heading 2")) {
+                  h2Elements.push(element);
+                }
+              });
+              h2Elements.forEach((element) => {
+                (element as HTMLElement).style.fontSize = "15px";
+                (element as HTMLElement).style.fontWeight = "500";
+              });
+            });
+          });
+
+          // Start observing changes
+          if (containerRef.current) {
+            observer.observe(containerRef.current, {
+              childList: true,
+              subtree: true,
+              attributes: true,
+            });
+          }
+
+          // Cleanup observer on component unmount
+          return () => observer.disconnect();
+        };
+
+        // Apply the fix
+        const cleanup = fixEditorJSDropdownStyling();
+
+        // Store cleanup function for later use
+        (editor as any)._dropdownStylingCleanup = cleanup;
+
         // Process content to replace placeholders with actual values
         if (companyName && editor && containerRef.current) {
           const paragraphs = containerRef.current.querySelectorAll(
@@ -549,6 +605,10 @@ export function ContractEditor({
 
     return () => {
       if (editorRef.current?.destroy) {
+        // Cleanup dropdown styling observer
+        if ((editorRef.current as any)._dropdownStylingCleanup) {
+          (editorRef.current as any)._dropdownStylingCleanup();
+        }
         editorRef.current.destroy();
         editorRef.current = null;
       }
@@ -565,6 +625,38 @@ export function ContractEditor({
         spread: 70,
         origin: { y: 0.6 },
       });
+
+      // Send completion notification
+      const contractId = window.location.pathname.split("/").pop();
+      if (contractId) {
+        const sendCompletionNotification = async () => {
+          try {
+            const { notifyContractComplete } = await import(
+              "@/lib/email/notifications"
+            );
+            const notificationResult = await notifyContractComplete(
+              contractId,
+              designerSignature.name || "Designer",
+              clientSignature.name || "Client"
+            );
+            if (notificationResult.success) {
+              console.log("✅ Completion notifications sent to both parties");
+            } else {
+              console.warn(
+                "⚠️ Failed to send completion notifications:",
+                notificationResult.error
+              );
+            }
+          } catch (notificationError) {
+            console.warn(
+              "⚠️ Error sending completion notifications:",
+              notificationError
+            );
+          }
+        };
+
+        sendCompletionNotification();
+      }
     }
   }, [designerSignature, clientSignature, showSuccess]);
 
@@ -840,6 +932,24 @@ export function ContractEditor({
 
       toast.success("Contract signed successfully!");
 
+      // Send notification to client about designer signature
+      try {
+        const { notifyClientDesignerSigned } = await import(
+          "@/lib/email/notifications"
+        );
+        const notificationResult = await notifyClientDesignerSigned(
+          contractId,
+          name
+        );
+        if (notificationResult.success) {
+          console.log("✅ Client notified about designer signature");
+        } else {
+          console.warn("⚠️ Failed to notify client:", notificationResult.error);
+        }
+      } catch (notificationError) {
+        console.warn("⚠️ Error sending notification:", notificationError);
+      }
+
       // Update status using centralized manager
       if (statusManager) {
         try {
@@ -1113,15 +1223,28 @@ export function ContractEditor({
   };
 
   const handleAITextReplacement = async (issue: any, originalIndex: number) => {
-    console.log("🚀 AI Text Replacement started:", { issue, originalIndex });
-
     if (!editorRef.current) {
-      console.log("❌ Editor not initialized");
       return;
     }
 
     try {
-      console.log("🌐 Calling OpenAI API...");
+      // Get full contract context
+      const editorData = await editorRef.current.save();
+      const fullContract = editorData.blocks
+        .map((block: any) => {
+          if (block.type === "paragraph") {
+            return block.data.text;
+          } else if (block.type === "header") {
+            return `## ${block.data.text}`;
+          } else if (block.type === "list") {
+            return block.data.items
+              .map((item: string) => `- ${item}`)
+              .join("\n");
+          }
+          return "";
+        })
+        .join("\n\n");
+
       // Call OpenAI API to get improved text
       const response = await fetch("/api/improve-text", {
         method: "POST",
@@ -1132,7 +1255,8 @@ export function ContractEditor({
           originalText: issue.targetText,
           suggestion: issue.suggestion,
           type: issue.type,
-          context: issue.targetText, // Use the target text as context
+          context: issue.targetText,
+          fullContract: fullContract,
         }),
       });
 
@@ -1141,77 +1265,51 @@ export function ContractEditor({
       }
 
       const { improvedText } = await response.json();
-      console.log("🤖 AI Response received:", improvedText);
-      console.log("🧹 Cleaned text:", improvedText.replace(/^"|"$/g, ""));
-
-      // Get current editor data
-      const editorData = await editorRef.current.save();
-      console.log("📝 Current editor data:", editorData);
-
-      // Find the block that contains the target text
+      const cleanedText = improvedText.replace(/^"|"$/g, "");
       const blockIndex = issue.position?.blockIndex;
+
       if (blockIndex === undefined || !editorData.blocks[blockIndex]) {
-        console.log("❌ Block index not found:", blockIndex);
         return;
       }
-
-      const targetBlock = editorData.blocks[blockIndex];
-      console.log("🎯 Target block:", targetBlock);
-
-      // Update the block with improved text
-      const updatedBlocks = [...editorData.blocks];
-      updatedBlocks[blockIndex] = {
-        ...targetBlock,
-        data: {
-          ...targetBlock.data,
-          text: improvedText.replace(/^"|"$/g, ""), // Remove surrounding quotes from AI response
-        },
-      };
-
-      console.log("📝 Updated block:", updatedBlocks[blockIndex]);
 
       // Show visual effect
       await showAITypingEffect(blockIndex);
 
-      // Update the editor with new data using a more reliable method
-      console.log("🔄 Updating editor with new blocks...");
-
-      // Method 1: Try to update the specific block directly
+      // Update the specific block directly
       try {
         const block = editorRef.current.blocks.getBlockByIndex(blockIndex);
         if (block) {
-          console.log("📝 Found block to update:", block);
-          await block.holder.dispatchEvent(
-            new Event("input", { bubbles: true })
-          );
-
-          // Update the block content
           const blockElement = block.holder.querySelector(
             '[contenteditable="true"]'
           );
           if (blockElement) {
-            blockElement.textContent = improvedText.replace(/^"|"$/g, "");
+            blockElement.textContent = cleanedText;
             blockElement.dispatchEvent(new Event("input", { bubbles: true }));
-            console.log("✅ Block updated directly");
           }
         }
       } catch (blockError) {
-        console.log(
-          "⚠️ Direct block update failed, trying render method:",
-          blockError
-        );
-
-        // Method 2: Fallback to render method
-        await editorRef.current.render({
-          blocks: updatedBlocks,
-        });
+        // Fallback to render method
+        const updatedBlocks = [...editorData.blocks];
+        updatedBlocks[blockIndex] = {
+          ...editorData.blocks[blockIndex],
+          data: {
+            ...editorData.blocks[blockIndex].data,
+            text: cleanedText,
+          },
+        };
+        await editorRef.current.render({ blocks: updatedBlocks });
       }
 
       // Save the changes
-      await saveContract();
-
+      const contractId = window.location.pathname.split("/").pop();
+      if (contractId) {
+        await saveContract({
+          id: contractId,
+          content: editorData,
+          updatedAt: new Date(),
+        });
+      }
       toast.success("AI suggestion applied!");
-      console.log("🎉 AI suggestion applied successfully!");
     } catch (error) {
       console.error("Error applying AI suggestion:", error);
       toast.error("Failed to apply AI suggestion");
@@ -1220,8 +1318,6 @@ export function ContractEditor({
 
   // Simplified AI text replacement - no complex animation needed
   const showAITypingEffect = async (blockIndex: number) => {
-    console.log("✨ Showing AI typing effect for block:", blockIndex);
-
     // Find the block element and add a subtle animation
     const editorElement = containerRef.current;
     if (editorElement) {
@@ -1324,6 +1420,7 @@ export function ContractEditor({
           signature: localStorage.getItem("contract-signature"),
           viewUrl,
           viewToken,
+          designerEmail: user?.email, // Include designer email for notifications
         }),
       });
 
@@ -1747,34 +1844,6 @@ export function ContractEditor({
         </div>
 
         {/* Side panel - only show if not in success state */}
-        {!showSuccess && (
-          <div
-            className="fixed right-8 top-32 w-80 bg-white rounded-lg shadow-sm flex flex-col side-panel"
-            style={{ height: "calc(100vh - 180px)" }}
-          >
-            {stage === "edit" && (
-              <ContractAudit
-                editorContent={editorContent}
-                onFixClick={handleAITextReplacement}
-                onIssueClick={highlightBlock}
-              />
-            )}
-            {stage === "sign" && (
-              <SigningStage
-                onSign={(signature, name) => {
-                  handleSignatureComplete(signature, name);
-                }}
-                designerSignature={designerSignature}
-              />
-            )}
-            {stage === "send" && !showSuccess && (
-              <SendStage
-                onSend={handleSendContract}
-                title={formData?.title || "Contract"}
-              />
-            )}
-          </div>
-        )}
       </div>
 
       <style jsx global>{`

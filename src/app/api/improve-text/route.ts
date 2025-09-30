@@ -7,7 +7,8 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { originalText, suggestion, type, context } = await request.json();
+    const { originalText, suggestion, type, context, fullContract } =
+      await request.json();
 
     if (!originalText || !suggestion) {
       return NextResponse.json(
@@ -16,30 +17,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = `You are a contract writing assistant. Improve the following text based on the suggestion provided.
+    const prompt = `You are a professional contract writing assistant. You need to make a MINIMAL, targeted improvement to contract text.
 
-Original text: "${originalText}"
-Suggestion: ${suggestion}
-Type: ${type}
-Context: "${context}"
+FULL CONTRACT CONTEXT:
+${fullContract || context}
 
-Please provide an improved version of the original text that addresses the suggestion. Keep the meaning and intent the same, but make it clearer, more professional, or better structured as suggested. Return only the improved text, no explanations.`;
+TARGET TEXT TO IMPROVE:
+"${originalText}"
+
+SUGGESTION:
+${suggestion}
+
+IMPORTANT INSTRUCTIONS:
+1. ONLY modify the target text above - do NOT change any other parts of the contract
+2. Make MINIMAL changes - add only what's truly needed to address the suggestion
+3. Keep the same tone, style, and structure as the original
+4. Do NOT rewrite the entire sentence unless absolutely necessary
+5. Focus on adding clarity, protection, or communication improvements
+6. Return ONLY the improved version of the target text, nothing else
+
+Examples:
+- If suggestion is "add late payment clause", add: "with late payment penalties of 1.5% per month"
+- If suggestion is "clarify timeline", add: "with specific milestones and dates"
+- If suggestion is "add communication clause", add: "with weekly progress updates"`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are a professional contract writing assistant. Provide clear, concise improvements to contract text.",
+            "You are a professional contract writing assistant. Make minimal, targeted improvements to contract text while preserving the original structure and tone.",
         },
         {
           role: "user",
           content: prompt,
         },
       ],
-      max_tokens: 200,
-      temperature: 0.3,
+      max_tokens: 150,
+      temperature: 0.2,
     });
 
     const improvedText = completion.choices[0]?.message?.content?.trim();

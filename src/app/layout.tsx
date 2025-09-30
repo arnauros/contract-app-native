@@ -76,6 +76,14 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="light" />
+        <link
+          href="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest/dist/editor.css"
+          rel="stylesheet"
+        />
+        <link
+          href="https://cdn.jsdelivr.net/npm/@editorjs/header@latest/dist/header.css"
+          rel="stylesheet"
+        />
       </head>
       <body className={roboto.variable}>
         <Providers>
