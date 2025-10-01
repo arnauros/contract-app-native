@@ -287,6 +287,36 @@ export default function ContractPage() {
         summary: fileSummaries[name],
       }));
 
+      // Fetch user settings and contract data
+      const db = getFirestore();
+      let userSettings = null;
+      let contractData = null;
+
+      try {
+        // Get user settings
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          userSettings = {
+            contract: userData.contractSettings || {},
+            invoice: userData.invoiceSettings || {},
+          };
+        }
+
+        // Get contract data for client info
+        contractData = {
+          title: contract.title,
+          clientName: contract.clientName || "",
+          clientEmail: contract.clientEmail || "",
+          clientCompany: contract.clientCompany || "",
+          paymentTerms: contract.paymentTerms || "",
+          totalAmount: contract.totalAmount || "",
+          currency: contract.currency || "USD",
+        };
+      } catch (error) {
+        console.log("Failed to load user settings or contract data:", error);
+      }
+
       const loadingToast = toast.loading("Generating invoice...");
       setIsGeneratingInvoice(true);
 
@@ -298,6 +328,8 @@ export default function ContractPage() {
           attachments,
           currency: "USD",
           debug: process.env.NODE_ENV === "development",
+          userSettings,
+          contractData,
         }),
       });
 
@@ -353,7 +385,7 @@ export default function ContractPage() {
       }
 
       toast.success("Invoice created successfully!", { id: loadingToast });
-      router.push(`/Invoices/${generatedId}`);
+      router.push(`/Invoices/${generatedId}/edit`);
     } catch (e: any) {
       toast.error(e?.message || "Failed to generate invoice");
     } finally {

@@ -31,6 +31,16 @@ const getAuthInstance = () => {
 export const signIn = async (email: string, password: string) => {
   try {
     const authInstance = getAuthInstance();
+
+    // Clear any existing session data before signing in
+    if (typeof window !== "undefined") {
+      const oldUserId = localStorage.getItem("userId");
+      if (oldUserId) {
+        console.log("Clearing existing session data before sign in");
+        localStorage.clear();
+      }
+    }
+
     const result = await signInWithEmailAndPassword(
       authInstance,
       email,
@@ -51,6 +61,13 @@ export const signIn = async (email: string, password: string) => {
 export const signUp = async (email: string, password: string) => {
   try {
     const authInstance = getAuthInstance();
+
+    // Clear any existing session data before signing up
+    if (typeof window !== "undefined") {
+      console.log("Clearing existing session data before sign up");
+      localStorage.clear();
+    }
+
     const result = await createUserWithEmailAndPassword(
       authInstance,
       email,
@@ -71,7 +88,8 @@ export const signUp = async (email: string, password: string) => {
 // Create session cookie on the server
 export const createSession = async (user: User) => {
   try {
-    const idToken = await user.getIdToken();
+    // Force refresh the token to ensure it's current
+    const idToken = await user.getIdToken(true);
 
     const response = await fetch("/api/auth/session", {
       method: "POST",
@@ -79,6 +97,7 @@ export const createSession = async (user: User) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ token: idToken }),
+      credentials: "include", // Ensure cookies are included
     });
 
     if (!response.ok) {
@@ -86,6 +105,14 @@ export const createSession = async (user: User) => {
       throw new Error(
         `Session creation failed: ${errorData.error || "Unknown error"}`
       );
+    }
+
+    const data = await response.json();
+    console.log("Session created for user:", data.userId);
+
+    // Update localStorage with the correct userId
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userId", user.uid);
     }
 
     return { success: true, error: null };
@@ -99,13 +126,32 @@ export const signOut = async () => {
   try {
     const authInstance = getAuthInstance();
 
-    // First remove the session cookie
+    console.log("Starting sign out process...");
+
+    // Clear localStorage first
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("userId");
+      localStorage.removeItem("subscription_status");
+      console.log("Cleared localStorage");
+    }
+
+    // Remove the session cookie from server
     await fetch("/api/auth/session", {
       method: "DELETE",
+      credentials: "include", // Ensure cookies are included
     });
+    console.log("Session cookie deletion requested");
 
-    // Then sign out from Firebase
+    // Sign out from Firebase
     await firebaseSignOut(authInstance);
+    console.log("Firebase sign out complete");
+
+    // Force reload to clear any cached state
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 100);
+    }
 
     return { success: true, error: null };
   } catch (error) {

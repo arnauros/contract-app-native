@@ -32,11 +32,26 @@ const cache = new Map<string, any>();
 
 export async function POST(request: Request) {
   try {
+    console.log("generateInvoice API called");
+
     if (!process.env.OPENAI_API_KEY) {
+      console.error("OpenAI API key is not configured");
       throw new Error("OpenAI API key is not configured");
     }
 
+    console.log(
+      "OpenAI API key is configured:",
+      process.env.OPENAI_API_KEY ? "YES" : "NO"
+    );
+
     const data = await request.json();
+    console.log("Request data received:", JSON.stringify(data, null, 2));
+
+    // Extract user settings and contract data
+    const userSettings = data.userSettings;
+    const contractData = data.contractData;
+    console.log("User settings:", userSettings);
+    console.log("Contract data:", contractData);
 
     const cacheKey = JSON.stringify({
       projectBrief: data.projectBrief || "",
@@ -66,21 +81,62 @@ export async function POST(request: Request) {
       ? "\n[DEBUG]: Prefer making up a realistic invoice with multiple line items if details are missing.\n"
       : "";
 
+    // Build user context from settings
+    let userContext = "";
+    if (userSettings?.invoice) {
+      userContext = `\nCRITICAL: Use these EXACT values for the "from" section:
+- Name: ${userSettings.invoice.name || "Your Name"}
+- Company: ${userSettings.invoice.company || "Your Company"}
+- Email: ${userSettings.invoice.email || "your.email@example.com"}
+- Address: ${userSettings.invoice.address || "Your Address"}
+- Currency: ${userSettings.invoice.currency || "USD"}
+- Payment Terms: ${userSettings.invoice.paymentTerms || ""}
+- IBAN: ${userSettings.invoice.iban || ""}
+- Bank Name: ${userSettings.invoice.bankName || ""}
+- Tax ID: ${userSettings.invoice.taxId || ""}
+
+IMPORTANT: If any of the above fields are empty, use the fallback values provided in parentheses.`;
+    }
+
+    if (userSettings?.contract) {
+      userContext += `\nUser's Contract Settings (use for reference):
+- Default Client Name: ${userSettings.contract.defaultClientName || ""}
+- Default Client Email: ${userSettings.contract.defaultClientEmail || ""}
+- Default Client Company: ${userSettings.contract.defaultClientCompany || ""}
+`;
+    }
+
+    // Add contract data context if available
+    if (contractData) {
+      userContext += `\nContract Information (use for client details and payment terms):
+- Contract Title: ${contractData.title || ""}
+- Client Name: ${contractData.clientName || ""}
+- Client Email: ${contractData.clientEmail || ""}
+- Client Company: ${contractData.clientCompany || ""}
+- Payment Terms: ${contractData.paymentTerms || ""}
+- Total Amount: ${contractData.totalAmount || ""}
+- Currency: ${contractData.currency || "USD"}
+`;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    const completion = await openai.chat.completions.create(
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a senior invoicing assistant. Output strictly valid JSON matching the schema. Use provided context for names, scope, dates, and amounts.",
-          },
-          {
-            role: "user",
-            content: `Generate an invoice as JSON with this schema: 
+    console.log("Making OpenAI API call...");
+    let completion;
+    try {
+      completion = await openai.chat.completions.create(
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a senior invoicing assistant. Output strictly valid JSON matching the schema. Use provided context for names, scope, dates, and amounts.",
+            },
+            {
+              role: "user",
+              content: `Generate an invoice as JSON with this schema: 
 {
   "title": string,
   "issueDate": string (YYYY-MM-DD),
@@ -100,20 +156,30 @@ Requirements:
 - Ensure totals equal sum(items.total) + tax
 - Use currency ${data.currency || "USD"}
 - Derive names, scope and dates from the Additional Context when present
-- If missing values, infer reasonable defaults and mark with "(Suggested)" in text fields
-${projectInfo}${attachmentsInfo}${debugBanner}`,
-          },
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-      },
-      { signal: controller.signal }
-    );
+- MANDATORY: Use the User's Invoice Settings EXACTLY as provided for the "from" section
+- For client information, use contract data if available, otherwise infer reasonable defaults
+- If missing values, infer reasonable defaults without marking them as "(Suggested)"
+${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
+            },
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+        },
+        { signal: controller.signal }
+      );
+      console.log("OpenAI API call completed successfully");
+    } catch (openaiError) {
+      console.error("OpenAI API call failed:", openaiError);
+      throw openaiError;
+    }
 
     clearTimeout(timeoutId);
 
     const content = completion.choices?.[0]?.message?.content;
+    console.log("OpenAI response content:", content);
+
     if (!content) {
+      console.error("No content in OpenAI response");
       return NextResponse.json(
         { error: "No invoice generated" },
         { status: 500 }
@@ -123,7 +189,10 @@ ${projectInfo}${attachmentsInfo}${debugBanner}`,
     let parsed: GeneratedInvoice | null = null;
     try {
       parsed = JSON.parse(content);
+      console.log("Parsed invoice:", JSON.stringify(parsed, null, 2));
     } catch (e) {
+      console.error("Failed to parse JSON from OpenAI:", e);
+      console.error("Raw content:", content);
       return NextResponse.json(
         { error: "Invalid JSON from model" },
         { status: 500 }
@@ -136,16 +205,22 @@ ${projectInfo}${attachmentsInfo}${debugBanner}`,
       !Array.isArray(parsed.items) ||
       parsed.items.length === 0
     ) {
+      console.error("Invoice validation failed - missing items:", parsed);
       return NextResponse.json(
         { error: "Invoice items missing" },
         { status: 500 }
       );
     }
 
+    console.log("Invoice generation successful, caching result");
     cache.set(cacheKey, parsed);
     return NextResponse.json(parsed);
   } catch (error) {
     console.error("Invoice generation error:", error);
+    console.error(
+      "Error stack:",
+      error instanceof Error ? error.stack : "No stack trace"
+    );
     return NextResponse.json(
       { error: "Failed to generate invoice" },
       { status: 500 }

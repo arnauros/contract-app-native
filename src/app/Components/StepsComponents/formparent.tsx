@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { saveContract, saveInvoice } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useTutorial } from "@/lib/hooks/useTutorial";
 import toast from "react-hot-toast";
-import { doc, getFirestore } from "firebase/firestore";
+import { doc, getFirestore, getDoc } from "firebase/firestore";
 import { collection } from "firebase/firestore";
 
 export interface FormData {
@@ -37,6 +38,7 @@ const FormParent: React.FC<FormParentProps> = ({
   const TOTAL_STAGES = 1;
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
+  const { trackAction } = useTutorial();
 
   useEffect(() => {
     router.prefetch("/Contracts/[id]");
@@ -211,6 +213,24 @@ const FormParent: React.FC<FormParentProps> = ({
         } as any);
       }
 
+      // Fetch user settings for invoice generation
+      let userSettings = null;
+      if (isInvoice && user) {
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            userSettings = {
+              contract: userData.contractSettings || {},
+              invoice: userData.invoiceSettings || {},
+            };
+          }
+        } catch (error) {
+          console.log("Failed to load user settings:", error);
+        }
+      }
+
       const response = await fetch(
         isInvoice ? "/api/generateInvoice" : "/api/generateContract",
         {
@@ -228,6 +248,7 @@ const FormParent: React.FC<FormParentProps> = ({
             pdf: isInvoice ? undefined : effective.pdf,
             debug: debugMode,
             attachments: payloadAttachments,
+            userSettings: isInvoice ? userSettings : undefined,
           }),
           signal: controller.signal,
         }
@@ -327,6 +348,10 @@ const FormParent: React.FC<FormParentProps> = ({
           toast.error(result.error, { id: loadingToast });
         } else {
           console.log("Contract saved successfully:", result);
+
+          // Track tutorial action
+          trackAction("contract_created");
+
           // Save to localStorage before redirecting
           localStorage.setItem(
             `contract-content-${generatedId}`,
@@ -395,7 +420,7 @@ const FormParent: React.FC<FormParentProps> = ({
             `Invoice created successfully! (${Math.round(totalTime)}ms)`,
             { id: loadingToast }
           );
-          redirectUrl = `/Invoices/${generatedId}`;
+          redirectUrl = `/Invoices/${generatedId}/edit`;
         }
       }
       if (redirectUrl) {

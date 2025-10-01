@@ -47,6 +47,12 @@ function SignUpContent() {
             cancelAtPeriodEnd: false,
             currentPeriodEnd: null,
           },
+          // Initialize tutorial state for new users
+          tutorialState: {
+            isActive: false,
+            isCompleted: false,
+            startedAt: new Date(),
+          },
         });
 
         // Get the ID token

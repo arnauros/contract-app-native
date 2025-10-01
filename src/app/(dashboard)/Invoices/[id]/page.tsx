@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Edit, ArrowLeft } from "lucide-react";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -17,11 +18,14 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<any | null>(null);
   const [contract, setContract] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userSettings, setUserSettings] = useState<any>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        if (!id) return;
+        if (!id || !user) return;
+
+        // Load invoice
         const res = await getInvoice(String(id));
         if ((res as any).error) {
           toast.error((res as any).error);
@@ -40,6 +44,21 @@ export default function InvoiceDetailPage() {
               console.log("Failed to load contract details:", contractError);
             }
           }
+        }
+
+        // Load user's invoice settings (for draft invoices especially)
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUserSettings({
+              contract: userData.contractSettings || {},
+              invoice: userData.invoiceSettings || {},
+            });
+          }
+        } catch (settingsError) {
+          console.log("Failed to load user settings:", settingsError);
         }
       } catch (e) {
         toast.error("Failed to load invoice");
@@ -62,24 +81,12 @@ export default function InvoiceDetailPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/dashboard")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
           <h1 className="text-2xl font-semibold">
             {invoice.title || "Invoice"}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-sm text-gray-500">Status: {invoice.status}</div>
-          <Button onClick={() => router.push(`/Invoices/${id}/edit`)} size="sm">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -232,6 +239,55 @@ export default function InvoiceDetailPage() {
           <p className="text-sm text-gray-700 whitespace-pre-line">
             {invoice.notes}
           </p>
+        </div>
+      )}
+
+      {/* Payment Information from Settings */}
+      {userSettings?.invoice && (
+        <div className="border-t pt-4">
+          <h3 className="font-medium mb-2">Payment Information</h3>
+          <div className="text-sm text-gray-700 space-y-1">
+            {userSettings.invoice.iban && (
+              <p>
+                <strong>IBAN:</strong> {userSettings.invoice.iban}
+              </p>
+            )}
+            {userSettings.invoice.bankName && (
+              <p>
+                <strong>Bank:</strong> {userSettings.invoice.bankName}
+              </p>
+            )}
+            {userSettings.invoice.bicSwift && (
+              <p>
+                <strong>BIC/SWIFT:</strong> {userSettings.invoice.bicSwift}
+              </p>
+            )}
+            {userSettings.invoice.taxId && (
+              <p>
+                <strong>Tax ID:</strong> {userSettings.invoice.taxId}
+              </p>
+            )}
+            {userSettings.invoice.paymentTerms && (
+              <p>
+                <strong>Payment Terms:</strong>{" "}
+                {userSettings.invoice.paymentTerms === "net30"
+                  ? "Net 30 days"
+                  : userSettings.invoice.paymentTerms === "net15"
+                  ? "Net 15 days"
+                  : userSettings.invoice.paymentTerms === "net7"
+                  ? "Net 7 days"
+                  : userSettings.invoice.paymentTerms === "due_on_receipt"
+                  ? "Due on receipt"
+                  : userSettings.invoice.paymentTerms}
+              </p>
+            )}
+          </div>
+          {invoice.status === "draft" && (
+            <p className="text-xs text-blue-600 mt-2">
+              💡 This payment information is pulled from your settings and will
+              update automatically.
+            </p>
+          )}
         </div>
       )}
     </div>

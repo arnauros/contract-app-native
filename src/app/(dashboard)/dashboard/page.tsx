@@ -56,6 +56,8 @@ import FormParent, {
   FormData,
 } from "@/app/Components/StepsComponents/formparent";
 import Modal from "@/app/Components/Modal";
+import TutorialChecklist from "@/components/TutorialChecklist";
+import { useTutorial, useTutorialActions } from "@/lib/hooks/useTutorial";
 
 interface StatCardProps {
   title: string;
@@ -382,6 +384,10 @@ interface EditorContent {
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // Tutorial system
+  const { tutorialState, shouldShow, updateTutorialState, trackAction } =
+    useTutorial();
   const [stats, setStats] = useState({
     total: 0,
     pendingClient: 0,
@@ -436,6 +442,14 @@ export default function Dashboard() {
       localStorage.removeItem("hero-project-brief");
     }
   }, []);
+
+  // Track tutorial actions
+  useEffect(() => {
+    // Track when contracts are viewed
+    if (contracts.length > 0) {
+      trackAction("contracts_viewed");
+    }
+  }, [contracts, trackAction]);
 
   // Handler for FormParent (no-op for now, or you can copy from /new)
   const handleFormParentSubmit = () => {};
@@ -1088,6 +1102,14 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Tutorial Checklist */}
+      {shouldShow && tutorialState && (
+        <TutorialChecklist
+          tutorialState={tutorialState}
+          onStateChange={updateTutorialState}
+        />
+      )}
+
       {/* User info moved to topbar */}
       <div className="mb-6" />
       {/* Personalized greeting above the form */}
@@ -1281,7 +1303,8 @@ export default function Dashboard() {
               {filteredContracts.map((contract) => (
                 <tr
                   key={contract.id}
-                  className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30"
+                  onClick={() => router.push(`/Contracts/${contract.id}`)}
+                  className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30 cursor-pointer"
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-center align-middle w-12">
                     <input
@@ -1289,6 +1312,7 @@ export default function Dashboard() {
                       aria-label={`Select contract ${contract.id}`}
                       checked={selectedContractIds.includes(contract.id)}
                       onChange={() => toggleContractSelection(contract.id)}
+                      onClick={(e) => e.stopPropagation()}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
@@ -1360,26 +1384,18 @@ export default function Dashboard() {
                       {getStatusText(contract.status)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td
+                    className="px-6 py-4 whitespace-nowrap"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => router.push(`/Contracts/${contract.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                        title="View Contract"
+                        title="Open Contract"
                       >
-                        <FiEye className="w-4 h-4" />
+                        <FiExternalLink className="w-4 h-4" />
                       </button>
-                      {contract.status === "draft" && (
-                        <button
-                          onClick={() =>
-                            router.push(`/Contracts/${contract.id}`)
-                          }
-                          className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                          title="Edit Contract"
-                        >
-                          <FiEdit3 className="w-4 h-4" />
-                        </button>
-                      )}
                       <button
                         onClick={() => handleDownloadPDF(contract.id)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
@@ -1479,7 +1495,8 @@ export default function Dashboard() {
               {invoices.map((inv: any) => (
                 <tr
                   key={inv.id}
-                  className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30"
+                  onClick={() => router.push(`/Invoices/${inv.id}`)}
+                  className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30 cursor-pointer"
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-center align-middle w-12">
                     <input
@@ -1493,6 +1510,7 @@ export default function Dashboard() {
                             : [...prev, inv.id]
                         )
                       }
+                      onClick={(e) => e.stopPropagation()}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
@@ -1527,30 +1545,15 @@ export default function Dashboard() {
                       currency: inv.currency || "USD",
                     }).format(typeof inv.total === "number" ? inv.total : 0)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td
+                    className="px-6 py-4 whitespace-nowrap"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => router.push(`/Invoices/${inv.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                        title="View Invoice"
-                      >
-                        <FiEye className="w-4 h-4" />
-                      </button>
-                      {inv.status === "draft" && (
-                        <button
-                          onClick={() =>
-                            router.push(`/Invoices/${inv.id}/edit`)
-                          }
-                          className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                          title="Edit Invoice"
-                        >
-                          <FiEdit3 className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => router.push(`/Invoices/${inv.id}`)}
-                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                        title="Open"
+                        title="Open Invoice"
                       >
                         <FiExternalLink className="w-4 h-4" />
                       </button>

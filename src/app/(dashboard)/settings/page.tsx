@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useTutorial } from "@/lib/hooks/useTutorial";
+import {
+  initializeTutorialForUser,
+  startTutorial,
+  dismissTutorial,
+} from "@/lib/tutorial/tutorialUtils";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { updateUserProfile, signOut } from "@/lib/firebase/authUtils";
 import {
   FiUser,
@@ -18,7 +25,6 @@ import {
   FiFileText,
   FiDollarSign,
 } from "react-icons/fi";
-import { toast } from "react-hot-toast";
 import { SubscriptionStatus } from "@/components/SubscriptionStatus";
 import DebugClaims from "@/app/Components/DebugClaims";
 import {
@@ -70,6 +76,8 @@ const createTestStripeCustomer = async (userId: string) => {
 
 export default function SettingsPage() {
   const { user, loading, isAdmin } = useAuth();
+  const { trackAction } = useTutorial();
+  const [isTutorialTesting, setIsTutorialTesting] = useState(false);
   const router = useRouter();
   const {
     isActive: isSubscriptionActive,
@@ -273,6 +281,21 @@ export default function SettingsPage() {
     "/placeholder-banner.png"
   );
 
+  // Contract & Invoice Settings state
+  const [contractSettings, setContractSettings] = useState({
+    companyName: "",
+    companyAddress: "",
+  });
+
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    iban: "",
+    bankName: "",
+    bicSwift: "",
+    taxId: "",
+    paymentTerms: "net30",
+    currency: "USD",
+  });
+
   // Initialize form state from user data
   useEffect(() => {
     if (user) {
@@ -333,6 +356,14 @@ export default function SettingsPage() {
             // Load email templates if available
             if (userData.emailTemplates) {
               setEmailTemplates(userData.emailTemplates);
+            }
+
+            // Load contract & invoice settings if available
+            if (userData.contractSettings) {
+              setContractSettings(userData.contractSettings);
+            }
+            if (userData.invoiceSettings) {
+              setInvoiceSettings(userData.invoiceSettings);
             }
           }
         } catch (error) {
@@ -398,12 +429,18 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!user) return;
+
     setSaving(true);
     try {
-      // Simulate saving
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast.success("Settings saved successfully");
+      const db = getFirestore();
+      await updateDoc(doc(db, "users", user.uid), {
+        contractSettings,
+        invoiceSettings,
+      });
+      toast.success("Contract & Invoice settings saved successfully!");
     } catch (error) {
+      console.error("Error saving contract & invoice settings:", error);
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
@@ -696,10 +733,61 @@ export default function SettingsPage() {
     );
   }
 
+  // Track settings view
+  useEffect(() => {
+    trackAction("settings_viewed");
+  }, [trackAction]);
+
+  // Tutorial testing functions
+  const handleResetTutorial = async () => {
+    if (!user) return;
+
+    try {
+      setIsTutorialTesting(true);
+      await initializeTutorialForUser(user.uid);
+      toast.success("Tutorial reset! Go to dashboard to see it.");
+    } catch (error) {
+      console.error("Failed to reset tutorial:", error);
+      toast.error("Failed to reset tutorial");
+    } finally {
+      setIsTutorialTesting(false);
+    }
+  };
+
+  const handleStartTutorial = async () => {
+    if (!user) return;
+
+    try {
+      setIsTutorialTesting(true);
+      await startTutorial(user.uid);
+      toast.success("Tutorial started! Go to dashboard to see it.");
+    } catch (error) {
+      console.error("Failed to start tutorial:", error);
+      toast.error("Failed to start tutorial");
+    } finally {
+      setIsTutorialTesting(false);
+    }
+  };
+
+  const handleDismissTutorial = async () => {
+    if (!user) return;
+
+    try {
+      setIsTutorialTesting(true);
+      await dismissTutorial(user.uid);
+      toast.success("Tutorial dismissed!");
+    } catch (error) {
+      console.error("Failed to dismiss tutorial:", error);
+      toast.error("Failed to dismiss tutorial");
+    } finally {
+      setIsTutorialTesting(false);
+    }
+  };
+
   const tabs = [
     { id: "account", label: "Account", icon: FiUser },
     { id: "subscription", label: "Subscription", icon: FiCreditCard },
-    { id: "email-templates", label: "Email Templates", icon: FiMail },
+    // { id: "email-templates", label: "Email Templates", icon: FiMail },
     { id: "contract-invoices", label: "Contract & Invoices", icon: FiFileText },
   ];
 
@@ -732,272 +820,225 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
+      <div
+        className={`grid grid-cols-1 ${
+          activeTab === "subscription" ? "md:grid-cols-3" : ""
+        } gap-8`}
+      >
+        <div className={activeTab === "subscription" ? "md:col-span-2" : ""}>
           {/* Account Tab Content */}
           {activeTab === "account" && (
-            <>
-              {/* Profile Banner */}
-              <div className="bg-white rounded-lg shadow mb-8 overflow-hidden">
-                <div className="h-40 w-full relative">
-                  <ProfileImageUploader
-                    type="profileBanner"
-                    imageUrl={profileBannerUrl}
-                    onImageChange={handleProfileBannerChange}
-                    className="w-full"
-                  />
-                </div>
-
-                {/* Profile Image (overlapping with banner) */}
-                <div className="px-6 pb-6 pt-12 relative">
-                  <div className="absolute -top-20 left-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column */}
+              <div className="space-y-8">
+                {/* Profile Banner */}
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="h-40 w-full relative">
                     <ProfileImageUploader
-                      type="profileImage"
-                      imageUrl={profileImageUrl}
-                      onImageChange={handleProfileImageChange}
-                      className="w-full shadow-md border-4 border-white"
+                      type="profileBanner"
+                      imageUrl={profileBannerUrl}
+                      onImageChange={handleProfileBannerChange}
+                      className="w-full"
                     />
                   </div>
-                  <div className="ml-32">
-                    <h2 className="text-xl font-semibold">
-                      {user?.displayName}
-                    </h2>
-                    <p className="text-gray-600">{user?.email}</p>
+
+                  {/* Profile Image (overlapping with banner) */}
+                  <div className="px-6 pb-6 pt-12 relative">
+                    <div className="absolute -top-20 left-6">
+                      <ProfileImageUploader
+                        type="profileImage"
+                        imageUrl={profileImageUrl}
+                        onImageChange={handleProfileImageChange}
+                        className="w-full shadow-md border-4 border-white"
+                      />
+                    </div>
+                    <div className="ml-32">
+                      <h2 className="text-xl font-semibold">
+                        {user?.displayName}
+                      </h2>
+                      <p className="text-gray-600">{user?.email}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Profile Settings */}
-              <div className="bg-white p-6 rounded-lg shadow mb-8">
-                <h2 className="text-xl font-semibold mb-6">Profile Settings</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      className="block text-gray-700 text-sm font-medium mb-2"
-                      htmlFor="name"
-                    >
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
+                {/* Profile Settings */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h2 className="text-xl font-semibold mb-6">
+                    Profile Settings
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        className="block text-gray-700 text-sm font-medium mb-2"
+                        htmlFor="name"
+                      >
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        id="name"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        className="block text-gray-700 text-sm font-medium mb-2"
+                        htmlFor="email"
+                      >
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        disabled
+                        value={user?.email || ""}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label
-                      className="block text-gray-700 text-sm font-medium mb-2"
-                      htmlFor="email"
-                    >
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      disabled
-                      value={user?.email || ""}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <button
-                    onClick={async () => {
-                      setSaving(true);
-                      try {
-                        // Update Firebase Auth profile
-                        const result = await updateUserProfile(
-                          displayName,
-                          profileImageUrl
-                        );
-                        if (result.error) throw result.error;
-                        // Update Firestore user doc
-                        const db = getFirestore();
-                        await updateDoc(doc(db, "users", user.uid), {
-                          displayName,
-                          profileImageUrl,
-                          profileBannerUrl,
-                        });
-                        toast.success("Profile updated successfully!");
-                      } catch (error) {
-                        toast.error("Failed to update profile");
-                        console.error(error);
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                    disabled={saving}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Subscription Management Section */}
-              <div className="bg-white p-6 rounded-lg shadow mb-8">
-                <h2 className="text-xl font-semibold mb-6">
-                  Subscription Management
-                </h2>
-                <div className="flex items-center mb-4">
-                  <div
-                    className={`h-3 w-3 rounded-full mr-2 ${
-                      isSubscriptionActive ? "bg-green-500" : "bg-yellow-500"
-                    }`}
-                  ></div>
-                  <span className="font-medium">
-                    {isSubscriptionActive
-                      ? "Active subscription"
-                      : "No active subscription"}
-                  </span>
-                </div>
-
-                <p className="text-gray-600 mb-6">
-                  {isSubscriptionActive
-                    ? "You currently have an active subscription. You can manage your billing information and subscription plan through the customer portal."
-                    : "Upgrade to a yearly subscription to access premium features and save on your subscription."}
-                </p>
-
-                <div className="flex space-x-4">
-                  {isSubscriptionActive ? (
-                    <Button
-                      onClick={handleManageSubscription}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Manage Subscription
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleYearlyUpgrade}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Upgrade to Yearly
-                    </Button>
-                  )}
-                </div>
-
-                {/* Developer help info only in development mode */}
-                {process.env.NODE_ENV === "development" && (
-                  <div className="mt-4 p-3 border border-yellow-200 bg-yellow-50 rounded-md">
-                    <h3 className="text-sm font-semibold text-yellow-800">
-                      Developer Info
-                    </h3>
-                    <p className="text-xs text-yellow-700 mt-1">
-                      To use subscription features, make sure you have:
-                    </p>
-                    <ul className="list-disc list-inside text-xs text-yellow-700 mt-1">
-                      <li>Added a Stripe Secret Key to .env.local</li>
-                      <li>Created a user document in Firestore</li>
-                      <li>
-                        Added a stripeCustomerId field to the user document
-                      </li>
-                    </ul>
-                    <div className="mt-2 flex gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          user && createTestStripeCustomer(user.uid)
+                  <div className="mt-6">
+                    <button
+                      onClick={async () => {
+                        setSaving(true);
+                        try {
+                          // Update Firebase Auth profile
+                          const result = await updateUserProfile(
+                            displayName,
+                            profileImageUrl
+                          );
+                          if (result.error) throw result.error;
+                          // Update Firestore user doc
+                          const db = getFirestore();
+                          await updateDoc(doc(db, "users", user.uid), {
+                            displayName,
+                            profileImageUrl,
+                            profileBannerUrl,
+                          });
+                          toast.success("Profile updated successfully!");
+                        } catch (error) {
+                          toast.error("Failed to update profile");
+                          console.error(error);
+                        } finally {
+                          setSaving(false);
                         }
-                        className="text-xs bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
-                      >
-                        <FiCode className="mr-1" />
-                        Create Test Customer ID
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          if (!user) return;
-                          try {
-                            const db = getFirestore();
-                            await updateDoc(doc(db, "users", user.uid), {
-                              subscription_debug: true,
-                              subscription: {
-                                status: "active",
-                                tier: "pro",
-                                currentPeriodEnd:
-                                  Date.now() + 30 * 24 * 60 * 60 * 1000,
-                              },
-                            });
-                            toast.success(
-                              "Dev access enabled (subscription_debug)"
-                            );
-                          } catch (e) {
-                            console.error(e);
-                            toast.error("Failed to enable dev access");
-                          }
-                        }}
-                        className="text-xs bg-green-100 border-green-300 text-green-800 hover:bg-green-200"
-                      >
-                        Enable Dev Access
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          if (!user) return;
-                          try {
-                            const db = getFirestore();
-                            await updateDoc(doc(db, "users", user.uid), {
-                              subscription_debug: false,
-                            });
-                            toast.success("Dev access disabled");
-                          } catch (e) {
-                            console.error(e);
-                            toast.error("Failed to disable dev access");
-                          }
-                        }}
-                        className="text-xs bg-red-100 border-red-300 text-red-800 hover:bg-red-200"
-                      >
-                        Disable Dev Access
-                      </Button>
+                      }}
+                      disabled={saving}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Add Debug Claims component - only visible in development */}
+                {process.env.NODE_ENV === "development" && <DebugClaims />}
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-8">
+                {/* Account Security Section */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h2 className="text-xl font-semibold mb-6">
+                    Account Security
+                  </h2>
+
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium mb-2">Delete Account</h3>
+                    <p className="text-gray-600 mb-4">
+                      Permanently delete your account and all associated data.
+                      This action cannot be undone.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                      className="flex items-center"
+                    >
+                      <FiTrash className="mr-2" />
+                      Delete Account
+                    </Button>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-200">
+                    <h3 className="text-lg font-medium mb-2">Sign Out</h3>
+                    <p className="text-gray-600 mb-4">
+                      Sign out of your account on this device.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={handleLogout}
+                      className="flex items-center"
+                    >
+                      <FiLogOut className="mr-2" />
+                      Sign Out
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Tutorial Testing Section - only visible in development */}
+                {process.env.NODE_ENV === "development" && (
+                  <div className="bg-white p-6 rounded-lg shadow">
+                    <h2 className="text-xl font-semibold mb-6 flex items-center">
+                      <FiSettings className="mr-2" />
+                      Tutorial Testing
+                    </h2>
+
+                    <div className="space-y-4">
+                      <p className="text-gray-600 text-sm">
+                        Test the tutorial system by pretending to be a
+                        first-time user.
+                      </p>
+
+                      <div className="space-y-3">
+                        <button
+                          onClick={handleResetTutorial}
+                          disabled={isTutorialTesting}
+                          className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                          {isTutorialTesting
+                            ? "Loading..."
+                            : "🔄 Reset Tutorial"}
+                        </button>
+
+                        <button
+                          onClick={handleStartTutorial}
+                          disabled={isTutorialTesting}
+                          className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                          {isTutorialTesting
+                            ? "Loading..."
+                            : "▶️ Start Tutorial"}
+                        </button>
+
+                        <button
+                          onClick={handleDismissTutorial}
+                          disabled={isTutorialTesting}
+                          className="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                          {isTutorialTesting
+                            ? "Loading..."
+                            : "❌ Dismiss Tutorial"}
+                        </button>
+                      </div>
+
+                      <div className="text-xs text-gray-500 mt-3">
+                        <p>
+                          • <strong>Reset:</strong> Creates fresh tutorial state
+                        </p>
+                        <p>
+                          • <strong>Start:</strong> Activates tutorial for
+                          current user
+                        </p>
+                        <p>
+                          • <strong>Dismiss:</strong> Hides tutorial
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Account Security Section */}
-              <div className="bg-white p-6 rounded-lg shadow mb-8">
-                <h2 className="text-xl font-semibold mb-6">Account Security</h2>
-
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-2">Delete Account</h3>
-                  <p className="text-gray-600 mb-4">
-                    Permanently delete your account and all associated data.
-                    This action cannot be undone.
-                  </p>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setDeleteDialogOpen(true)}
-                    className="flex items-center"
-                  >
-                    <FiTrash className="mr-2" />
-                    Delete Account
-                  </Button>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-lg font-medium mb-2">Sign Out</h3>
-                  <p className="text-gray-600 mb-4">
-                    Sign out of your account on this device.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={handleLogout}
-                    className="flex items-center"
-                  >
-                    <FiLogOut className="mr-2" />
-                    Sign Out
-                  </Button>
-                </div>
-              </div>
-
-              {/* Add Debug Claims component - only visible in development */}
-              {process.env.NODE_ENV === "development" && <DebugClaims />}
-            </>
+            </div>
           )}
 
           {/* Email Templates Tab Content */}
@@ -1177,57 +1218,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Public Contract Links Section */}
-          {activeTab === "email-templates" && (
-            <div className="bg-white p-6 rounded-lg shadow mb-8">
-              <h2 className="text-xl font-semibold mb-6 flex items-center">
-                <FiLink className="mr-2" />
-                Public Contract Links
-              </h2>
-
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                    Contract View URLs:
-                  </h3>
-                  <div className="text-xs text-gray-600 space-y-1">
-                    <div>
-                      <code>/contract-view/[contractId]</code> - Main public
-                      contract view
-                    </div>
-                    <div>
-                      <code>/view/[contractId]</code> - Alternative public view
-                    </div>
-                    <div>
-                      <code>/public-minimal/[contractId]</code> - Minimal public
-                      view
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-                  <h3 className="text-sm font-semibold text-green-800 mb-2">
-                    ✅ Public Access Enabled
-                  </h3>
-                  <p className="text-xs text-green-700">
-                    All contracts are publicly accessible via these URLs. No
-                    authentication required for viewing contracts.
-                  </p>
-                </div>
-
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <h3 className="text-sm font-semibold text-yellow-800 mb-2">
-                    Token System
-                  </h3>
-                  <p className="text-xs text-yellow-700">
-                    Contracts can include optional tokens for tracking:{" "}
-                    <code>?token=abc123</code>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Subscription Tab Content */}
           {activeTab === "subscription" && (
             <div className="bg-white p-6 rounded-lg shadow mb-8">
@@ -1275,9 +1265,8 @@ export default function SettingsPage() {
 
           {/* Contract & Invoices Tab Content */}
           {activeTab === "contract-invoices" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column - Settings */}
-              <div className="space-y-8">
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Contract Settings */}
                 <div className="bg-white p-6 rounded-lg shadow">
                   <h2 className="text-xl font-semibold mb-6 flex items-center">
@@ -1286,73 +1275,6 @@ export default function SettingsPage() {
                   </h2>
 
                   <div className="space-y-6">
-                    {/* Profile Image for Contracts */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Profile Image for Contracts
-                      </label>
-                      <ProfileImageUploader
-                        type="profileImage"
-                        imageUrl={profileImageUrl}
-                        onImageChange={handleProfileImageChange}
-                        className="w-32 h-32"
-                      />
-                    </div>
-
-                    {/* Font Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Default Font
-                      </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="inter">Inter</option>
-                        <option value="roboto">Roboto</option>
-                        <option value="opensans">Open Sans</option>
-                        <option value="lato">Lato</option>
-                        <option value="montserrat">Montserrat</option>
-                      </select>
-                    </div>
-
-                    {/* Background Color */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Background Color
-                      </label>
-                      <div className="flex space-x-2">
-                        <input
-                          type="color"
-                          defaultValue="#ffffff"
-                          className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          defaultValue="#ffffff"
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="#ffffff"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Text Color */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Text Color
-                      </label>
-                      <div className="flex space-x-2">
-                        <input
-                          type="color"
-                          defaultValue="#000000"
-                          className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          defaultValue="#000000"
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="#000000"
-                        />
-                      </div>
-                    </div>
-
                     {/* Company Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1360,7 +1282,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={user?.displayName || ""}
+                        value={contractSettings.companyName}
+                        onChange={(e) =>
+                          setContractSettings({
+                            ...contractSettings,
+                            companyName: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Your Company Name"
                       />
@@ -1373,6 +1301,13 @@ export default function SettingsPage() {
                       </label>
                       <textarea
                         rows={3}
+                        value={contractSettings.companyAddress}
+                        onChange={(e) =>
+                          setContractSettings({
+                            ...contractSettings,
+                            companyAddress: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="123 Main St, City, State 12345"
                       />
@@ -1395,6 +1330,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
+                        value={invoiceSettings.iban}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            iban: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="GB82 WEST 1234 5698 7654 32"
                       />
@@ -1407,6 +1349,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
+                        value={invoiceSettings.bankName}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            bankName: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Your Bank Name"
                       />
@@ -1419,6 +1368,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
+                        value={invoiceSettings.bicSwift}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            bicSwift: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="DEUTDEFF"
                       />
@@ -1431,6 +1387,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
+                        value={invoiceSettings.taxId}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            taxId: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="DE123456789"
                       />
@@ -1441,7 +1404,16 @@ export default function SettingsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Payment Terms
                       </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <select
+                        value={invoiceSettings.paymentTerms}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            paymentTerms: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
                         <option value="net30">Net 30 days</option>
                         <option value="net15">Net 15 days</option>
                         <option value="net7">Net 7 days</option>
@@ -1454,7 +1426,16 @@ export default function SettingsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Default Currency
                       </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <select
+                        value={invoiceSettings.currency}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            currency: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
                         <option value="USD">USD - US Dollar</option>
                         <option value="EUR">EUR - Euro</option>
                         <option value="GBP">GBP - British Pound</option>
@@ -1464,297 +1445,28 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Save Button */}
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
-                  >
-                    {saving ? "Saving..." : "Save Contract & Invoice Settings"}
-                  </button>
-                </div>
               </div>
 
-              {/* Right Column - Sticky Preview */}
-              <div className="space-y-8">
-                {/* Contract Preview */}
-                <div className="bg-white p-6 rounded-lg shadow sticky top-4">
-                  <h2 className="text-xl font-semibold mb-6 flex items-center">
-                    <FiFileText className="mr-2" />
-                    Contract Preview
-                  </h2>
-
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <p className="text-sm text-gray-600">Live Preview</p>
-                    </div>
-                    <div className="p-8 bg-white min-h-96">
-                      {/* Contract Logo */}
-                      <div className="flex justify-start mb-8">
-                        <div className="h-16 w-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <FiUser className="w-8 h-8 text-gray-400" />
-                        </div>
-                      </div>
-
-                      {/* Contract Banner */}
-                      <div className="mb-8">
-                        <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-semibold">
-                            Contract Banner
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Contract Content */}
-                      <div className="prose prose-lg max-w-none mb-16">
-                        <h1 className="text-2xl font-bold mb-4">
-                          Website Design Contract
-                        </h1>
-                        <div className="space-y-4 text-gray-700">
-                          <p>
-                            <strong>Client:</strong> John Doe
-                          </p>
-                          <p>
-                            <strong>Project:</strong> Website Design &
-                            Development
-                          </p>
-                          <p>
-                            <strong>Timeline:</strong> 4 weeks
-                          </p>
-                          <p>
-                            <strong>Budget:</strong> $5,000
-                          </p>
-
-                          <div className="mt-6">
-                            <h3 className="text-lg font-semibold mb-2">
-                              Scope of Work
-                            </h3>
-                            <ul className="list-disc list-inside space-y-1 text-sm">
-                              <li>Responsive website design</li>
-                              <li>Frontend development</li>
-                              <li>Content management system</li>
-                              <li>SEO optimization</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Signature Section */}
-                      <div className="border-t pt-10 mt-10">
-                        <h2 className="text-xl font-semibold mb-8 text-gray-900">
-                          Signatures
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="border rounded-lg p-6 bg-gray-50">
-                            <div className="flex items-center mb-4">
-                              <div className="h-8 w-8 rounded-full bg-gray-300 mr-3"></div>
-                              <h3 className="text-lg font-medium text-gray-800">
-                                Prepared by
-                              </h3>
-                            </div>
-                            <div className="space-y-4">
-                              <div className="border-b pb-4 h-16 bg-gray-100 rounded"></div>
-                              <div className="text-center">
-                                <p className="font-medium">
-                                  {user?.displayName || "Your Name"}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Designer
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="border rounded-lg p-6 bg-gray-50">
-                            <div className="flex items-center mb-4">
-                              <div className="h-8 w-8 rounded-full bg-gray-300 mr-3"></div>
-                              <h3 className="text-lg font-medium text-gray-800">
-                                Client Signature
-                              </h3>
-                            </div>
-                            <div className="space-y-4">
-                              <div className="border-b pb-4 h-16 bg-gray-100 rounded"></div>
-                              <div className="text-center">
-                                <p className="font-medium">John Doe</p>
-                                <p className="text-sm text-gray-500">Client</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                        <p className="text-xs text-gray-600">
-                          This preview shows how your contracts will appear to
-                          clients. Changes to the left will update this preview
-                          in real-time.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Invoice Preview */}
-                <div className="bg-white p-6 rounded-lg shadow sticky top-4">
-                  <h2 className="text-xl font-semibold mb-6 flex items-center">
-                    <FiDollarSign className="mr-2" />
-                    Invoice Preview
-                  </h2>
-
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <p className="text-sm text-gray-600">Live Preview</p>
-                    </div>
-                    <div className="p-6 bg-white min-h-96">
-                      {/* Invoice Header */}
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                          <h1 className="text-2xl font-semibold">Invoice</h1>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Status: draft
-                        </div>
-                      </div>
-
-                      {/* Bill To / From Section */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div className="space-y-2">
-                          <h2 className="font-medium">Bill To</h2>
-                          <div className="text-sm text-gray-700">
-                            <div>John Doe</div>
-                            <div>Acme Corp</div>
-                            <div>john@acme.com</div>
-                            <div className="whitespace-pre-line">
-                              123 Business St City, State 12345
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <h2 className="font-medium">From</h2>
-                          <div className="text-sm text-gray-700">
-                            <div>{user?.displayName || "Your Company"}</div>
-                            <div>Your Company Name</div>
-                            <div>{user?.email || "your@email.com"}</div>
-                            <div className="whitespace-pre-line">
-                              123 Main St City, State 12345
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Invoice Items Table */}
-                      <div className="overflow-x-auto mb-6">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Description
-                              </th>
-                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Qty
-                              </th>
-                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Unit
-                              </th>
-                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Total
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            <tr>
-                              <td className="px-4 py-2 text-sm text-gray-700">
-                                Website Design & Development
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                1
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                $3,000.00
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                $3,000.00
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2 text-sm text-gray-700">
-                                Content Management System
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                1
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                $1,500.00
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                $1,500.00
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2 text-sm text-gray-700">
-                                SEO Optimization
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                1
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                $500.00
-                              </td>
-                              <td className="px-4 py-2 text-sm text-right">
-                                $500.00
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Invoice Totals */}
-                      <div className="flex flex-col items-end gap-1 text-sm mb-6">
-                        <div>Subtotal: $5,000.00</div>
-                        <div>Tax: $0.00</div>
-                        <div className="font-medium">Total: $5,000.00</div>
-                      </div>
-
-                      {/* Payment Information */}
-                      <div className="border-t pt-4">
-                        <h3 className="font-medium mb-2">
-                          Payment Information
-                        </h3>
-                        <div className="text-sm text-gray-700 space-y-1">
-                          <p>
-                            <strong>IBAN:</strong> GB82 WEST 1234 5698 7654 32
-                          </p>
-                          <p>
-                            <strong>Bank:</strong> Your Bank Name
-                          </p>
-                          <p>
-                            <strong>BIC/SWIFT:</strong> DEUTDEFF
-                          </p>
-                          <p>
-                            <strong>Payment Terms:</strong> Net 30 days
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 p-4 bg-gray-50 rounded-md">
-                        <p className="text-xs text-gray-600">
-                          This preview shows how your invoices will appear to
-                          clients. Changes to the left will update this preview
-                          in real-time.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {/* Save Button - Full Width */}
+              <div className="mt-8">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Contract & Invoice Settings"}
+                </button>
               </div>
-            </div>
+            </>
           )}
         </div>
 
-        <div>
-          <SubscriptionStatus />
-        </div>
+        {/* Right Sidebar - Only show for Subscription tab */}
+        {activeTab === "subscription" && (
+          <div>
+            <SubscriptionStatus />
+          </div>
+        )}
       </div>
 
       {/* Delete account confirmation dialog */}

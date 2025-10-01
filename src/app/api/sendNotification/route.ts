@@ -7,6 +7,36 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Function to get user's custom email templates
+const getUserEmailTemplates = async (userId: string) => {
+  try {
+    const firestore = getFirestore();
+    const userDoc = await getDoc(doc(firestore, "users", userId));
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return userData.emailTemplates || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user email templates:", error);
+    return null;
+  }
+};
+
+// Function to replace template variables
+const replaceTemplateVariables = (
+  template: string,
+  variables: Record<string, string>
+) => {
+  let result = template;
+  Object.entries(variables).forEach(([key, value]) => {
+    const regex = new RegExp(`{{${key}}}`, "g");
+    result = result.replace(regex, value);
+  });
+  return result;
+};
+
 // Email templates for different notification types
 const createSignatureNotificationHtml = (
   recipientName: string,
@@ -138,31 +168,83 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get contract details if not provided
+    // Get contract details and user ID if not provided
     let finalContractTitle = contractTitle;
-    if (!finalContractTitle) {
-      try {
-        const firestore = getFirestore();
-        const contractRef = doc(firestore, "contracts", contractId);
-        const contractDoc = await getDoc(contractRef);
+    let userId: string | null = null;
 
-        if (contractDoc.exists()) {
-          const contractData = contractDoc.data();
+    try {
+      const firestore = getFirestore();
+      const contractRef = doc(firestore, "contracts", contractId);
+      const contractDoc = await getDoc(contractRef);
+
+      if (contractDoc.exists()) {
+        const contractData = contractDoc.data();
+        if (!finalContractTitle) {
           finalContractTitle = contractData.title || "Contract";
         }
-      } catch (error) {
-        console.warn("Could not fetch contract title:", error);
+        userId = contractData.userId || contractData.designerId;
+      }
+    } catch (error) {
+      console.warn("Could not fetch contract details:", error);
+      if (!finalContractTitle) {
         finalContractTitle = "Contract";
       }
     }
 
-    const htmlContent = createSignatureNotificationHtml(
-      recipientName,
-      signerName,
-      finalContractTitle,
-      contractId,
-      notificationType
-    );
+    // Try to load custom email templates
+    let customTemplates = null;
+    if (userId) {
+      customTemplates = await getUserEmailTemplates(userId);
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const contractUrl = `${baseUrl}/Contracts/${contractId}`;
+
+    // Map notification type to template key
+    const templateMap: Record<string, string> = {
+      designer_signed: "designerSigned",
+      client_signed: "clientSigned",
+      contract_complete: "contractComplete",
+    };
+
+    const templateKey = templateMap[notificationType as string];
+    let htmlContent: string;
+    let emailSubject: string;
+
+    // Try to use custom template if available
+    if (customTemplates && templateKey && customTemplates[templateKey]) {
+      console.log(`📧 Using custom email template for ${notificationType}`);
+
+      const variables = {
+        recipientName,
+        signerName,
+        contractTitle: finalContractTitle,
+        contractUrl,
+      };
+
+      htmlContent = replaceTemplateVariables(
+        customTemplates[templateKey].html,
+        variables
+      );
+      emailSubject = replaceTemplateVariables(
+        customTemplates[templateKey].subject,
+        variables
+      );
+    } else {
+      // Use default template
+      console.log(`📧 Using default email template for ${notificationType}`);
+      htmlContent = createSignatureNotificationHtml(
+        recipientName,
+        signerName,
+        finalContractTitle,
+        contractId,
+        notificationType
+      );
+      emailSubject = getNotificationSubject(
+        notificationType,
+        finalContractTitle
+      );
+    }
 
     let emailSent = false;
 
@@ -177,7 +259,7 @@ export async function POST(request: Request) {
         const email = await resend.emails.send({
           from: fromEmail,
           to: [to],
-          subject: getNotificationSubject(notificationType, finalContractTitle),
+          subject: emailSubject,
           html: htmlContent,
           text: getNotificationText(
             recipientName,

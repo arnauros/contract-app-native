@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { getFirestore, doc, updateDoc, getDoc } from "firebase/firestore";
 import { initFirebase } from "@/lib/firebase/firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { completeTutorialStep } from "@/lib/tutorial/tutorialUtils";
 
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -172,12 +173,12 @@ export async function POST(request: Request) {
 
     console.log("📧 Using view URL:", finalViewUrl);
 
-    try {
-      // Initialize Firebase
-      console.log("🔥 Initializing Firebase");
-      const { app } = initFirebase();
-      const db = getFirestore(app);
+    // Initialize Firebase
+    console.log("🔥 Initializing Firebase");
+    const { app } = initFirebase();
+    const db = getFirestore(app);
 
+    try {
       // Update contract status and client info in Firestore
       console.log("🔥 Updating contract in Firestore:", contractId);
       const contractRef = doc(db, "contracts", contractId);
@@ -201,6 +202,15 @@ export async function POST(request: Request) {
 
       await updateDoc(contractRef, updateData);
       console.log("✅ Firestore update successful");
+
+      // Track tutorial action for contract sending
+      if (userId) {
+        try {
+          await completeTutorialStep(userId, "send_contract");
+        } catch (error) {
+          console.warn("Failed to complete tutorial step:", error);
+        }
+      }
     } catch (firestoreError) {
       console.error("❌ Firestore error:", firestoreError);
       // Continue with email sending even if Firestore update fails
@@ -212,20 +222,45 @@ export async function POST(request: Request) {
     let htmlContent: string;
     let emailSubject: string;
 
-    if (body.designerEmail) {
-      // Get user ID from designer email (you might need to implement this lookup)
-      // For now, we'll use the default template
-      console.log("📧 Using default email template");
-      htmlContent = createDefaultEmailHtml(
-        nameRecipient,
-        finalViewUrl,
-        contractTitle
+    // Get user ID from the contract to fetch custom templates
+    let userId: string | null = null;
+    try {
+      const contractDoc = await getDoc(doc(db, "contracts", contractId));
+      if (contractDoc.exists()) {
+        const contractData = contractDoc.data();
+        userId = contractData.userId || contractData.designerId;
+      }
+    } catch (error) {
+      console.warn("Could not get user ID from contract:", error);
+    }
+
+    // Try to load custom email templates if we have a user ID
+    let customTemplates = null;
+    if (userId) {
+      customTemplates = await getUserEmailTemplates(userId);
+    }
+
+    if (customTemplates && customTemplates.contractInvite) {
+      console.log("📧 Using custom email template for contract invite");
+
+      // Replace template variables
+      const variables = {
+        recipientName: nameRecipient,
+        contractTitle: contractTitle || "Contract",
+        contractUrl: finalViewUrl,
+      };
+
+      htmlContent = replaceTemplateVariables(
+        customTemplates.contractInvite.html,
+        variables
       );
-      emailSubject = `Contract Ready for Signature${
-        contractTitle ? `: ${contractTitle}` : ""
-      }`;
+      emailSubject = replaceTemplateVariables(
+        customTemplates.contractInvite.subject,
+        variables
+      );
     } else {
       // Use default template
+      console.log("📧 Using default email template");
       htmlContent = createDefaultEmailHtml(
         nameRecipient,
         finalViewUrl,

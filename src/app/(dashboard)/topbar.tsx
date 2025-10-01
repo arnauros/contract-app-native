@@ -323,6 +323,12 @@ export default function Topbar({ pathname }: TopbarProps) {
     if (pathname.startsWith("/Contracts/") && params?.id) {
       return `Dashboard / Contracts / #${params.id}`;
     }
+    if (pathname.startsWith("/Invoices/") && params?.id) {
+      if (pathname.includes("/edit")) {
+        return `Dashboard / Invoices / #${params.id} / Edit`;
+      }
+      return `Dashboard / Invoices / #${params.id}`;
+    }
     if (pathname === "/new") {
       return "Dashboard / Contracts / New Contract";
     }
@@ -342,6 +348,41 @@ export default function Topbar({ pathname }: TopbarProps) {
           </button>
           <span className="text-gray-400 mx-2">/</span>
           <span className="text-gray-500">#{params.id}</span>
+        </>
+      );
+    }
+    if (pathname.startsWith("/Invoices/") && params?.id) {
+      if (pathname.includes("/edit")) {
+        return (
+          <>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Dashboard
+            </button>
+            <span className="text-gray-400 mx-2">/</span>
+            <button
+              onClick={() => router.push(`/Invoices/${params.id}`)}
+              className="text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Invoice #{params.id}
+            </button>
+            <span className="text-gray-400 mx-2">/</span>
+            <span className="text-gray-500">Edit</span>
+          </>
+        );
+      }
+      return (
+        <>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Dashboard
+          </button>
+          <span className="text-gray-400 mx-2">/</span>
+          <span className="text-gray-500">Invoice #{params.id}</span>
         </>
       );
     }
@@ -416,13 +457,41 @@ export default function Topbar({ pathname }: TopbarProps) {
   };
 
   const isContractPage = pathname.startsWith("/Contracts/") && params?.id;
+  const isInvoicePage = pathname.startsWith("/Invoices/") && params?.id;
+  const isInvoiceEditPage =
+    pathname.startsWith("/Invoices/") &&
+    pathname.includes("/edit") &&
+    params?.id;
+  const showSpecialTopbar =
+    isContractPage || isInvoicePage || isInvoiceEditPage;
 
   return (
     <header className="sticky top-0 bg-white border-b border-gray-200 z-10">
       <div className="flex items-center justify-between h-14 px-4">
         <div className="flex items-center gap-4">
-          {isContractPage && (
+          {(isContractPage || isInvoicePage || isInvoiceEditPage) && (
             <div className="text-sm">{getBreadcrumbJSX()}</div>
+          )}
+          {!showSpecialTopbar && (
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+              Home
+            </button>
           )}
         </div>
         <div className="flex-1 flex justify-center">
@@ -485,7 +554,7 @@ export default function Topbar({ pathname }: TopbarProps) {
           )}
         </div>
         <div className="flex items-center gap-4">
-          {/* Saving Status */}
+          {/* Saving Status - only for contracts */}
           {isContractPage && (
             <div className="flex items-center gap-2 text-sm">
               <SavingIndicator />
@@ -494,14 +563,14 @@ export default function Topbar({ pathname }: TopbarProps) {
 
           {/* Removed legacy Upload PDF button */}
 
-          {/* Active Users Display */}
+          {/* Active Users Display - only for contracts */}
           {isContractPage && activeUsers.length > 0 && (
             <div className="mr-2">
               <UsersDisplay users={activeUsers} />
             </div>
           )}
 
-          {/* Navigation Controls */}
+          {/* Navigation Controls - only for contracts */}
           {isContractPage && (
             <div className="flex gap-2">
               {currentStage !== "edit" && (
@@ -520,6 +589,66 @@ export default function Topbar({ pathname }: TopbarProps) {
                   Next
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Invoice Action Controls */}
+          {isInvoicePage && !isInvoiceEditPage && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push(`/Invoices/${params?.id}/edit`)}
+                className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-300 ease-in-out min-w-[100px] font-medium flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                Edit
+              </button>
+            </div>
+          )}
+
+          {/* Invoice Edit Action Controls */}
+          {isInvoiceEditPage && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push(`/Invoices/${params?.id}`)}
+                className="px-4 py-2 h-[40px] text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-all duration-300 ease-in-out min-w-[100px] font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Trigger save action - this will need to be handled by the page component
+                  const event = new CustomEvent("saveInvoice");
+                  window.dispatchEvent(event);
+                }}
+                className="px-4 py-2 h-[40px] bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-300 ease-in-out min-w-[100px] font-medium flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                  />
+                </svg>
+                Save
+              </button>
             </div>
           )}
 

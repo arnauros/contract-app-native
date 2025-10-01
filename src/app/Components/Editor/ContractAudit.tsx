@@ -235,8 +235,11 @@ export function ContractAudit({
               "🔍 Invalid indices found:",
               audit.issues?.map((issue: any) => issue.position?.blockIndex)
             );
-            // Clear the cached audit data
-            await saveContractAudit(contractId, null);
+            // Clear the cached audit data by setting an empty audit
+            await saveContractAudit(contractId, {
+              issues: [],
+              analysisTime: Date.now(),
+            } as any);
             return;
           }
 
@@ -383,6 +386,8 @@ export function ContractAudit({
 
   // Handle bulk actions
   const handleBulkApply = (type?: string, priority?: string) => {
+    if (!auditData) return;
+
     const suggestionsToApply = filteredIssues
       .map((issue, index) => {
         const originalIndex = auditData.issues.findIndex((i) => i === issue);
@@ -475,7 +480,7 @@ export function ContractAudit({
           // Clear all highlights first
           onIssueClick(-1, "clear", undefined);
           // Then apply all highlights
-          data.issues.forEach((issue) => {
+          data.issues.forEach((issue: any) => {
             if (issue.position?.blockIndex !== undefined) {
               onIssueClick(
                 issue.position.blockIndex,

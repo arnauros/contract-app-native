@@ -29,7 +29,14 @@ export async function POST(request: Request) {
       console.log("Session cookie created, length:", sessionCookie.length);
 
       // Set cookie
-      const response = NextResponse.json({ status: "success" });
+      const response = NextResponse.json({
+        status: "success",
+        userId: decodedToken.uid, // Return userId for verification
+      });
+
+      // Clear any existing session cookie first to prevent conflicts
+      response.cookies.delete("session");
+
       response.cookies.set({
         name: "session",
         value: sessionCookie,
@@ -38,6 +45,7 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === "production",
         path: "/",
         sameSite: "lax",
+        // Don't set domain - let browser handle it correctly
       });
 
       console.log("Session created successfully for user:", decodedToken.uid);
@@ -69,12 +77,23 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
+  console.log("DELETE session API called - clearing session cookie");
   const response = NextResponse.json({ status: "success" });
+
+  // Properly delete the session cookie
+  response.cookies.delete({
+    name: "session",
+    path: "/",
+  });
+
+  // Also set it to empty as a fallback
   response.cookies.set({
     name: "session",
     value: "",
     maxAge: 0, // Expire immediately
     path: "/",
   });
+
+  console.log("Session cookie cleared");
   return response;
 }

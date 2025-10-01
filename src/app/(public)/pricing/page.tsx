@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 
 // Features included in each plan
 const includedFeatures = [
-  "Private forum access",
-  "Member resources",
-  "Entry to annual conference",
-  "Official member t-shirt",
+  "Cheaper than PayPal (4–5%)",
+  "No monthly lock-in like Bonsai ($29/mo)",
+  "One link → contract, signature & payment",
+  "Smart reminders + client portal included",
 ];
 
 // Track checkout attempts with a timestamp
@@ -117,14 +117,17 @@ function PricingContent() {
   const handledParamsRef = useRef(false);
 
   const pricingDetails = {
-    monthly: {
-      price: "19",
-      period: "month",
+    starter: {
+      name: "Starter",
+      price: "1%",
+      period: "per transaction",
+      description: "Perfect for getting started",
     },
-    yearly: {
-      price: "199",
-      period: "year",
-      discount: "Save $29",
+    pro: {
+      name: "Pro",
+      price: "29",
+      period: "month",
+      description: "For professionals who need more",
     },
   };
 
@@ -562,109 +565,12 @@ function PricingContent() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-4xl sm:text-center">
           <h2 className="text-pretty text-5xl font-semibold tracking-tight text-gray-900 sm:text-balance sm:text-6xl">
-            Simple no-tricks pricing
+            Simple, transparent pricing
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg font-medium text-gray-500 sm:text-xl/8">
-            Distinctio et nulla eum soluta et neque labore quibusdam. Saepe et
-            quasi iusto modi velit ut non voluptas in. Explicabo id ut laborum.
+            Start free with pay-as-you-go. Upgrade to Pro for advanced features
+            and lower fees.
           </p>
-        </div>
-
-        {/* Billing toggle */}
-        <div className="mx-auto mt-12 flex max-w-xs justify-center">
-          <div className="relative flex w-full rounded-lg bg-gray-100 p-1">
-            <button
-              type="button"
-              className={cn(
-                "w-1/2 rounded-md py-2 text-sm font-medium transition-all",
-                billingPeriod === "monthly"
-                  ? "bg-orange-500 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-50"
-              )}
-              onClick={() => setBillingPeriod("monthly")}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "w-1/2 rounded-md py-2 text-sm font-medium transition-all",
-                billingPeriod === "yearly"
-                  ? "bg-orange-500 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-50"
-              )}
-              onClick={() => setBillingPeriod("yearly")}
-            >
-              Yearly
-            </button>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-16 max-w-2xl rounded-3xl ring-1 ring-gray-200 sm:mt-20 lg:mx-0 lg:flex lg:max-w-none">
-          <div className="p-8 sm:p-10 lg:flex-auto">
-            <h3 className="text-3xl font-semibold tracking-tight text-gray-900">
-              Premium Plan
-            </h3>
-            <p className="mt-6 text-base/7 text-gray-600">
-              Lorem ipsum dolor sit amet consect etur adipisicing elit. Itaque
-              amet indis perferendis blanditiis repellendus etur quidem
-              assumenda.
-            </p>
-            <div className="mt-10 flex items-center gap-x-4">
-              <h4 className="flex-none text-sm/6 font-semibold text-orange-600">
-                What's included
-              </h4>
-              <div className="h-px flex-auto bg-gray-100" />
-            </div>
-            <ul
-              role="list"
-              className="mt-8 grid grid-cols-1 gap-4 text-sm/6 text-gray-600 sm:grid-cols-2 sm:gap-6"
-            >
-              {includedFeatures.map((feature) => (
-                <li key={feature} className="flex gap-x-3">
-                  <CheckIcon
-                    aria-hidden="true"
-                    className="h-6 w-5 flex-none text-orange-600"
-                  />
-                  {feature}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="-mt-2 p-2 lg:mt-0 lg:w-full lg:max-w-md lg:shrink-0">
-            <div className="rounded-2xl bg-gray-50 py-10 text-center ring-1 ring-inset ring-gray-900/5 lg:flex lg:flex-col lg:justify-center lg:py-16">
-              <div className="mx-auto max-w-xs px-8">
-                <p className="text-base font-semibold text-gray-600">
-                  {billingPeriod === "yearly"
-                    ? "Pay yearly, save more"
-                    : "Pay monthly, cancel anytime"}
-                </p>
-                <p className="mt-6 flex items-baseline justify-center gap-x-2">
-                  <span className="text-5xl font-semibold tracking-tight text-gray-900">
-                    ${pricingDetails[billingPeriod].price}
-                  </span>
-                  <span className="text-sm/6 font-semibold tracking-wide text-gray-600">
-                    USD/{pricingDetails[billingPeriod].period}
-                  </span>
-                </p>
-                {billingPeriod === "yearly" && (
-                  <p className="mt-2 text-sm font-medium text-orange-600">
-                    {pricingDetails.yearly.discount}
-                  </p>
-                )}
-                <button
-                  onClick={() => handleSubscribe(billingPeriod)}
-                  disabled={redirecting}
-                  className="mt-10 block w-full rounded-md bg-orange-500 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:opacity-70"
-                >
-                  {redirecting ? "Redirecting..." : "Get access"}
-                </button>
-                <p className="mt-6 text-xs/5 text-gray-600">
-                  Invoices and receipts available for easy company reimbursement
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Display general subscription errors */}
@@ -675,6 +581,406 @@ function PricingContent() {
             </p>
           </div>
         )}
+
+        {/* Two-Tier Pricing Cards */}
+        <div className="mt-16 sm:mt-20">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 max-w-5xl mx-auto">
+            {/* Starter Plan */}
+            <div className="rounded-3xl bg-white p-8 shadow-lg ring-1 ring-gray-200">
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-gray-900">Starter</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Perfect for getting started
+                </p>
+                <div className="mt-6">
+                  <span className="text-5xl font-bold tracking-tight text-gray-900">
+                    1%
+                  </span>
+                  <span className="ml-2 text-lg text-gray-600">
+                    per transaction
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  + Stripe fees (1.4-2%)
+                </p>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Unlimited contracts & clients
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    One-link checkout (contract + signature + payment)
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Electronic signatures
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Payment processing via Stripe
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">Client portal</span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Smart payment reminders
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Invoice generation
+                  </span>
+                </li>
+              </ul>
+
+              <button
+                onClick={() => handleSubscribe("monthly")}
+                disabled={redirecting}
+                className="w-full rounded-lg bg-white border-2 border-orange-500 px-6 py-3 text-center text-base font-semibold text-orange-600 hover:bg-orange-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:opacity-70 transition-colors"
+              >
+                {redirecting ? "Redirecting..." : "Start free"}
+              </button>
+              <p className="mt-3 text-center text-xs text-gray-500">
+                No credit card required
+              </p>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="rounded-3xl bg-gradient-to-br from-orange-50 to-white p-8 shadow-xl ring-2 ring-orange-500 relative">
+              <div className="absolute -top-5 left-0 right-0 mx-auto w-fit">
+                <span className="inline-flex items-center rounded-full bg-orange-500 px-4 py-1 text-xs font-semibold text-white">
+                  MOST POPULAR
+                </span>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-gray-900">Pro</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  For professionals who need more
+                </p>
+                <div className="mt-6">
+                  <span className="text-5xl font-bold tracking-tight text-gray-900">
+                    $29
+                  </span>
+                  <span className="ml-2 text-lg text-gray-600">per month</span>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  + 0.5% per transaction
+                </p>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-900 font-semibold">
+                    Everything in Starter, plus:
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    50% lower transaction fees (0.5% vs 1%)
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    AI-powered contract generation
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Advanced analytics & reporting
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Priority email support
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">Remove branding</span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">
+                    Custom contract templates
+                  </span>
+                </li>
+                <li className="flex gap-3">
+                  <CheckIcon className="h-6 w-5 flex-none text-orange-600" />
+                  <span className="text-sm text-gray-700">Bulk operations</span>
+                </li>
+              </ul>
+
+              <button
+                onClick={() => handleSubscribe("monthly")}
+                disabled={redirecting}
+                className="w-full rounded-lg bg-orange-500 px-6 py-3 text-center text-base font-semibold text-white shadow-sm hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:opacity-70 transition-colors"
+              >
+                {redirecting ? "Redirecting..." : "Upgrade to Pro"}
+              </button>
+              <p className="mt-3 text-center text-xs text-gray-500">
+                Cancel anytime
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature Comparison Section */}
+        <div className="mt-32">
+          <div className="mx-auto max-w-4xl text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+              What makes us different
+            </h2>
+            <p className="mt-4 text-lg text-gray-600">
+              The features that matter most
+            </p>
+          </div>
+
+          {/* Simplified Feature Comparison */}
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Feature 1 */}
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
+                  <svg
+                    className="w-8 h-8 text-orange-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  One-Link Checkout
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Contract, signature, and payment in a single seamless flow. No
+                  competitor has this.
+                </p>
+              </div>
+
+              {/* Feature 2 */}
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
+                  <svg
+                    className="w-8 h-8 text-orange-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Pay When You Get Paid
+                </h3>
+                <p className="text-sm text-gray-600">
+                  No monthly fees on Starter. Only pay when your client pays
+                  you. Zero upfront cost.
+                </p>
+              </div>
+
+              {/* Feature 3 */}
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
+                  <svg
+                    className="w-8 h-8 text-orange-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Lower Fees Than PayPal
+                </h3>
+                <p className="text-sm text-gray-600">
+                  ~2.4-3% all-in vs PayPal's 4-5%. Pro tier gets even better
+                  rates at just 0.5%.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Simple Feature Table */}
+          <div className="mt-16 max-w-3xl mx-auto overflow-hidden rounded-xl shadow-lg ring-1 ring-gray-200">
+            <table className="w-full bg-white">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="py-4 px-6 text-left text-sm font-semibold text-gray-900">
+                    Feature
+                  </th>
+                  <th className="py-4 px-6 text-center text-sm font-semibold text-gray-900">
+                    Starter
+                  </th>
+                  <th className="py-4 px-6 text-center text-sm font-semibold text-orange-600 bg-orange-50">
+                    Pro
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    Transaction fees
+                  </td>
+                  <td className="py-4 px-6 text-center text-sm font-medium text-gray-900">
+                    1% + Stripe
+                  </td>
+                  <td className="py-4 px-6 text-center text-sm font-medium text-orange-600 bg-orange-50">
+                    0.5% + Stripe
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    One-link checkout
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <CheckIcon className="w-6 h-6 text-green-600 mx-auto" />
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    Unlimited contracts & clients
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <CheckIcon className="w-6 h-6 text-green-600 mx-auto" />
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    Smart payment reminders
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <CheckIcon className="w-6 h-6 text-green-600 mx-auto" />
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    AI contract generation
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <span className="text-sm text-gray-400">—</span>
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    Advanced analytics & reporting
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <span className="text-sm text-gray-400">—</span>
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    Remove branding
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <span className="text-sm text-gray-400">—</span>
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    Priority support
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <span className="text-sm text-gray-400">—</span>
+                  </td>
+                  <td className="py-4 px-6 text-center bg-orange-50">
+                    <CheckIcon className="w-6 h-6 text-orange-600 mx-auto" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bottom CTA */}
+          <div className="mt-20 text-center max-w-2xl mx-auto">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              Ready to streamline your freelance business?
+            </h3>
+            <p className="text-lg text-gray-600 mb-8">
+              Start with Starter, upgrade to Pro when you're ready for more.
+            </p>
+            <button
+              onClick={() => handleSubscribe("monthly")}
+              disabled={redirecting}
+              className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-8 py-4 text-lg font-semibold text-white shadow-lg hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:opacity-70 transition-all hover:shadow-xl"
+            >
+              {redirecting ? "Redirecting..." : "Get started free"}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </button>
+            <p className="mt-4 text-sm text-gray-500">
+              No credit card required • Pay only when you get paid
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

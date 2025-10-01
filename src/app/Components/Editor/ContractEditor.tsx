@@ -456,7 +456,9 @@ export function ContractEditor({
             );
             dropdowns.forEach((dropdown) => {
               // Target H1 elements in dropdowns
-              const h1Elements = dropdown.querySelectorAll('[data-level="1"]');
+              const h1Elements = Array.from(
+                dropdown.querySelectorAll('[data-level="1"]')
+              );
               // Also find elements containing "H1 Heading 1" text
               const allElements = dropdown.querySelectorAll("*");
               allElements.forEach((element) => {
@@ -470,7 +472,9 @@ export function ContractEditor({
               });
 
               // Target H2 elements in dropdowns
-              const h2Elements = dropdown.querySelectorAll('[data-level="2"]');
+              const h2Elements = Array.from(
+                dropdown.querySelectorAll('[data-level="2"]')
+              );
               // Also find elements containing "H2 Heading 2" text
               allElements.forEach((element) => {
                 if (element.textContent?.includes("H2 Heading 2")) {
@@ -1307,7 +1311,7 @@ export function ContractEditor({
           id: contractId,
           content: editorData,
           updatedAt: new Date(),
-        });
+        } as any);
       }
       toast.success("AI suggestion applied!");
     } catch (error) {
@@ -1326,12 +1330,13 @@ export function ContractEditor({
 
       if (targetBlock) {
         // Add a subtle glow effect
-        targetBlock.style.transition = "all 0.3s ease";
-        targetBlock.style.boxShadow = "0 0 20px rgba(168, 85, 247, 0.3)";
+        const htmlBlock = targetBlock as HTMLElement;
+        htmlBlock.style.transition = "all 0.3s ease";
+        htmlBlock.style.boxShadow = "0 0 20px rgba(168, 85, 247, 0.3)";
 
         // Remove the effect after a short delay
         setTimeout(() => {
-          targetBlock.style.boxShadow = "";
+          htmlBlock.style.boxShadow = "";
         }, 1000);
       }
     }
@@ -1842,6 +1847,28 @@ export function ContractEditor({
             </div>
           )}
         </div>
+
+        {/* Stage-specific components */}
+        {stage === "sign" && (
+          <div className="fixed right-4 top-1/2 transform -translate-y-1/2 w-80 z-50">
+            <SigningStage
+              onSign={handleSignatureComplete}
+              designerSignature={designerSignature}
+            />
+          </div>
+        )}
+
+        {stage === "send" && (
+          <div className="fixed right-4 top-1/2 transform -translate-y-1/2 w-80 z-50">
+            <SendStage
+              onSend={() => {
+                // Handle send completion
+                console.log("Contract sent successfully");
+              }}
+              title={editorContent?.blocks?.[0]?.data?.text || "Contract"}
+            />
+          </div>
+        )}
 
         {/* Side panel - only show if not in success state */}
       </div>

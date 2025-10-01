@@ -53,10 +53,10 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       
       // Allow limited profile updates by the owner without requiring an active subscription
-      // This permits changing only basic profile fields and image URLs
+      // This permits changing only basic profile fields, image URLs, and tutorial state
       allow update: if request.auth != null && request.auth.uid == userId &&
                     request.resource.data.diff(resource.data).changedKeys()
-                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt']);
+                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt', 'tutorialState']);
 
       // Allow creating a minimal user profile document by the owner
       allow create: if request.auth != null && request.auth.uid == userId &&

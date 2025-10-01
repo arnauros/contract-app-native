@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, Save, ArrowLeft } from "lucide-react";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 interface InvoiceItem {
   description: string;
@@ -66,6 +67,7 @@ export default function InvoiceEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [contracts, setContracts] = useState<any[]>([]);
+  const [userSettings, setUserSettings] = useState<any>(null);
   const [formData, setFormData] = useState<InvoiceFormData>({
     title: "",
     status: "draft",
@@ -112,6 +114,19 @@ export default function InvoiceEditPage() {
           const invoiceData = (res as any).invoice;
           setInvoice(invoiceData);
 
+          // Load user settings to populate "from" section if empty
+          let userSettings = null;
+          try {
+            const db = getFirestore();
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              userSettings = userData.invoiceSettings || {};
+            }
+          } catch (error) {
+            console.log("Failed to load user settings:", error);
+          }
+
           // Populate form with existing data
           setFormData({
             title: invoiceData.title || "",
@@ -126,10 +141,10 @@ export default function InvoiceEditPage() {
               address: invoiceData.client?.address || "",
             },
             from: {
-              name: invoiceData.from?.name || "",
-              email: invoiceData.from?.email || "",
-              company: invoiceData.from?.company || "",
-              address: invoiceData.from?.address || "",
+              name: invoiceData.from?.name || userSettings?.name || "",
+              email: invoiceData.from?.email || userSettings?.email || "",
+              company: invoiceData.from?.company || userSettings?.company || "",
+              address: invoiceData.from?.address || userSettings?.address || "",
             },
             items:
               invoiceData.items?.length > 0
@@ -155,6 +170,21 @@ export default function InvoiceEditPage() {
         if ((contractsRes as any).success) {
           setContracts((contractsRes as any).contracts);
         }
+
+        // Load user's invoice settings
+        try {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUserSettings({
+              contract: userData.contractSettings || {},
+              invoice: userData.invoiceSettings || {},
+            });
+          }
+        } catch (settingsError) {
+          console.log("Failed to load user settings:", settingsError);
+        }
       } catch (e) {
         toast.error("Failed to load invoice");
       } finally {
@@ -163,6 +193,18 @@ export default function InvoiceEditPage() {
     };
     load();
   }, [id, user]);
+
+  // Listen for save event from topbar
+  useEffect(() => {
+    const handleSaveEvent = () => {
+      handleSave();
+    };
+
+    window.addEventListener("saveInvoice", handleSaveEvent);
+    return () => {
+      window.removeEventListener("saveInvoice", handleSaveEvent);
+    };
+  }, [invoice, formData]); // Include dependencies for handleSave
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...formData.items];
@@ -249,366 +291,179 @@ export default function InvoiceEditPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header - matches preview exactly */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/Invoices/${id}`)}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-semibold">Edit Invoice</h1>
+          <Input
+            value={formData.title}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
+            className="text-2xl font-semibold border-none bg-transparent p-0 focus:ring-0 focus:border-gray-300"
+            placeholder="Invoice title"
+          />
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-4">
+          <Select
+            value={formData.status}
+            onValueChange={(value: any) =>
+              setFormData({ ...formData, status: value })
+            }
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="sent">Sent</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-sm text-gray-500">Status: {formData.status}</div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Invoice Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                placeholder="Invoice title"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: any) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="currency">Currency</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, currency: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                    <SelectItem value="CAD">CAD</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="issueDate">Issue Date</Label>
-                <Input
-                  id="issueDate"
-                  type="date"
-                  value={formData.issueDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, issueDate: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="dueDate">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, dueDate: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contract Connection */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Contract Connection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>
-              <Label htmlFor="contractId">Linked Contract</Label>
-              <Select
-                value={formData.contractId || "none"}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    contractId: value === "none" ? "" : value,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a contract (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No contract linked</SelectItem>
-                  {contracts.map((contract) => {
-                    const createdDate =
-                      contract.createdAt?.toDate?.() ||
-                      new Date(contract.createdAt);
-                    const statusColor =
-                      (
-                        {
-                          draft: "text-gray-500",
-                          pending: "text-yellow-600",
-                          signed: "text-green-600",
-                          expired: "text-red-500",
-                          declined: "text-red-500",
-                        } as Record<string, string>
-                      )[contract.status] || "text-gray-500";
-
-                    return (
-                      <SelectItem key={contract.id} value={contract.id}>
-                        <div className="flex flex-col items-start">
-                          <div className="font-medium">
-                            {contract.title ||
-                              `Contract ${contract.id.slice(0, 8)}`}
-                          </div>
-                          <div className="text-xs text-gray-500 flex items-center gap-2">
-                            <span className={`capitalize ${statusColor}`}>
-                              {contract.status || "draft"}
-                            </span>
-                            <span>•</span>
-                            <span>{createdDate.toLocaleDateString()}</span>
-                            {contract.clientName && (
-                              <>
-                                <span>•</span>
-                                <span>{contract.clientName}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-gray-500 mt-1">
-                Link this invoice to a specific contract for better organization
-              </p>
-              {formData.contractId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    router.push(`/Contracts/${formData.contractId}`)
-                  }
-                  className="mt-2"
-                >
-                  View Contract
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Client Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Bill To</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="clientName">Name</Label>
-              <Input
-                id="clientName"
-                value={formData.client.name}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    client: { ...formData.client, name: e.target.value },
-                  })
-                }
-                placeholder="Client name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="clientEmail">Email</Label>
-              <Input
-                id="clientEmail"
-                type="email"
-                value={formData.client.email}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    client: { ...formData.client, email: e.target.value },
-                  })
-                }
-                placeholder="client@example.com"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="clientCompany">Company</Label>
-              <Input
-                id="clientCompany"
-                value={formData.client.company}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    client: { ...formData.client, company: e.target.value },
-                  })
-                }
-                placeholder="Company name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="clientAddress">Address</Label>
-              <Textarea
-                id="clientAddress"
-                value={formData.client.address}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    client: { ...formData.client, address: e.target.value },
-                  })
-                }
-                placeholder="Client address"
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* From Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>From</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="fromName">Name</Label>
-              <Input
-                id="fromName"
-                value={formData.from.name}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    from: { ...formData.from, name: e.target.value },
-                  })
-                }
-                placeholder="Your name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="fromEmail">Email</Label>
-              <Input
-                id="fromEmail"
-                type="email"
-                value={formData.from.email}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    from: { ...formData.from, email: e.target.value },
-                  })
-                }
-                placeholder="your@email.com"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="fromCompany">Company</Label>
-              <Input
-                id="fromCompany"
-                value={formData.from.company}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    from: { ...formData.from, company: e.target.value },
-                  })
-                }
-                placeholder="Your company"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="fromAddress">Address</Label>
-              <Textarea
-                id="fromAddress"
-                value={formData.from.address}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    from: { ...formData.from, address: e.target.value },
-                  })
-                }
-                placeholder="Your address"
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Invoice Items */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Invoice Items</CardTitle>
-            <Button onClick={addItem} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
+      {/* Bill To / From - matches preview exactly */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-3">
+          <h2 className="font-semibold text-gray-900 text-base">Bill To</h2>
+          <div className="space-y-2">
+            <Input
+              value={formData.client.name}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  client: { ...formData.client, name: e.target.value },
+                })
+              }
+              placeholder="Client name"
+              className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            />
+            <Input
+              value={formData.client.company}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  client: { ...formData.client, company: e.target.value },
+                })
+              }
+              placeholder="Company name"
+              className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            />
+            <Input
+              value={formData.client.email}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  client: { ...formData.client, email: e.target.value },
+                })
+              }
+              placeholder="client@example.com"
+              className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            />
+            <Textarea
+              value={formData.client.address}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  client: { ...formData.client, address: e.target.value },
+                })
+              }
+              placeholder="Client address"
+              className="border-0 bg-transparent p-0 h-auto text-sm text-gray-700 resize-none focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+              rows={3}
+            />
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {formData.items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-4 items-end">
-                <div className="col-span-5">
-                  <Label>Description</Label>
+        </div>
+        <div className="space-y-3">
+          <h2 className="font-semibold text-gray-900 text-base">From</h2>
+          <div className="space-y-2">
+            <Input
+              value={formData.from.name}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  from: { ...formData.from, name: e.target.value },
+                })
+              }
+              placeholder="Your name"
+              className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            />
+            <Input
+              value={formData.from.company}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  from: { ...formData.from, company: e.target.value },
+                })
+              }
+              placeholder="Your company"
+              className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            />
+            <Input
+              value={formData.from.email}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  from: { ...formData.from, email: e.target.value },
+                })
+              }
+              placeholder="your@email.com"
+              className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            />
+            <Textarea
+              value={formData.from.address}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  from: { ...formData.from, address: e.target.value },
+                })
+              }
+              placeholder="Your address"
+              className="border-0 bg-transparent p-0 h-auto text-sm text-gray-700 resize-none focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+              rows={3}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Invoice Items Table - matches preview exactly */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Description
+              </th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Qty
+              </th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Unit
+              </th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total
+              </th>
+              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {formData.items.map((item, idx) => (
+              <tr key={idx}>
+                <td className="px-4 py-2">
                   <Input
                     value={item.description}
                     onChange={(e) =>
-                      updateItem(index, "description", e.target.value)
+                      updateItem(idx, "description", e.target.value)
                     }
                     placeholder="Item description"
+                    className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
                   />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Qty</Label>
+                </td>
+                <td className="px-4 py-2 text-right">
                   <Input
                     type="number"
                     min="0"
@@ -616,16 +471,15 @@ export default function InvoiceEditPage() {
                     value={item.quantity}
                     onChange={(e) =>
                       updateItem(
-                        index,
+                        idx,
                         "quantity",
                         parseFloat(e.target.value) || 0
                       )
                     }
+                    className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors w-16 text-right"
                   />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Unit Price</Label>
+                </td>
+                <td className="px-4 py-2 text-right">
                   <Input
                     type="number"
                     min="0"
@@ -633,116 +487,149 @@ export default function InvoiceEditPage() {
                     value={item.unitPrice}
                     onChange={(e) =>
                       updateItem(
-                        index,
+                        idx,
                         "unitPrice",
                         parseFloat(e.target.value) || 0
                       )
                     }
+                    className="border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors w-20 text-right"
                   />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Total</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.total}
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
-
-                <div className="col-span-1">
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <span className="text-sm text-gray-700">
+                    {new Intl.NumberFormat(undefined, {
+                      style: "currency",
+                      currency: formData.currency || "USD",
+                    }).format(item.total || 0)}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-center">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => removeItem(index)}
+                    onClick={() => removeItem(idx)}
                     disabled={formData.items.length === 1}
+                    className="h-6 w-6 p-0"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3 w-3" />
                   </Button>
-                </div>
-              </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        </CardContent>
-      </Card>
+          </tbody>
+        </table>
+        <div className="mt-2">
+          <Button onClick={addItem} size="sm" variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
+      </div>
 
-      {/* Totals */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Totals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>
-                {new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: formData.currency,
-                }).format(formData.subtotal)}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="tax">Tax:</Label>
-                <Input
-                  id="tax"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.tax}
-                  onChange={(e) => {
-                    const tax = parseFloat(e.target.value) || 0;
-                    setFormData({
-                      ...formData,
-                      tax,
-                      total: formData.subtotal + tax,
-                    });
-                  }}
-                  className="w-24"
-                />
-              </div>
-              <span>
-                {new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: formData.currency,
-                }).format(formData.tax)}
-              </span>
-            </div>
-
-            <div className="flex justify-between font-semibold text-lg border-t pt-2">
-              <span>Total:</span>
-              <span>
-                {new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: formData.currency,
-                }).format(formData.total)}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Notes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={formData.notes}
-            onChange={(e) =>
-              setFormData({ ...formData, notes: e.target.value })
-            }
-            placeholder="Additional notes or terms..."
-            rows={4}
+      {/* Totals - matches preview exactly */}
+      <div className="flex flex-col items-end gap-1 text-sm">
+        <div className="flex items-center gap-2">
+          <span>Subtotal:</span>
+          <span>
+            {new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: formData.currency || "USD",
+            }).format(formData.subtotal || 0)}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Tax:</span>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.tax}
+            onChange={(e) => {
+              const tax = parseFloat(e.target.value) || 0;
+              setFormData({
+                ...formData,
+                tax,
+                total: formData.subtotal + tax,
+              });
+            }}
+            className="w-20 border-0 bg-transparent p-0 h-6 text-sm text-gray-700 focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors text-right"
           />
-        </CardContent>
-      </Card>
+          <span>
+            {new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: formData.currency || "USD",
+            }).format(formData.tax || 0)}
+          </span>
+        </div>
+        <div className="font-medium">
+          Total:{" "}
+          {new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: formData.currency || "USD",
+          }).format(formData.total || 0)}
+        </div>
+      </div>
+
+      {/* Notes - matches preview exactly */}
+      <div>
+        <h3 className="font-medium mb-1">Notes</h3>
+        <Textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Additional notes or terms..."
+          className="border-0 bg-transparent p-0 h-auto text-sm text-gray-700 resize-none focus:ring-0 focus:border-transparent hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+          rows={3}
+        />
+      </div>
+
+      {/* Payment Information from Settings */}
+      {userSettings?.invoice && (
+        <div>
+          <h3 className="font-medium mb-2">Payment Information</h3>
+          <div className="text-sm text-gray-700 space-y-1">
+            {userSettings.invoice.iban && (
+              <p>
+                <strong>IBAN:</strong> {userSettings.invoice.iban}
+              </p>
+            )}
+            {userSettings.invoice.bankName && (
+              <p>
+                <strong>Bank:</strong> {userSettings.invoice.bankName}
+              </p>
+            )}
+            {userSettings.invoice.bicSwift && (
+              <p>
+                <strong>BIC/SWIFT:</strong> {userSettings.invoice.bicSwift}
+              </p>
+            )}
+            {userSettings.invoice.taxId && (
+              <p>
+                <strong>Tax ID:</strong> {userSettings.invoice.taxId}
+              </p>
+            )}
+            {userSettings.invoice.paymentTerms && (
+              <p>
+                <strong>Payment Terms:</strong>{" "}
+                {userSettings.invoice.paymentTerms === "net30"
+                  ? "Net 30 days"
+                  : userSettings.invoice.paymentTerms === "net15"
+                  ? "Net 15 days"
+                  : userSettings.invoice.paymentTerms === "net7"
+                  ? "Net 7 days"
+                  : userSettings.invoice.paymentTerms === "due_on_receipt"
+                  ? "Due on receipt"
+                  : userSettings.invoice.paymentTerms}
+              </p>
+            )}
+          </div>
+          {formData.status === "draft" && (
+            <p className="text-xs text-blue-600 mt-2">
+              💡 This payment information is pulled from your settings and will
+              update automatically.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
