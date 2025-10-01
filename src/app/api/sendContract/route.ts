@@ -178,6 +178,18 @@ export async function POST(request: Request) {
     const { app } = initFirebase();
     const db = getFirestore(app);
 
+    // Get user ID from the contract to fetch custom templates
+    let userId: string | null = null;
+    try {
+      const contractDoc = await getDoc(doc(db, "contracts", contractId));
+      if (contractDoc.exists()) {
+        const contractData = contractDoc.data();
+        userId = contractData.userId || contractData.designerId;
+      }
+    } catch (error) {
+      console.warn("Could not get user ID from contract:", error);
+    }
+
     try {
       // Update contract status and client info in Firestore
       console.log("🔥 Updating contract in Firestore:", contractId);
@@ -222,17 +234,6 @@ export async function POST(request: Request) {
     let htmlContent: string;
     let emailSubject: string;
 
-    // Get user ID from the contract to fetch custom templates
-    let userId: string | null = null;
-    try {
-      const contractDoc = await getDoc(doc(db, "contracts", contractId));
-      if (contractDoc.exists()) {
-        const contractData = contractDoc.data();
-        userId = contractData.userId || contractData.designerId;
-      }
-    } catch (error) {
-      console.warn("Could not get user ID from contract:", error);
-    }
 
     // Try to load custom email templates if we have a user ID
     let customTemplates = null;

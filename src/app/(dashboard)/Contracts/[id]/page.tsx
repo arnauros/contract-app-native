@@ -305,13 +305,13 @@ export default function ContractPage() {
 
         // Get contract data for client info
         contractData = {
-          title: contract.title,
-          clientName: contract.clientName || "",
-          clientEmail: contract.clientEmail || "",
-          clientCompany: contract.clientCompany || "",
-          paymentTerms: contract.paymentTerms || "",
-          totalAmount: contract.totalAmount || "",
-          currency: contract.currency || "USD",
+          title: formData?.title || "Contract",
+          clientName: formData?.clientName || "",
+          clientEmail: formData?.clientEmail || "",
+          clientCompany: formData?.clientCompany || "",
+          paymentTerms: formData?.paymentTerms || "",
+          totalAmount: formData?.budget || "",
+          currency: formData?.currency || "USD",
         };
       } catch (error) {
         console.log("Failed to load user settings or contract data:", error);
