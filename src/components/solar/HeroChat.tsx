@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { SuggestionPills } from "./SuggestionPills";
 
 const placeholderExamples = [
   "I need a contract for a website development project with Talon...",
@@ -463,88 +464,12 @@ export function HeroChat({
         )}
       </div>
 
-      {/* Enhanced Suggestion Pills with better interaction */}
-      {!hideSuggestions && (
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <button
-            onClick={() =>
-              handleChipClick(
-                "I need a contract for a website development project",
-                "website"
-              )
-            }
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-all duration-200 border ${
-              selectedChip === "website"
-                ? "bg-blue-100 border-blue-300 text-blue-700 scale-105"
-                : "bg-gray-50 hover:bg-gray-100 hover:scale-105 border-gray-200 text-gray-700"
-            }`}
-          >
-            <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-            Website project
-          </button>
-          <button
-            onClick={() =>
-              handleChipClick(
-                "I'm building a mobile app for a client",
-                "mobile"
-              )
-            }
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-all duration-200 border ${
-              selectedChip === "mobile"
-                ? "bg-orange-100 border-orange-300 text-orange-700 scale-105"
-                : "bg-gray-50 hover:bg-gray-100 hover:scale-105 border-gray-200 text-gray-700"
-            }`}
-          >
-            <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-            Mobile app
-          </button>
-          <button
-            onClick={() =>
-              handleChipClick(
-                "I need to create an invoice for my client work",
-                "invoice"
-              )
-            }
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-all duration-200 border ${
-              selectedChip === "invoice"
-                ? "bg-green-100 border-green-300 text-green-700 scale-105"
-                : "bg-gray-50 hover:bg-gray-100 hover:scale-105 border-gray-200 text-gray-700"
-            }`}
-          >
-            <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-            Create invoice
-          </button>
-          <button
-            onClick={() =>
-              handleChipClick(
-                "I need a contract for consulting services",
-                "consulting"
-              )
-            }
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-all duration-200 border ${
-              selectedChip === "consulting"
-                ? "bg-purple-100 border-purple-300 text-purple-700 scale-105"
-                : "bg-gray-50 hover:bg-gray-100 hover:scale-105 border-gray-200 text-gray-700"
-            }`}
-          >
-            <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-            Consulting
-          </button>
-          <button
-            onClick={() =>
-              handleChipClick("Help me create a design contract", "design")
-            }
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-all duration-200 border ${
-              selectedChip === "design"
-                ? "bg-pink-100 border-pink-300 text-pink-700 scale-105"
-                : "bg-gray-50 hover:bg-gray-100 hover:scale-105 border-gray-200 text-gray-700"
-            }`}
-          >
-            <span className="w-2 h-2 bg-pink-400 rounded-full"></span>
-            Design work
-          </button>
-        </div>
-      )}
+      {/* Suggestion Pills */}
+      <SuggestionPills
+        onChipClick={handleChipClick}
+        selectedChip={selectedChip}
+        hideSuggestions={hideSuggestions}
+      />
 
       <style jsx>{`
         @keyframes blink {

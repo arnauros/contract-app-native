@@ -8,6 +8,7 @@ import {
   initializeTutorialForUser,
   startTutorial,
   dismissTutorial,
+  resetTutorialForUser,
 } from "@/lib/tutorial/tutorialUtils";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -482,45 +483,11 @@ export default function SettingsPage() {
         return;
       }
 
-      const loadingToast = toast.loading("Opening subscription portal...");
-
-      try {
-        await openCustomerPortal();
-        // If successful, the user will be redirected
-      } catch (error) {
-        console.error("Error opening customer portal:", error);
-
-        // Check for specific error messages
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
-        // Handle different error conditions based on the error message
-        if (
-          errorMessage.includes("No Stripe customer found") ||
-          errorMessage.includes("User not found") ||
-          errorMessage.includes("Database error")
-        ) {
-          toast.error("No active subscription found. Please subscribe first.");
-
-          // If in development, help the developer understand the issue
-          if (process.env.NODE_ENV === "development") {
-            console.info(
-              "Development hint: Check Firestore for a user document with stripeCustomerId field"
-            );
-          }
-        } else {
-          toast.error(
-            "Failed to open subscription management portal. Try again later."
-          );
-        }
-      } finally {
-        if (loadingToast) {
-          toast.dismiss(loadingToast);
-        }
-      }
+      // The useSubscription hook handles its own toasts, so we don't need to add more
+      await openCustomerPortal();
     } catch (error) {
       console.error("Error in handleManageSubscription:", error);
-      toast.error("An unexpected error occurred");
+      // Error handling is done by the useSubscription hook
     }
   }, [user, openCustomerPortal]);
 
@@ -743,9 +710,15 @@ export default function SettingsPage() {
     if (!user) return;
 
     try {
+      console.log("🔄 Tutorial: Starting reset for user:", user.uid);
       setIsTutorialTesting(true);
-      await initializeTutorialForUser(user.uid);
-      toast.success("Tutorial reset! Go to dashboard to see it.");
+      // Use the new reset function that properly resets the tutorial
+      await resetTutorialForUser(user.uid);
+      console.log("🔄 Tutorial: Reset completed, now starting tutorial");
+      // Immediately start the tutorial after reset
+      await startTutorial(user.uid);
+      console.log("🔄 Tutorial: Tutorial started successfully");
+      toast.success("Tutorial reset and started! Go to dashboard to see it.");
     } catch (error) {
       console.error("Failed to reset tutorial:", error);
       toast.error("Failed to reset tutorial");

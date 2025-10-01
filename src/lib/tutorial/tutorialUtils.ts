@@ -123,6 +123,37 @@ export async function dismissTutorial(userId: string): Promise<void> {
   });
 }
 
+export async function resetTutorialForUser(
+  userId: string
+): Promise<TutorialState> {
+  const db = getFirestore();
+  const userRef = doc(db, "users", userId);
+
+  try {
+    // Create a completely fresh tutorial state
+    const newTutorialState: TutorialState = {
+      isActive: false,
+      isCompleted: false,
+      steps: TUTORIAL_CONFIG.steps.map((step) => ({
+        ...step,
+        completed: false,
+      })),
+      startedAt: new Date(),
+    };
+
+    // Force update the tutorial state (overwrite existing)
+    await updateDoc(userRef, {
+      tutorialState: newTutorialState,
+    });
+
+    console.log("🎯 Tutorial: Reset tutorial state for user:", userId);
+    return newTutorialState;
+  } catch (error) {
+    console.error("Error resetting tutorial:", error);
+    throw error;
+  }
+}
+
 export function shouldShowTutorial(
   tutorialState: TutorialState | null
 ): boolean {

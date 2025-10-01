@@ -37,17 +37,40 @@ export function useTutorial() {
           const userData = doc.data();
           const tutorialState = userData.tutorialState as TutorialState;
 
+          console.log(
+            "🎯 Tutorial: User doc exists, tutorial state:",
+            tutorialState
+          );
+
           if (tutorialState) {
             setTutorialState(tutorialState);
+            console.log("🎯 Tutorial: Set existing tutorial state:", {
+              isActive: tutorialState.isActive,
+              isCompleted: tutorialState.isCompleted,
+              stepsCompleted: tutorialState.steps.filter((s) => s.completed)
+                .length,
+            });
           } else {
             // Initialize tutorial if it doesn't exist
+            console.log(
+              "🎯 Tutorial: No tutorial state found, initializing..."
+            );
             const state = await initializeTutorialForUser(user.uid);
             setTutorialState(state);
+            console.log("🎯 Tutorial: Initialized new tutorial state:", {
+              isActive: state.isActive,
+              isCompleted: state.isCompleted,
+            });
           }
         } else {
           // User document doesn't exist, initialize tutorial
+          console.log("🎯 Tutorial: User doc doesn't exist, initializing...");
           const state = await initializeTutorialForUser(user.uid);
           setTutorialState(state);
+          console.log("🎯 Tutorial: Initialized new tutorial state:", {
+            isActive: state.isActive,
+            isCompleted: state.isCompleted,
+          });
         }
       } catch (error) {
         console.error("Failed to initialize tutorial:", error);
@@ -117,6 +140,18 @@ export function useTutorial() {
   );
 
   const shouldShow = tutorialState ? shouldShowTutorial(tutorialState) : false;
+
+  // Debug logging (commented out for production)
+  // console.log("🎯 Tutorial: shouldShow calculation:", {
+  //   hasTutorialState: !!tutorialState,
+  //   shouldShow,
+  //   tutorialState: tutorialState
+  //     ? {
+  //         isActive: tutorialState.isActive,
+  //         isCompleted: tutorialState.isCompleted,
+  //       }
+  //     : null,
+  // });
 
   return {
     tutorialState,

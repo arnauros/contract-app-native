@@ -234,7 +234,6 @@ export async function POST(request: Request) {
     let htmlContent: string;
     let emailSubject: string;
 
-
     // Try to load custom email templates if we have a user ID
     let customTemplates = null;
     if (userId) {

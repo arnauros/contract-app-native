@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
+  apiVersion: "2025-08-27.basil",
 });
 
 // Webhook secret from environment variables
@@ -376,9 +376,8 @@ export async function POST(req: Request) {
         // Only update if this is for the current subscription
         if (userData?.subscription?.subscriptionId === subscriptionId) {
           // Get the latest subscription data
-          const subscription = await stripe.subscriptions.retrieve(
-            subscriptionId
-          );
+          const subscription =
+            await stripe.subscriptions.retrieve(subscriptionId);
           const subscriptionData = getSubscriptionData(subscription);
 
           // Update subscription data in Firestore

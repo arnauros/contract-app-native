@@ -1102,13 +1102,18 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Tutorial Checklist */}
-      {shouldShow && tutorialState && (
+      {/* Tutorial Checklist - Always show in development */}
+      {process.env.NODE_ENV === "development" ? (
         <TutorialChecklist
           tutorialState={tutorialState}
           onStateChange={updateTutorialState}
         />
-      )}
+      ) : shouldShow && tutorialState ? (
+        <TutorialChecklist
+          tutorialState={tutorialState}
+          onStateChange={updateTutorialState}
+        />
+      ) : null}
 
       {/* User info moved to topbar */}
       <div className="mb-6" />

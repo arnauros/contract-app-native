@@ -3,7 +3,7 @@ import { TutorialConfig } from "./types";
 export const TUTORIAL_CONFIG: TutorialConfig = {
   autoStart: true,
   showProgress: true,
-  position: "top-right",
+  position: "bottom-right",
   steps: [
     {
       id: "welcome",

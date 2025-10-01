@@ -14,6 +14,7 @@
 Add these to your Vercel project settings:
 
 #### Firebase Configuration
+
 ```bash
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAGsX27lCpZB1V4mMpCjE2R4OUfuIGwLuQ
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=freelance-project-3d0b5.firebaseapp.com
@@ -27,6 +28,7 @@ FIREBASE_SERVICE_ACCOUNT_KEY=<your-firebase-service-account-json>
 ```
 
 #### Stripe Configuration (Production)
+
 ```bash
 # Replace with your LIVE Stripe keys (not test keys)
 STRIPE_SECRET_KEY=sk_live_...
@@ -37,11 +39,13 @@ STRIPE_YEARLY_PRICE_ID=price_...
 ```
 
 #### OpenAI Configuration
+
 ```bash
 OPENAI_API_KEY=sk-...
 ```
 
 #### App Configuration
+
 ```bash
 NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 ```
@@ -56,12 +60,14 @@ NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 4. Create your subscription plans:
 
 #### Monthly Plan
+
 - **Name**: "Pro Monthly"
 - **Pricing**: $29/month (or your price)
 - **Billing period**: Monthly
 - **Copy the Price ID** (starts with `price_`)
 
-#### Yearly Plan  
+#### Yearly Plan
+
 - **Name**: "Pro Yearly"
 - **Pricing**: $290/year (or your price)
 - **Billing period**: Yearly
@@ -92,6 +98,7 @@ NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 ### Method 1: Deploy from GitHub (Recommended)
 
 1. **Push to GitHub**:
+
    ```bash
    git add .
    git commit -m "feat: prepare for production deployment"
@@ -99,12 +106,14 @@ NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
    ```
 
 2. **Connect to Vercel**:
+
    - Go to [vercel.com](https://vercel.com)
    - Click "New Project"
    - Import your GitHub repository
    - Vercel will auto-detect it's a Next.js project
 
 3. **Configure Environment Variables**:
+
    - In Vercel dashboard, go to your project
    - Go to **Settings** → **Environment Variables**
    - Add all the environment variables listed above
@@ -117,16 +126,19 @@ NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 ### Method 2: Deploy with Vercel CLI
 
 1. **Install Vercel CLI**:
+
    ```bash
    npm i -g vercel
    ```
 
 2. **Login to Vercel**:
+
    ```bash
    vercel login
    ```
 
 3. **Deploy**:
+
    ```bash
    vercel --prod
    ```
@@ -167,15 +179,18 @@ NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 ### Common Issues
 
 1. **Build Failures**:
+
    - Check environment variables are set
    - Verify all imports and dependencies
 
 2. **Stripe Errors**:
+
    - Ensure you're using live keys (not test keys)
    - Verify webhook endpoint is accessible
    - Check webhook secret is correct
 
 3. **Firebase Issues**:
+
    - Verify service account key is properly formatted
    - Check Firebase project permissions
 

@@ -8,7 +8,7 @@ initAdmin();
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
+  apiVersion: "2025-08-27.basil",
   // Add better Stripe configuration
   typescript: true,
   timeout: 20000, // 20 second timeout
@@ -118,9 +118,12 @@ export async function POST(req: Request) {
     ACTIVE_CHECKOUTS.add(requestId);
 
     // Set a timeout to remove from active checkouts after 5 minutes
-    setTimeout(() => {
-      ACTIVE_CHECKOUTS.delete(requestId);
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        ACTIVE_CHECKOUTS.delete(requestId);
+      },
+      5 * 60 * 1000
+    );
 
     console.log(
       `Creating checkout session for user: ${userId}, price: ${priceId}, checkout ID: ${requestId}`

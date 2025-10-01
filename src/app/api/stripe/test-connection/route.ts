@@ -77,7 +77,7 @@ export async function GET(req: Request) {
       }
 
       const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: "2025-04-30.basil",
+        apiVersion: "2025-08-27.basil",
       });
 
       // Test retrieving Stripe account info

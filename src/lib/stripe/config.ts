@@ -1,7 +1,7 @@
 import { loadStripe } from "@stripe/stripe-js";
 
 // Define Stripe API version for consistency across the app
-export const STRIPE_API_VERSION = "2025-04-30.basil";
+export const STRIPE_API_VERSION = "2025-08-27.basil";
 
 // Initialize Stripe with your publishable key
 export const getStripe = () => {

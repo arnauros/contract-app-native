@@ -22,6 +22,7 @@ export default function TutorialChecklist({
 }: TutorialChecklistProps) {
   const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [animatingStep, setAnimatingStep] = useState<string | null>(null);
 
   const completedSteps =
@@ -88,7 +89,7 @@ export default function TutorialChecklist({
   };
 
   const handleDismiss = async () => {
-    if (!user) return;
+    if (!user || !tutorialState?.isCompleted) return;
 
     try {
       await dismissTutorial(user.uid);
@@ -103,16 +104,23 @@ export default function TutorialChecklist({
     }
   };
 
-  if (!tutorialState || !tutorialState.isActive || tutorialState.isCompleted) {
+  if (!tutorialState || !tutorialState.isActive) {
     return null;
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20, y: -20 }}
+      initial={{ opacity: 0, x: 20, y: 20 }}
       animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: 20, y: -20 }}
-      className="fixed top-4 right-4 z-[9999] bg-white rounded-lg shadow-lg border border-gray-200 max-w-sm"
+      exit={{ opacity: 0, x: 20, y: 20 }}
+      className={`fixed bottom-6 right-6 z-[99999] bg-white rounded-lg shadow-xl border border-gray-200 transition-all duration-300 ${
+        isMinimized ? "max-w-xs" : "max-w-sm"
+      }`}
+      style={{
+        position: "fixed",
+        zIndex: 99999,
+        isolation: "isolate",
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-100">
@@ -132,21 +140,25 @@ export default function TutorialChecklist({
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => setIsMinimized(!isMinimized)}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
+            title={isMinimized ? "Expand tutorial" : "Minimize tutorial"}
           >
-            {isExpanded ? (
+            {isMinimized ? (
               <FiChevronUp className="w-4 h-4" />
             ) : (
               <FiChevronDown className="w-4 h-4" />
             )}
           </button>
-          <button
-            onClick={handleDismiss}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-          >
-            <FiX className="w-4 h-4 text-gray-400" />
-          </button>
+          {tutorialState.isCompleted && (
+            <button
+              onClick={handleDismiss}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Dismiss tutorial"
+            >
+              <FiX className="w-4 h-4 text-gray-400" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -164,7 +176,7 @@ export default function TutorialChecklist({
 
       {/* Steps List */}
       <AnimatePresence>
-        {isExpanded && (
+        {!isMinimized && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -258,7 +270,7 @@ export default function TutorialChecklist({
       </AnimatePresence>
 
       {/* Completion Celebration */}
-      {tutorialState.isCompleted && (
+      {tutorialState.isCompleted && !isMinimized && (
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -269,6 +281,22 @@ export default function TutorialChecklist({
             <span className="font-semibold text-sm">All done! Great job!</span>
           </div>
         </motion.div>
+      )}
+
+      {/* Minimized State Indicator */}
+      {isMinimized && (
+        <div className="px-3 py-2 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+              {completedSteps}
+            </div>
+            <span className="text-sm text-gray-600">
+              {tutorialState.isCompleted
+                ? "Complete!"
+                : `${completedSteps}/${totalSteps}`}
+            </span>
+          </div>
+        </div>
       )}
     </motion.div>
   );
