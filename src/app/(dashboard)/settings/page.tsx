@@ -357,7 +357,7 @@ export default function SettingsPage() {
               });
             } else {
               // Initialize with user data if no settings exist
-              setInvoiceSettings(prev => ({
+              setInvoiceSettings((prev) => ({
                 ...prev,
                 name: user.displayName || "",
                 email: user.email || "",

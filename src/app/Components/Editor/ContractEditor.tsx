@@ -490,7 +490,7 @@ export function ContractEditor({
           editor.readOnly.toggle();
         }
 
-        // Fix EditorJS dropdown styling
+        // Fix EditorJS dropdown styling and H1 font sizes
         const fixEditorJSDropdownStyling = () => {
           const observer = new MutationObserver(() => {
             // Find all dropdown elements
@@ -529,6 +529,51 @@ export function ContractEditor({
                 (element as HTMLElement).style.fontWeight = "500";
               });
             });
+
+            // Apply standard typography scale to all headings
+            const applyTypographyScale = () => {
+              // H1 - 32px (2em)
+              const h1Elements = document.querySelectorAll('h1.ce-header[data-level="1"], h1[data-level="1"]');
+              h1Elements.forEach((h1) => {
+                (h1 as HTMLElement).style.fontSize = "2em";
+                (h1 as HTMLElement).style.fontWeight = "bold";
+                (h1 as HTMLElement).style.lineHeight = "1.2";
+              });
+
+              // H2 - 24px (1.5em)
+              const h2Elements = document.querySelectorAll('h2.ce-header[data-level="2"], h2[data-level="2"]');
+              h2Elements.forEach((h2) => {
+                (h2 as HTMLElement).style.fontSize = "1.5em";
+                (h2 as HTMLElement).style.fontWeight = "600";
+                (h2 as HTMLElement).style.lineHeight = "1.3";
+              });
+
+              // H3 - 20px (1.25em)
+              const h3Elements = document.querySelectorAll('h3.ce-header[data-level="3"], h3[data-level="3"]');
+              h3Elements.forEach((h3) => {
+                (h3 as HTMLElement).style.fontSize = "1.25em";
+                (h3 as HTMLElement).style.fontWeight = "600";
+                (h3 as HTMLElement).style.lineHeight = "1.4";
+              });
+
+              // H4 - 18px (1.125em)
+              const h4Elements = document.querySelectorAll('h4.ce-header[data-level="4"], h4[data-level="4"]');
+              h4Elements.forEach((h4) => {
+                (h4 as HTMLElement).style.fontSize = "1.125em";
+                (h4 as HTMLElement).style.fontWeight = "600";
+                (h4 as HTMLElement).style.lineHeight = "1.4";
+              });
+
+              // Body text - 16px
+              const paragraphs = document.querySelectorAll('.ce-paragraph, p');
+              paragraphs.forEach((p) => {
+                (p as HTMLElement).style.fontSize = "16px";
+                (p as HTMLElement).style.fontWeight = "normal";
+                (p as HTMLElement).style.lineHeight = "1.5";
+              });
+            };
+
+            applyTypographyScale();
           });
 
           // Start observing changes
@@ -549,6 +594,53 @@ export function ContractEditor({
 
         // Store cleanup function for later use
         (editor as any)._dropdownStylingCleanup = cleanup;
+
+        // Apply standard typography scale immediately after editor is ready
+        setTimeout(() => {
+          const applyTypographyScale = () => {
+            // H1 - 32px (2em)
+            const h1Elements = document.querySelectorAll('h1.ce-header[data-level="1"], h1[data-level="1"]');
+            h1Elements.forEach((h1) => {
+              (h1 as HTMLElement).style.setProperty("font-size", "2em", "important");
+              (h1 as HTMLElement).style.setProperty("font-weight", "bold", "important");
+              (h1 as HTMLElement).style.setProperty("line-height", "1.2", "important");
+            });
+
+            // H2 - 24px (1.5em)
+            const h2Elements = document.querySelectorAll('h2.ce-header[data-level="2"], h2[data-level="2"]');
+            h2Elements.forEach((h2) => {
+              (h2 as HTMLElement).style.setProperty("font-size", "1.5em", "important");
+              (h2 as HTMLElement).style.setProperty("font-weight", "600", "important");
+              (h2 as HTMLElement).style.setProperty("line-height", "1.3", "important");
+            });
+
+            // H3 - 20px (1.25em)
+            const h3Elements = document.querySelectorAll('h3.ce-header[data-level="3"], h3[data-level="3"]');
+            h3Elements.forEach((h3) => {
+              (h3 as HTMLElement).style.setProperty("font-size", "1.25em", "important");
+              (h3 as HTMLElement).style.setProperty("font-weight", "600", "important");
+              (h3 as HTMLElement).style.setProperty("line-height", "1.4", "important");
+            });
+
+            // H4 - 18px (1.125em)
+            const h4Elements = document.querySelectorAll('h4.ce-header[data-level="4"], h4[data-level="4"]');
+            h4Elements.forEach((h4) => {
+              (h4 as HTMLElement).style.setProperty("font-size", "1.125em", "important");
+              (h4 as HTMLElement).style.setProperty("font-weight", "600", "important");
+              (h4 as HTMLElement).style.setProperty("line-height", "1.4", "important");
+            });
+
+            // Body text - 16px
+            const paragraphs = document.querySelectorAll('.ce-paragraph, p');
+            paragraphs.forEach((p) => {
+              (p as HTMLElement).style.setProperty("font-size", "16px", "important");
+              (p as HTMLElement).style.setProperty("font-weight", "normal", "important");
+              (p as HTMLElement).style.setProperty("line-height", "1.5", "important");
+            });
+          };
+
+          applyTypographyScale();
+        }, 100);
 
         // Process content to replace placeholders with actual values
         if (companyName && editor && containerRef.current) {

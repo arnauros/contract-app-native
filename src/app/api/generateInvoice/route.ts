@@ -50,8 +50,10 @@ export async function POST(request: Request) {
     // Extract user settings and contract data
     const userSettings = data.userSettings;
     const contractData = data.contractData;
-    console.log("User settings:", userSettings);
-    console.log("Contract data:", contractData);
+    console.log("🔧 User settings received:", userSettings);
+    console.log("📄 Contract data received:", contractData);
+    console.log("💰 Invoice settings from user:", userSettings?.invoice);
+    console.log("📋 Contract settings from user:", userSettings?.contract);
 
     const cacheKey = JSON.stringify({
       projectBrief: data.projectBrief || "",
@@ -84,6 +86,7 @@ export async function POST(request: Request) {
     // Build user context from settings
     let userContext = "";
     if (userSettings?.invoice) {
+      console.log("🏗️ Building user context from invoice settings...");
       userContext = `\nCRITICAL: Use these EXACT values for the "from" section:
 - Name: ${userSettings.invoice.name || "Your Name"}
 - Company: ${userSettings.invoice.company || "Your Company"}
@@ -97,6 +100,9 @@ export async function POST(request: Request) {
 - Tax ID: ${userSettings.invoice.taxId || "taxatxtaxtaxt"}
 
 IMPORTANT: Use the exact values provided above. If any fields are empty, use the fallback values in parentheses.`;
+      console.log("📝 User context built:", userContext);
+    } else {
+      console.log("❌ No invoice settings found in userSettings");
     }
 
     if (userSettings?.contract) {
@@ -109,6 +115,7 @@ IMPORTANT: Use the exact values provided above. If any fields are empty, use the
 
     // Add contract data context if available
     if (contractData) {
+      console.log("📄 Adding contract data to context...");
       userContext += `\nContract Information (use for client details and payment terms):
 - Contract Title: ${contractData.title || ""}
 - Client Name: ${contractData.clientName || ""}
@@ -119,6 +126,9 @@ IMPORTANT: Use the exact values provided above. If any fields are empty, use the
 - Currency: ${contractData.currency || "USD"}
 
 CRITICAL: Use the client information above to populate the "Bill To" section of the invoice.`;
+      console.log("📋 Contract context added to userContext");
+    } else {
+      console.log("ℹ️ No contract data provided for invoice generation");
     }
 
     const controller = new AbortController();

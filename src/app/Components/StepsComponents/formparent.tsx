@@ -281,35 +281,56 @@ const FormParent: React.FC<FormParentProps> = ({
       let userSettings = null;
       let contractData = null;
       if (isInvoice && user) {
+        console.log("🔧 Fetching user settings for invoice generation...");
         try {
           const db = getFirestore();
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            console.log("👤 User document data:", userData);
+            console.log("📋 Contract settings:", userData.contractSettings);
+            console.log("💰 Invoice settings:", userData.invoiceSettings);
+            
             userSettings = {
               contract: userData.contractSettings || {},
               invoice: userData.invoiceSettings || {},
             };
+            console.log("⚙️ Processed user settings:", userSettings);
+          } else {
+            console.log("❌ User document not found for ID:", user.uid);
           }
 
           // Fetch contract data if a contract is selected
           if (selectedContractId) {
+            console.log("🔍 Fetching contract data for ID:", selectedContractId);
             const contractDoc = await getDoc(
               doc(db, "contracts", selectedContractId)
             );
             if (contractDoc.exists()) {
               const contractDocData = contractDoc.data();
+              console.log("📄 Contract document data:", contractDocData);
+              console.log("📄 Contract content blocks:", contractDocData.content?.blocks);
+              
               contractData = {
                 id: contractDoc.id,
-                title: contractDocData.title || contractDocData.content?.blocks?.[0]?.data?.text || "Contract",
+                title:
+                  contractDocData.title ||
+                  contractDocData.content?.blocks?.[0]?.data?.text ||
+                  "Contract",
                 clientName: contractDocData.clientName || "",
                 clientEmail: contractDocData.clientEmail || "",
                 clientCompany: contractDocData.clientCompany || "",
                 paymentTerms: contractDocData.paymentTerms || "Net 30 days",
-                totalAmount: contractDocData.budget || contractDocData.totalAmount || "",
+                totalAmount:
+                  contractDocData.budget || contractDocData.totalAmount || "",
                 currency: contractDocData.currency || "USD",
               };
+              console.log("📋 Processed contract data for invoice:", contractData);
+            } else {
+              console.log("❌ Contract document not found for ID:", selectedContractId);
             }
+          } else {
+            console.log("ℹ️ No contract selected for invoice generation");
           }
         } catch (error) {
           console.log("Failed to load user settings or contract data:", error);
@@ -634,7 +655,8 @@ const FormParent: React.FC<FormParentProps> = ({
                         {selectedContractId && (
                           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
                             <p className="text-xs text-green-700">
-                              ✓ Contract selected - client details will be populated automatically
+                              ✓ Contract selected - client details will be
+                              populated automatically
                             </p>
                           </div>
                         )}
