@@ -524,6 +524,7 @@ const FormParent: React.FC<FormParentProps> = ({
         <div className="w-full">
           <HeroChat
             initialMessage={formData.projectBrief}
+            showDocumentTypeToggle={true}
             onFilesProcessed={(processed) => {
               if (processed && processed.length > 0) {
                 handleFileUpload(

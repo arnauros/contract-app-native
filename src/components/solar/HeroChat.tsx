@@ -28,6 +28,8 @@ type HeroChatProps = {
   ) => void;
   // Optional slot to render additional custom form fields under the textarea
   additionalFields?: React.ReactNode;
+  // Optional: show document type toggle
+  showDocumentTypeToggle?: boolean;
 };
 
 export function HeroChat({
@@ -37,6 +39,7 @@ export function HeroChat({
   initialMessage = "",
   onFilesProcessed,
   additionalFields,
+  showDocumentTypeToggle = false,
 }: HeroChatProps) {
   const [message, setMessage] = useState(initialMessage);
   const [isTyping, setIsTyping] = useState(false);
@@ -46,6 +49,12 @@ export function HeroChat({
   const [displayedText, setDisplayedText] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
   const [selectedChip, setSelectedChip] = useState<string | null>(null);
+  const [documentType, setDocumentType] = useState<"contract" | "invoice">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("hero-request-type") as "contract" | "invoice") || "contract";
+    }
+    return "contract";
+  });
   const { user } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -292,16 +301,53 @@ export function HeroChat({
     try {
       if (chipId === "invoice") {
         localStorage.setItem("hero-request-type", "invoice");
+        setDocumentType("invoice");
       } else {
         localStorage.setItem("hero-request-type", "contract");
+        setDocumentType("contract");
       }
     } catch {}
     // Clear selection after a brief moment
     setTimeout(() => setSelectedChip(null), 200);
   };
 
+  const handleDocumentTypeChange = (type: "contract" | "invoice") => {
+    setDocumentType(type);
+    try {
+      localStorage.setItem("hero-request-type", type);
+    } catch {}
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto">
+      {/* Document Type Toggle */}
+      {showDocumentTypeToggle && (
+        <div className="mb-4 flex justify-center">
+          <div className="bg-gray-100 rounded-lg p-1 flex">
+            <button
+              onClick={() => handleDocumentTypeChange("contract")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                documentType === "contract"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              📄 Contract
+            </button>
+            <button
+              onClick={() => handleDocumentTypeChange("invoice")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                documentType === "invoice"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              🧾 Invoice
+            </button>
+          </div>
+        </div>
+      )}
+      
       <div className="relative">
         <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
           <div className="p-4">
