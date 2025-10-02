@@ -49,12 +49,18 @@ export function HeroChat({
   const [displayedText, setDisplayedText] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
   const [selectedChip, setSelectedChip] = useState<string | null>(null);
-  const [documentType, setDocumentType] = useState<"contract" | "invoice">(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("hero-request-type") as "contract" | "invoice") || "contract";
+  const [documentType, setDocumentType] = useState<"contract" | "invoice">(
+    () => {
+      if (typeof window !== "undefined") {
+        return (
+          (localStorage.getItem("hero-request-type") as
+            | "contract"
+            | "invoice") || "contract"
+        );
+      }
+      return "contract";
     }
-    return "contract";
-  });
+  );
   const { user } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -347,7 +353,7 @@ export function HeroChat({
           </div>
         </div>
       )}
-      
+
       <div className="relative">
         <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
           <div className="p-4">

@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useTutorial } from "@/lib/hooks/useTutorial";
 import { useAccountLimits } from "@/lib/hooks/useAccountLimits";
 import toast from "react-hot-toast";
-import { doc, getFirestore, getDoc } from "firebase/firestore";
+import { doc, getFirestore, getDoc, query, where, getDocs } from "firebase/firestore";
 import { collection } from "firebase/firestore";
 
 export interface FormData {
@@ -38,9 +38,37 @@ const FormParent: React.FC<FormParentProps> = ({
   const router = useRouter();
   const TOTAL_STAGES = 1;
   const [isLoading, setIsLoading] = useState(false);
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [selectedContractId, setSelectedContractId] = useState<string>("");
   const { user } = useAuth();
   const { trackAction } = useTutorial();
   const accountLimits = useAccountLimits();
+
+  // Load contracts for invoice generation
+  useEffect(() => {
+    const loadContracts = async () => {
+      if (!user) return;
+      
+      try {
+        const db = getFirestore();
+        const contractsRef = collection(db, "contracts");
+        const contractsQuery = query(
+          contractsRef,
+          where("userId", "==", user.uid)
+        );
+        const contractsSnapshot = await getDocs(contractsQuery);
+        const contractsData = contractsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setContracts(contractsData);
+      } catch (error) {
+        console.error("Error loading contracts:", error);
+      }
+    };
+
+    loadContracts();
+  }, [user]);
 
   useEffect(() => {
     router.prefetch("/Contracts/[id]");
@@ -232,8 +260,9 @@ const FormParent: React.FC<FormParentProps> = ({
         } as any);
       }
 
-      // Fetch user settings for invoice generation
+      // Fetch user settings and contract data for invoice generation
       let userSettings = null;
+      let contractData = null;
       if (isInvoice && user) {
         try {
           const db = getFirestore();
@@ -245,8 +274,19 @@ const FormParent: React.FC<FormParentProps> = ({
               invoice: userData.invoiceSettings || {},
             };
           }
+
+          // Fetch contract data if a contract is selected
+          if (selectedContractId) {
+            const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
+            if (contractDoc.exists()) {
+              contractData = {
+                id: contractDoc.id,
+                ...contractDoc.data()
+              };
+            }
+          }
         } catch (error) {
-          console.log("Failed to load user settings:", error);
+          console.log("Failed to load user settings or contract data:", error);
         }
       }
 
@@ -268,6 +308,7 @@ const FormParent: React.FC<FormParentProps> = ({
             debug: debugMode,
             attachments: payloadAttachments,
             userSettings: isInvoice ? userSettings : undefined,
+            contractData: isInvoice ? contractData : undefined,
           }),
           signal: controller.signal,
         }
@@ -533,48 +574,77 @@ const FormParent: React.FC<FormParentProps> = ({
               }
             }}
             additionalFields={
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Estimated start
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) =>
-                      handleDateChange("startDate", e.target.value)
-                    }
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Estimated end
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) =>
-                      handleDateChange("endDate", e.target.value)
-                    }
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Budget (USD)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    placeholder="e.g. 5000"
-                    value={formData.budget || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, budget: e.target.value })
-                    }
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
-                  />
+              <div className="space-y-4">
+                {/* Contract Selection for Invoices Only */}
+                {(() => {
+                  const requestType = typeof window !== "undefined" ? localStorage.getItem("hero-request-type") || "contract" : "contract";
+                  if (requestType === "invoice" && contracts.length > 0) {
+                    return (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Use existing contract for client details
+                        </label>
+                        <select
+                          value={selectedContractId}
+                          onChange={(e) => setSelectedContractId(e.target.value)}
+                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                        >
+                          <option value="">Select a contract (optional)</option>
+                          {contracts.map((contract) => (
+                            <option key={contract.id} value={contract.id}>
+                              {contract.title || `Contract ${contract.id.slice(0, 8)}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Estimated start
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.startDate}
+                      onChange={(e) =>
+                        handleDateChange("startDate", e.target.value)
+                      }
+                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Estimated end
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e) =>
+                        handleDateChange("endDate", e.target.value)
+                      }
+                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Budget (USD)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      placeholder="e.g. 5000"
+                      value={formData.budget || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, budget: e.target.value })
+                      }
+                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    />
+                  </div>
                 </div>
               </div>
             }

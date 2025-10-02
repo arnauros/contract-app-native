@@ -157,7 +157,7 @@ service cloud.firestore {
       // Still gated by authentication and ownership of the new document
       allow create: if request.auth != null && (request.resource.data.userId == request.auth.uid || hasActiveSubscription() || isAdmin() || hasDevBypass());
       allow update: if (request.auth != null && resource.data.userId == request.auth.uid) && (hasActiveSubscription() || isAdmin() || hasDevBypass());
-      allow delete: if (request.auth != null && resource.data.userId == request.auth.uid) && (hasActiveSubscription() || isAdmin() || hasDevBypass());
+      allow delete: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin() || hasDevBypass();
 
       // Subcollections (e.g., notes, history)
       match /{document=**} {

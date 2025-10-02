@@ -182,6 +182,8 @@ export default function Dashboard() {
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [isBulkDeleteInvoicesModalOpen, setIsBulkDeleteInvoicesModalOpen] =
     useState(false);
+  const [isDeleteInvoiceModalOpen, setIsDeleteInvoiceModalOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
 
   // Get recent comments from all contracts
   const { comments, loading: commentsLoading } = useRecentComments(10);
@@ -487,6 +489,25 @@ export default function Dashboard() {
     await handleDeleteContract(contractToDelete);
     setIsDeleteModalOpen(false);
     setContractToDelete(null);
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    try {
+      if (!db) throw new Error("Firebase not initialized");
+      await deleteDoc(doc(db as Firestore, "invoices", invoiceId));
+      setInvoices(invoices.filter((i) => i.id !== invoiceId));
+      toast.success("Invoice deleted successfully");
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      toast.error("Failed to delete invoice");
+    }
+  };
+
+  const confirmDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
+    await handleDeleteInvoice(invoiceToDelete);
+    setIsDeleteInvoiceModalOpen(false);
+    setInvoiceToDelete(null);
   };
 
   // Bulk selection helpers for contracts
@@ -821,6 +842,177 @@ export default function Dashboard() {
     }
   };
 
+  const handleDownloadInvoicePDF = async (invoiceId: string) => {
+    try {
+      // Display loading toast
+      const loadingToast = toast.loading("Generating PDF...");
+
+      // Get the invoice data from Firestore
+      const firestore = getFirestore();
+      const invoiceRef = doc(firestore, "invoices", invoiceId);
+      const invoiceSnap = await getDoc(invoiceRef);
+
+      if (!invoiceSnap.exists()) {
+        toast.dismiss(loadingToast);
+        toast.error("Invoice not found");
+        return;
+      }
+
+      const invoiceData = invoiceSnap.data();
+
+      // Import jsPDF dynamically to avoid server-side rendering issues
+      const jsPDFModule = await import("jspdf");
+      const jsPDF = jsPDFModule.default;
+
+      // Create a new PDF document
+      const pdf = new jsPDF();
+      let yPosition = 10;
+
+      // Add a title
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(invoiceData.title || "Invoice", 105, yPosition, { align: "center" });
+      yPosition += 20;
+
+      // Add invoice details
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+
+      const margin = 20;
+      const pageWidth = pdf.internal.pageSize.width - margin * 2;
+
+      // Invoice number and dates
+      if (invoiceData.issueDate) {
+        pdf.text(`Issue Date: ${new Date(invoiceData.issueDate).toLocaleDateString()}`, margin, yPosition);
+        yPosition += 10;
+      }
+      if (invoiceData.dueDate) {
+        pdf.text(`Due Date: ${new Date(invoiceData.dueDate).toLocaleDateString()}`, margin, yPosition);
+        yPosition += 10;
+      }
+      yPosition += 10;
+
+      // From and To sections
+      if (invoiceData.from) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("From:", margin, yPosition);
+        yPosition += 8;
+        pdf.setFont("helvetica", "normal");
+        if (invoiceData.from.name) pdf.text(invoiceData.from.name, margin, yPosition);
+        yPosition += 6;
+        if (invoiceData.from.company) pdf.text(invoiceData.from.company, margin, yPosition);
+        yPosition += 6;
+        if (invoiceData.from.email) pdf.text(invoiceData.from.email, margin, yPosition);
+        yPosition += 6;
+        if (invoiceData.from.address) pdf.text(invoiceData.from.address, margin, yPosition);
+        yPosition += 15;
+      }
+
+      if (invoiceData.client) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("To:", margin, yPosition);
+        yPosition += 8;
+        pdf.setFont("helvetica", "normal");
+        if (invoiceData.client.name) pdf.text(invoiceData.client.name, margin, yPosition);
+        yPosition += 6;
+        if (invoiceData.client.company) pdf.text(invoiceData.client.company, margin, yPosition);
+        yPosition += 6;
+        if (invoiceData.client.email) pdf.text(invoiceData.client.email, margin, yPosition);
+        yPosition += 6;
+        if (invoiceData.client.address) pdf.text(invoiceData.client.address, margin, yPosition);
+        yPosition += 15;
+      }
+
+      // Items table
+      if (invoiceData.items && invoiceData.items.length > 0) {
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Items:", margin, yPosition);
+        yPosition += 10;
+
+        // Table headers
+        pdf.text("Description", margin, yPosition);
+        pdf.text("Qty", margin + 100, yPosition);
+        pdf.text("Price", margin + 130, yPosition);
+        pdf.text("Total", margin + 160, yPosition);
+        yPosition += 8;
+
+        // Draw line under headers
+        pdf.line(margin, yPosition, margin + 180, yPosition);
+        yPosition += 5;
+
+        pdf.setFont("helvetica", "normal");
+        invoiceData.items.forEach((item: any) => {
+          if (yPosition > 270) {
+            pdf.addPage();
+            yPosition = 10;
+          }
+
+          const description = pdf.splitTextToSize(item.description || "", 90);
+          pdf.text(description, margin, yPosition);
+          pdf.text(String(item.quantity || 0), margin + 100, yPosition);
+          pdf.text(new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: invoiceData.currency || "USD",
+          }).format(item.unitPrice || 0), margin + 130, yPosition);
+          pdf.text(new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: invoiceData.currency || "USD",
+          }).format(item.total || 0), margin + 160, yPosition);
+          yPosition += Math.max(6 * description.length, 8);
+        });
+
+        yPosition += 10;
+
+        // Totals
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Subtotal:", margin + 130, yPosition);
+        pdf.text(new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: invoiceData.currency || "USD",
+        }).format(invoiceData.subtotal || 0), margin + 160, yPosition);
+        yPosition += 8;
+
+        if (invoiceData.tax) {
+          pdf.text("Tax:", margin + 130, yPosition);
+          pdf.text(new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: invoiceData.currency || "USD",
+          }).format(invoiceData.tax), margin + 160, yPosition);
+          yPosition += 8;
+        }
+
+        pdf.setFontSize(14);
+        pdf.text("Total:", margin + 130, yPosition);
+        pdf.text(new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: invoiceData.currency || "USD",
+        }).format(invoiceData.total || 0), margin + 160, yPosition);
+      }
+
+      // Notes
+      if (invoiceData.notes) {
+        yPosition += 20;
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Notes:", margin, yPosition);
+        yPosition += 8;
+        pdf.setFont("helvetica", "normal");
+        const notes = pdf.splitTextToSize(invoiceData.notes, pageWidth);
+        pdf.text(notes, margin, yPosition);
+      }
+
+      // Save the PDF
+      pdf.save(`invoice-${invoiceId}.pdf`);
+
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingToast);
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. Please try again.");
+    }
+  };
+
   const getStatusColor = (status: string | undefined) => {
     if (!status) return "text-gray-500";
 
@@ -1077,7 +1269,7 @@ export default function Dashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Actions
                 </th>
               </tr>
@@ -1168,16 +1360,16 @@ export default function Dashboard() {
                     </span>
                   </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap"
+                    className="px-6 py-4 whitespace-nowrap text-center"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => router.push(`/Contracts/${contract.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                        title="Open Contract"
+                        title="View Contract"
                       >
-                        <FiExternalLink className="w-4 h-4" />
+                        <FiEye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDownloadPDF(contract.id)}
@@ -1336,9 +1528,26 @@ export default function Dashboard() {
                       <button
                         onClick={() => router.push(`/Invoices/${inv.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
-                        title="Open Invoice"
+                        title="View Invoice"
                       >
-                        <FiExternalLink className="w-4 h-4" />
+                        <FiEye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadInvoicePDF(inv.id)}
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
+                        title="Download PDF"
+                      >
+                        <FiDownload className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setInvoiceToDelete(inv.id);
+                          setIsDeleteInvoiceModalOpen(true);
+                        }}
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
+                        title="Delete Invoice"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -1508,6 +1717,21 @@ export default function Dashboard() {
           <p className="text-gray-600">
             Delete {selectedInvoiceIds.length} selected invoice(s)? This cannot
             be undone.
+          </p>
+        </div>
+      </Modal>
+      <Modal
+        isOpen={isDeleteInvoiceModalOpen}
+        onClose={() => setIsDeleteInvoiceModalOpen(false)}
+        title="Delete Invoice"
+        onConfirm={confirmDeleteInvoice}
+        confirmText="Delete"
+        cancelText="Cancel"
+      >
+        <div className="p-1">
+          <p className="text-gray-600">
+            Are you sure you want to delete this invoice? This action cannot be
+            undone.
           </p>
         </div>
       </Modal>
