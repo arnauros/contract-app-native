@@ -535,7 +535,30 @@ const FormParent: React.FC<FormParentProps> = ({
           version: 1,
         };
 
-        console.log("Saving contract with data:", contractData);
+        console.log("💾 Saving contract with data:", {
+          id: contractData.id,
+          userId: contractData.userId,
+          title: contractData.title,
+          status: contractData.status,
+          version: contractData.version,
+          hasContent: !!contractData.content,
+          hasRawContent: !!contractData.rawContent,
+          extractedData: contractData.clientName ? {
+            clientName: contractData.clientName,
+            clientEmail: contractData.clientEmail,
+            clientCompany: contractData.clientCompany,
+            paymentTerms: contractData.paymentTerms,
+            totalAmount: contractData.totalAmount,
+            currency: contractData.currency
+          } : "No extracted data",
+          metadata: {
+            startDate: contractData.metadata.startDate,
+            endDate: contractData.metadata.endDate,
+            budget: contractData.metadata.budget,
+            attachmentsCount: contractData.metadata.attachments.length
+          }
+        });
+        
         const result = await saveContract(contractData);
         const dbEndTime = performance.now();
         console.log(
@@ -609,7 +632,31 @@ const FormParent: React.FC<FormParentProps> = ({
           updatedAt: new Date(),
         };
 
-        console.log("Saving invoice with data:", invoiceData);
+        console.log("💾 Saving invoice with data:", {
+          id: invoiceData.id,
+          userId: invoiceData.userId,
+          title: invoiceData.title,
+          status: invoiceData.status,
+          issueDate: invoiceData.issueDate,
+          dueDate: invoiceData.dueDate,
+          currency: invoiceData.currency,
+          hasClient: !!invoiceData.client,
+          hasFrom: !!invoiceData.from,
+          itemsCount: invoiceData.items?.length || 0,
+          total: invoiceData.total,
+          hasNotes: !!invoiceData.notes,
+          client: invoiceData.client ? {
+            name: invoiceData.client.name,
+            email: invoiceData.client.email,
+            company: invoiceData.client.company
+          } : "No client data",
+          from: invoiceData.from ? {
+            name: invoiceData.from.name,
+            email: invoiceData.from.email,
+            company: invoiceData.from.company
+          } : "No from data"
+        });
+        
         const result = await saveInvoice(invoiceData as any);
         const dbEndTime = performance.now();
         console.log(
