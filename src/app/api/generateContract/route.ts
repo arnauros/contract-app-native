@@ -27,35 +27,45 @@ function extractContractData(contractText: string) {
     clientCompany: "",
     paymentTerms: "",
     totalAmount: "",
-    currency: "USD"
+    currency: "USD",
   };
 
   // Extract client name (look for patterns like "Client:", "Company:", "Client Name:")
-  const clientNameMatch = contractText.match(/(?:Client|Company|Client Name)[:\s]+([^\n\r,]+)/i);
+  const clientNameMatch = contractText.match(
+    /(?:Client|Company|Client Name)[:\s]+([^\n\r,]+)/i
+  );
   if (clientNameMatch) {
     extracted.clientName = clientNameMatch[1].trim();
   }
 
   // Extract client email
-  const emailMatch = contractText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  const emailMatch = contractText.match(
+    /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+  );
   if (emailMatch) {
     extracted.clientEmail = emailMatch[1];
   }
 
   // Extract client company (look for patterns like "Company:", "Organization:")
-  const companyMatch = contractText.match(/(?:Company|Organization|Corporation)[:\s]+([^\n\r,]+)/i);
+  const companyMatch = contractText.match(
+    /(?:Company|Organization|Corporation)[:\s]+([^\n\r,]+)/i
+  );
   if (companyMatch) {
     extracted.clientCompany = companyMatch[1].trim();
   }
 
   // Extract payment terms (look for patterns like "Payment Terms:", "Payment Schedule:")
-  const paymentMatch = contractText.match(/(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+(?:\n[^\n\r]+)*?)(?=\n\n|\n[A-Z]|$)/i);
+  const paymentMatch = contractText.match(
+    /(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+(?:\n[^\n\r]+)*?)(?=\n\n|\n[A-Z]|$)/i
+  );
   if (paymentMatch) {
     extracted.paymentTerms = paymentMatch[1].trim();
   }
 
   // Extract total amount (look for patterns like "$50,000", "Total: $5000", "Budget: $10000")
-  const amountMatch = contractText.match(/(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i);
+  const amountMatch = contractText.match(
+    /(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i
+  );
   if (amountMatch) {
     extracted.totalAmount = amountMatch[1].replace(/,/g, "");
   }
@@ -151,7 +161,6 @@ export async function POST(request: Request) {
       : "";
 
     try {
-
       // Use a faster model and add timeout (longer to accommodate PDF-based context)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
@@ -228,7 +237,6 @@ export async function POST(request: Request) {
       );
 
       const contractText = completion.choices[0].message.content;
-
 
       // Convert the response into EditorJS blocks
       const rawLines = contractText.split("\n").filter((line) => line.trim());
@@ -308,9 +316,9 @@ export async function POST(request: Request) {
       const extractedData = extractContractData(contractText);
       console.log("📋 Extracted contract data:", extractedData);
 
-      const result = { 
+      const result = {
         blocks,
-        extractedData // Include extracted data in the response
+        extractedData, // Include extracted data in the response
       };
 
       // Cache the result (skip when debug flag is set)

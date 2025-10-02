@@ -52,7 +52,7 @@ const FormParent: React.FC<FormParentProps> = ({
   );
   const { user } = useAuth();
   const { trackAction } = useTutorial();
-  const accountLimits = useAccountLimits();
+  const { refreshLimits, ...accountLimits } = useAccountLimits();
 
   // Load contracts for invoice generation
   useEffect(() => {
