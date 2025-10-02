@@ -1712,67 +1712,76 @@ export function ContractEditor({
   }, [companyName]);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Subtle lock indicator */}
-      {isLocked && (
-        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3">
-          <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
-            <LockClosedIcon className="h-4 w-4 text-blue-600" />
-            <span className="text-sm text-blue-700">
-              Unsign to make changes
-            </span>
-          </div>
-        </div>
-      )}
+    <div className="content-wrapper relative min-h-screen">
+      <div className="px-6 pt-6">
+        <div className="max-w-full mx-auto">
+          {/* Banner with overlapping profile image (matches Settings layout) */}
+          <div className="mb-12 relative group">
+            {bannerUrl !== "/placeholder-banner.png" ? (
+              <>
+                <img
+                  src={
+                    bannerUrl +
+                    (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
+                  }
+                  alt="Contract banner"
+                  className="w-full h-40 object-cover rounded-lg"
+                  title="Edit Profile Picture In Settings"
+                />
+                <div className="absolute inset-0 rounded-lg" />
+              </>
+            ) : (
+              <div
+                className="w-full h-40 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center"
+                title="Edit Profile Picture In Settings"
+              >
+                <div className="text-gray-500 text-center">
+                  <div className="text-sm font-medium">No banner image</div>
+                  <div className="text-xs mt-1">Add one in Settings</div>
+                </div>
+              </div>
+            )}
 
-      {/* Full-width header with banner */}
-      <div className="relative">
-        {bannerUrl !== "/placeholder-banner.png" ? (
-          <div className="h-48 w-full">
-            <img
-              src={
-                bannerUrl +
-                (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
-              }
-              alt="Contract banner"
-              className="w-full h-full object-cover"
-              title="Edit Profile Picture In Settings"
-            />
-          </div>
-        ) : (
-          <div className="h-48 w-full bg-gradient-to-r from-gray-50 to-gray-100 flex items-center justify-center">
-            <div className="text-gray-400 text-center">
-              <div className="text-sm font-medium">No banner image</div>
-              <div className="text-xs mt-1">Add one in Settings</div>
+            {/* Overlapping circular avatar */}
+            <div className="absolute -bottom-16 left-6 h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100">
+              <img
+                src={
+                  (logoUrl !== "/placeholder-logo.png"
+                    ? logoUrl
+                    : "/placeholders/profile.png") +
+                  ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
+                }
+                alt="Profile image"
+                className="w-full h-full object-cover"
+                title="Edit Profile Picture In Settings"
+              />
             </div>
           </div>
-        )}
+          {/* Spacer to account for the overlapping avatar */}
+          <div className="h-8" />
 
-        {/* Profile image overlay */}
-        <div className="absolute -bottom-8 left-8 h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100">
-          <img
-            src={
-              (logoUrl !== "/placeholder-logo.png"
-                ? logoUrl
-                : "/placeholders/profile.png") +
-              ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
-            }
-            alt="Profile image"
-            className="w-full h-full object-cover"
-            title="Edit Profile Picture In Settings"
-          />
-        </div>
-      </div>
-
-      {/* Main content area */}
-      <div className="max-w-4xl mx-auto px-8 pt-16 pb-20">
-        <div
-          ref={containerRef}
-          className={`prose prose-lg max-w-none ${
-            isLocked ? "pointer-events-none" : ""
-          }`}
-        />
-      </div>
+          {/* Editor section with lock indicator (without dimming overlay) */}
+          <div className="relative">
+            {isLocked && (
+              <>
+                {/* Prominent top bar indicator */}
+                <div className="absolute top-0 left-0 right-0 bg-gray-100 border-y border-gray-200 p-3 flex items-center justify-center lock-indicator">
+                  <div className="flex items-center gap-2">
+                    <LockClosedIcon className="h-5 w-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Unsign to make changes
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+            <div
+              ref={containerRef}
+              className={`prose max-w-none ${
+                isLocked ? "pointer-events-none pt-16" : ""
+              }`}
+            />
+          </div>
 
           {/* Signatures Display - Only show when there are actual signatures */}
           {(designerSignature || clientSignature) && (
