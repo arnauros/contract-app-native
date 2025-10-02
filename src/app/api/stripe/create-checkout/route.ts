@@ -39,9 +39,10 @@ export async function POST(req: Request) {
     const isLocalDevelopment =
       hostname.includes("localhost") ||
       hostname.includes("127.0.0.1") ||
+      hostname.includes("vercel.app") ||
       (isDev && hostname.match(/localhost:\d+/));
 
-    // In development, allow all hostnames
+    // Allow localhost, vercel.app domains, and development
     if (!isLocalDevelopment && !isDev) {
       return NextResponse.json(
         {

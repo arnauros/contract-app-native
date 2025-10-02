@@ -231,8 +231,10 @@ export default function Dashboard() {
   const handleFormParentSubmit = () => {};
 
   // Handler for FormParent setFormData
-  const handleFormDataChange = (data: FormData | ((prev: FormData) => FormData)) => {
-    if (typeof data === 'function') {
+  const handleFormDataChange = (
+    data: FormData | ((prev: FormData) => FormData)
+  ) => {
+    if (typeof data === "function") {
       setFormData(data);
     } else {
       setFormData(data);

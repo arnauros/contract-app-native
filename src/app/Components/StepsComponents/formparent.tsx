@@ -84,7 +84,10 @@ const FormParent: React.FC<FormParentProps> = ({
 
         console.log("📄 Contract loading: Found contracts", {
           count: contractsData.length,
-          contracts: contractsData.map((c) => ({ id: c.id, title: c.title || "Untitled" })),
+          contracts: contractsData.map((c) => ({
+            id: c.id,
+            title: c.title || "Untitled",
+          })),
         });
 
         setContracts(contractsData);
@@ -661,7 +664,8 @@ const FormParent: React.FC<FormParentProps> = ({
           metadata: {
             startDate: contractData.rawContent?.startDate || "",
             endDate: contractData.rawContent?.endDate || "",
-            budget: contractData.rawContent?.budget || contractData.totalAmount || "",
+            budget:
+              contractData.rawContent?.budget || contractData.totalAmount || "",
             attachmentsCount: contractData.rawContent?.attachments?.length || 0,
           },
         });
