@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import Modal from "@/app/Components/Modal";
 import { toast } from "react-hot-toast";
@@ -116,11 +116,17 @@ function SavingIndicator() {
 
 export default function Topbar({ pathname }: TopbarProps) {
   const { toggleSidebar } = useSidebar();
+  const currentPathname = usePathname();
   const { tutorialState, updateTutorialState } = useTutorial();
   const { loggedIn, user } = useAuth();
   const accountLimits = useAccountLimits();
   const params = useParams();
   const router = useRouter();
+
+  // Check if we're on a contract or invoice page
+  const isContractOrInvoicePage = currentPathname?.includes('/contracts/') || 
+                                  currentPathname?.includes('/Invoices/') ||
+                                  currentPathname?.includes('/invoice/');
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
@@ -666,67 +672,71 @@ export default function Topbar({ pathname }: TopbarProps) {
             </div>
           )}
 
-          {/* Pro Upgrade Button */}
-          <button
-            onClick={async () => {
-              if (!user?.uid || !user?.email) {
-                toast.error("Please log in to upgrade");
-                return;
-              }
-
-              try {
-                const response = await fetch("/api/stripe/upgrade", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    userId: user.uid,
-                    email: user.email,
-                  }),
-                });
-
-                if (!response.ok) {
-                  throw new Error("Failed to create checkout session");
+          {/* Pro Upgrade Button - Hidden on contract/invoice pages */}
+          {!isContractOrInvoicePage && (
+            <button
+              onClick={async () => {
+                if (!user?.uid || !user?.email) {
+                  toast.error("Please log in to upgrade");
+                  return;
                 }
 
-                const { url } = await response.json();
-
-                // Redirect to Stripe Checkout
-                if (url) {
-                  window.location.href = url;
-                } else {
-                  throw new Error("No checkout URL received");
-                }
-              } catch (error) {
-                console.error("Upgrade error:", error);
-                toast.error("Failed to start upgrade process");
-              }
-            }}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
-          >
-            Upgrade to Pro
-          </button>
-
-          {/* Setup Guide Pill */}
-          <SetupGuidePill
-            tutorialState={tutorialState}
-            onReopen={async () => {
-              if (tutorialState && user) {
                 try {
-                  await reopenTutorial(user.uid);
-                  const updatedState = {
-                    ...tutorialState,
-                    isActive: true,
-                    isDismissed: false,
-                  };
-                  updateTutorialState(updatedState);
+                  const response = await fetch("/api/stripe/upgrade", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      userId: user.uid,
+                      email: user.email,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    throw new Error("Failed to create checkout session");
+                  }
+
+                  const { url } = await response.json();
+                  
+                  // Redirect to Stripe Checkout
+                  if (url) {
+                    window.location.href = url;
+                  } else {
+                    throw new Error("No checkout URL received");
+                  }
                 } catch (error) {
-                  console.error("Error reopening tutorial:", error);
+                  console.error("Upgrade error:", error);
+                  toast.error("Failed to start upgrade process");
                 }
-              }
-            }}
-          />
+              }}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              Upgrade to Pro
+            </button>
+          )}
+
+          {/* Setup Guide Pill - Hidden on contract/invoice pages */}
+          {!isContractOrInvoicePage && (
+            <SetupGuidePill
+              tutorialState={tutorialState}
+              onReopen={async () => {
+                if (tutorialState && user) {
+                  try {
+                    await reopenTutorial(user.uid);
+                    const updatedState = {
+                      ...tutorialState,
+                      isActive: true,
+                      isDismissed: false,
+                    };
+                    updateTutorialState(updatedState);
+                  } catch (error) {
+                    console.error("Error reopening tutorial:", error);
+                  }
+                }
+              }}
+            />
+          )}
 
           {/* User settings: avatar moved to furthest right */}
           <Link href="/settings" className="flex items-center">
