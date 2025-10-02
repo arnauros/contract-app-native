@@ -160,7 +160,7 @@ export default function Dashboard() {
   // Tutorial system
   const { tutorialState, shouldShow, updateTutorialState, trackAction } =
     useTutorial();
-  const accountLimits = useAccountLimits();
+  const { refreshLimits, ...accountLimits } = useAccountLimits();
   const [stats, setStats] = useState({
     total: 0,
     pendingClient: 0,
@@ -478,6 +478,8 @@ export default function Dashboard() {
       if (!db) throw new Error("Firebase not initialized");
       await deleteDoc(doc(db as Firestore, "contracts", contractId));
       setContracts(contracts.filter((c) => c.id !== contractId));
+      // Refresh account limits after deletion
+      refreshLimits();
       toast.success("Contract deleted successfully");
     } catch (error) {
       console.error("Error deleting contract:", error);
@@ -497,6 +499,8 @@ export default function Dashboard() {
       if (!db) throw new Error("Firebase not initialized");
       await deleteDoc(doc(db as Firestore, "invoices", invoiceId));
       setInvoices(invoices.filter((i) => i.id !== invoiceId));
+      // Refresh account limits after deletion
+      refreshLimits();
       toast.success("Invoice deleted successfully");
     } catch (error) {
       console.error("Error deleting invoice:", error);
@@ -1255,16 +1259,6 @@ export default function Dashboard() {
             <h2 className="text-lg font-medium text-gray-900">
               Your Contracts
             </h2>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Contracts</option>
-              <option value="pending_client">Pending Client</option>
-              <option value="pending_me">Pending Your Signature</option>
-              <option value="completed">Completed</option>
-            </select>
           </div>
           {selectedContractIds.length > 0 && (
             <div className="mt-4 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
@@ -1308,7 +1302,7 @@ export default function Dashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Status
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Actions
                 </th>
               </tr>
@@ -1399,10 +1393,10 @@ export default function Dashboard() {
                     </span>
                   </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap text-center"
+                    className="px-6 py-4 whitespace-nowrap text-right"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => router.push(`/Contracts/${contract.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
@@ -1500,7 +1494,7 @@ export default function Dashboard() {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Total
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Actions
                 </th>
               </tr>
@@ -1509,7 +1503,7 @@ export default function Dashboard() {
               {invoices.map((inv: any) => (
                 <tr
                   key={inv.id}
-                  onClick={() => router.push(`/Invoices/${inv.id}`)}
+                  onClick={() => router.push(`/Invoices/${inv.id}/edit`)}
                   className="hover:bg-gray-50 transition-colors odd:bg-white even:bg-gray-50/30 cursor-pointer"
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-center align-middle w-12">
@@ -1550,7 +1544,10 @@ export default function Dashboard() {
                               : "bg-yellow-50 text-yellow-700"
                       }`}
                     >
-                      {inv.status || "draft"}
+                      {inv.status
+                        ? inv.status.charAt(0).toUpperCase() +
+                          inv.status.slice(1)
+                        : "Draft"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
@@ -1560,10 +1557,10 @@ export default function Dashboard() {
                     }).format(typeof inv.total === "number" ? inv.total : 0)}
                   </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap text-center"
+                    className="px-6 py-4 whitespace-nowrap text-right"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => router.push(`/Invoices/${inv.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"
