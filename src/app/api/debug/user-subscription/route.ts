@@ -27,7 +27,10 @@ export async function POST(req: Request) {
     // Check if Firebase Admin is initialized
     if (!admin) {
       return NextResponse.json(
-        { error: "Firebase Admin not initialized", isDevelopment: process.env.NODE_ENV === "development" },
+        {
+          error: "Firebase Admin not initialized",
+          isDevelopment: process.env.NODE_ENV === "development",
+        },
         { status: 500 }
       );
     }
@@ -106,27 +109,34 @@ export async function POST(req: Request) {
       },
       stripeData: {
         customerId: stripeCustomerId,
-        subscriptions: stripeSubscriptions.map(sub => ({
+        subscriptions: stripeSubscriptions.map((sub) => ({
           id: sub.id,
           status: sub.status,
           current_period_end: sub.current_period_end,
           cancel_at_period_end: sub.cancel_at_period_end,
         })),
-        customers: stripeCustomers.map(customer => ({
+        customers: stripeCustomers.map((customer) => ({
           id: customer.id,
           email: customer.email,
         })),
       },
       analysis: {
-        hasActiveSubscription: subscription?.status === "active" || subscription?.status === "trialing",
-        hasStripeSubscription: stripeSubscriptions.some(sub => sub.status === "active" || sub.status === "trialing"),
+        hasActiveSubscription:
+          subscription?.status === "active" ||
+          subscription?.status === "trialing",
+        hasStripeSubscription: stripeSubscriptions.some(
+          (sub) => sub.status === "active" || sub.status === "trialing"
+        ),
         needsUpdate: !subscription && stripeSubscriptions.length > 0,
-      }
+      },
     });
   } catch (error) {
     console.error("Error in user subscription debug:", error);
     return NextResponse.json(
-      { error: "Failed to debug user subscription", details: error instanceof Error ? error.message : String(error) },
+      {
+        error: "Failed to debug user subscription",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
