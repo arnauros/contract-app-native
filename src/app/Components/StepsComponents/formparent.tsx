@@ -134,20 +134,29 @@ const FormParent: React.FC<FormParentProps> = ({
       return;
     }
 
-    // Check account limits before creating contract
-    if (!accountLimits.loading && !accountLimits.contracts.canCreate) {
-      toast.error(
-        `You've reached the maximum number of contracts for the free tier (${accountLimits.contracts.limit}). Upgrade to Pro to create unlimited contracts.`
-      );
-      return;
-    }
-
-    setIsLoading(true);
     // Determine request type (contract by default)
     const requestType =
       (typeof window !== "undefined" &&
         localStorage.getItem("hero-request-type")) ||
       "contract";
+
+    // Check account limits based on request type
+    if (!accountLimits.loading) {
+      if (requestType === "contract" && !accountLimits.contracts.canCreate) {
+        toast.error(
+          `You've reached the maximum number of contracts for the free tier (${accountLimits.contracts.limit}). Upgrade to Pro to create unlimited contracts.`
+        );
+        return;
+      }
+      if (requestType === "invoice" && !accountLimits.invoices.canCreate) {
+        toast.error(
+          `You've reached the maximum number of invoices for the free tier (${accountLimits.invoices.limit}). Upgrade to Pro to create unlimited invoices.`
+        );
+        return;
+      }
+    }
+
+    setIsLoading(true);
 
     const loadingToast = toast.loading(
       requestType === "invoice"

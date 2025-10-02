@@ -54,7 +54,9 @@ export function ContractEditor({
       return initialContent.logoUrl;
     }
     // Check if logo was explicitly removed for this contract
-    const removedLogo = localStorage.getItem(`contract-logo-removed-${contractId}`);
+    const removedLogo = localStorage.getItem(
+      `contract-logo-removed-${contractId}`
+    );
     if (removedLogo === "true") {
       return "/placeholder-logo.png";
     }
@@ -87,7 +89,9 @@ export function ContractEditor({
       return initialContent.bannerUrl;
     }
     // Check if banner was explicitly removed for this contract
-    const removedBanner = localStorage.getItem(`contract-banner-removed-${contractId}`);
+    const removedBanner = localStorage.getItem(
+      `contract-banner-removed-${contractId}`
+    );
     if (removedBanner === "true") {
       return "/placeholder-banner.png";
     }
@@ -306,18 +310,31 @@ export function ContractEditor({
         } as any);
 
         // Save removal state to localStorage for persistence
-        const removedLogo = localStorage.getItem(`contract-logo-removed-${contractId}`);
-        const removedBanner = localStorage.getItem(`contract-banner-removed-${contractId}`);
-        
+        const removedLogo = localStorage.getItem(
+          `contract-logo-removed-${contractId}`
+        );
+        const removedBanner = localStorage.getItem(
+          `contract-banner-removed-${contractId}`
+        );
+
         if (logoUrl === "/placeholder-logo.png" && removedLogo !== "true") {
           localStorage.setItem(`contract-logo-removed-${contractId}`, "true");
-        } else if (logoUrl !== "/placeholder-logo.png" && removedLogo === "true") {
+        } else if (
+          logoUrl !== "/placeholder-logo.png" &&
+          removedLogo === "true"
+        ) {
           localStorage.removeItem(`contract-logo-removed-${contractId}`);
         }
-        
-        if (bannerUrl === "/placeholder-banner.png" && removedBanner !== "true") {
+
+        if (
+          bannerUrl === "/placeholder-banner.png" &&
+          removedBanner !== "true"
+        ) {
           localStorage.setItem(`contract-banner-removed-${contractId}`, "true");
-        } else if (bannerUrl !== "/placeholder-banner.png" && removedBanner === "true") {
+        } else if (
+          bannerUrl !== "/placeholder-banner.png" &&
+          removedBanner === "true"
+        ) {
           localStorage.removeItem(`contract-banner-removed-${contractId}`);
         }
 
@@ -1758,10 +1775,15 @@ export function ContractEditor({
               {stage === "edit" && (
                 <button
                   onClick={() => {
-                    const contractId = window.location.pathname.split("/").pop();
+                    const contractId = window.location.pathname
+                      .split("/")
+                      .pop();
                     setBannerUrl("/placeholder-banner.png");
                     if (contractId) {
-                      localStorage.setItem(`contract-banner-removed-${contractId}`, "true");
+                      localStorage.setItem(
+                        `contract-banner-removed-${contractId}`,
+                        "true"
+                      );
                     }
                   }}
                   className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -1803,10 +1825,15 @@ export function ContractEditor({
               {stage === "edit" && (
                 <button
                   onClick={() => {
-                    const contractId = window.location.pathname.split("/").pop();
+                    const contractId = window.location.pathname
+                      .split("/")
+                      .pop();
                     setLogoUrl("/placeholder-logo.png");
                     if (contractId) {
-                      localStorage.setItem(`contract-logo-removed-${contractId}`, "true");
+                      localStorage.setItem(
+                        `contract-logo-removed-${contractId}`,
+                        "true"
+                      );
                     }
                   }}
                   className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
