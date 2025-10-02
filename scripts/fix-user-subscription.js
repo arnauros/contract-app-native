@@ -1,36 +1,24 @@
-import { NextResponse } from "next/server";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
-import { initAdmin } from "@/lib/firebase/admin";
+import admin from "firebase-admin";
 import Stripe from "stripe";
-import { STRIPE_API_VERSION } from "@/lib/stripe/config";
 
 // Initialize Firebase Admin
-const admin = initAdmin();
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+  });
+}
+
+const db = admin.firestore();
+const auth = admin.auth();
 
 // Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: STRIPE_API_VERSION,
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-08-27.basil",
 });
 
-export async function POST(req: Request) {
+async function fixUserSubscription(email) {
   try {
-    const { email } = await req.json();
-
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
-
-    // Check if Firebase Admin is initialized
-    if (!admin) {
-      return NextResponse.json(
-        { error: "Firebase Admin not initialized" },
-        { status: 500 }
-      );
-    }
-
-    const db = getFirestore();
-    const auth = getAuth();
+    console.log(`🔍 Fixing subscription for: ${email}`);
 
     // Find user by email in Firestore
     const usersSnapshot = await db
@@ -39,15 +27,16 @@ export async function POST(req: Request) {
       .get();
 
     if (usersSnapshot.empty) {
-      return NextResponse.json(
-        { error: "User not found with email", email },
-        { status: 404 }
-      );
+      console.log("❌ User not found in Firestore");
+      return;
     }
 
     const userDoc = usersSnapshot.docs[0];
     const userData = userDoc.data();
     const userId = userDoc.id;
+
+    console.log(`📄 User ID: ${userId}`);
+    console.log(`📧 Email: ${userData.email}`);
 
     // Find Stripe customer by email
     const customers = await stripe.customers.list({
@@ -56,13 +45,12 @@ export async function POST(req: Request) {
     });
 
     if (customers.data.length === 0) {
-      return NextResponse.json(
-        { error: "No Stripe customer found with email", email },
-        { status: 404 }
-      );
+      console.log("❌ No Stripe customer found with email");
+      return;
     }
 
     const customer = customers.data[0];
+    console.log(`💳 Stripe Customer ID: ${customer.id}`);
 
     // Get active subscriptions for this customer
     const subscriptions = await stripe.subscriptions.list({
@@ -72,16 +60,13 @@ export async function POST(req: Request) {
     });
 
     if (subscriptions.data.length === 0) {
-      return NextResponse.json(
-        {
-          error: "No active subscriptions found for customer",
-          customerId: customer.id,
-        },
-        { status: 404 }
-      );
+      console.log("❌ No active subscriptions found for customer");
+      return;
     }
 
     const activeSubscription = subscriptions.data[0];
+    console.log(`📋 Active Subscription ID: ${activeSubscription.id}`);
+    console.log(`📊 Subscription Status: ${activeSubscription.status}`);
 
     // Update user document with subscription data
     const subscriptionData = {
@@ -99,6 +84,8 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     });
 
+    console.log("✅ Updated user document with subscription data");
+
     // Update custom claims
     try {
       const userRecord = await auth.getUser(userId);
@@ -110,27 +97,31 @@ export async function POST(req: Request) {
         subscriptionTier: "pro",
         subscriptionId: activeSubscription.id,
       });
+
+      console.log("✅ Updated custom claims");
     } catch (claimsError) {
-      console.error("Failed to update custom claims:", claimsError);
+      console.error("❌ Failed to update custom claims:", claimsError);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Subscription updated successfully",
-      userId,
-      email,
-      customerId: customer.id,
-      subscriptionId: activeSubscription.id,
-      subscriptionData,
-    });
+    console.log("🎉 Subscription fix completed successfully!");
+    console.log("📊 Final subscription data:", subscriptionData);
+
   } catch (error) {
-    console.error("Error in manual subscription update:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to update subscription",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    console.error("❌ Error fixing subscription:", error);
   }
 }
+
+// Run the fix
+const email = process.argv[2];
+if (!email) {
+  console.log("Usage: node scripts/fix-user-subscription.js <email>");
+  process.exit(1);
+}
+
+fixUserSubscription(email).then(() => {
+  console.log("Script completed");
+  process.exit(0);
+}).catch((error) => {
+  console.error("Script failed:", error);
+  process.exit(1);
+});
