@@ -127,7 +127,8 @@ export default function Topbar({ pathname }: TopbarProps) {
   const isContractOrInvoicePage =
     currentPathname?.includes("/contracts/") ||
     currentPathname?.includes("/Invoices/") ||
-    currentPathname?.includes("/invoice/");
+    currentPathname?.includes("/invoice/") ||
+    currentPathname?.includes("/Contracts/");
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
@@ -485,7 +486,6 @@ export default function Topbar({ pathname }: TopbarProps) {
           {/* Talon Logo for Free Accounts */}
           {!accountLimits.isPro && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">Powered by</span>
               <span className="font-bold text-gray-800">Talon</span>
             </div>
           )}

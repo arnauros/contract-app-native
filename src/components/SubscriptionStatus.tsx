@@ -19,9 +19,12 @@ export function SubscriptionStatus() {
   const [error, setError] = useState<Error | null>(null);
   const [errorCount, setErrorCount] = useState(0);
 
-  useEffect(() => {
-    if (!user) return;
+  // Early return before any hooks to prevent hooks order issues
+  if (!user) {
+    return null;
+  }
 
+  useEffect(() => {
     try {
       const db = getFirestore();
 

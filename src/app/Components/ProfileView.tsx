@@ -10,8 +10,8 @@ interface ProfileViewProps {
 export default function ProfileView({
   email,
   displayName,
-  profileImageUrl = "/placeholder-profile.png",
-  profileBannerUrl = "/placeholder-banner.png",
+  profileImageUrl = "/placeholders/profile.png",
+  profileBannerUrl = "/placeholders/banner.png",
 }: ProfileViewProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

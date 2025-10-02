@@ -251,10 +251,10 @@ export default function SettingsPage() {
 
   // Image state
   const [profileImageUrl, setProfileImageUrl] = useState<string>(
-    "/placeholder-profile.png"
+    "/placeholders/profile.png"
   );
   const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
-    "/placeholder-banner.png"
+    "/placeholders/banner.png"
   );
 
   // Contract & Invoice Settings state

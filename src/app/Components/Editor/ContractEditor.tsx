@@ -1748,7 +1748,7 @@ export function ContractEditor({
                 src={
                   (logoUrl !== "/placeholder-logo.png"
                     ? logoUrl
-                    : "/placeholder-profile.png") +
+                    : "/placeholders/profile.png") +
                   ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
                 }
                 alt="Profile image"

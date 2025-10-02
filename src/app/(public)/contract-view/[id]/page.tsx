@@ -60,10 +60,10 @@ export default function PublicContractViewPage() {
 
   // Profile image and banner
   const [profileImageUrl, setProfileImageUrl] = useState<string>(
-    "/placeholder-profile.png"
+    "/placeholders/profile.png"
   );
   const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
-    "/placeholder-banner.png"
+    "/placeholders/banner.png"
   );
   // Contract logo and banner
   const [logoUrl, setLogoUrl] = useState<string>("/placeholder-logo.png");
@@ -684,7 +684,7 @@ export default function PublicContractViewPage() {
                 className="h-full w-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
-                    "/placeholder-profile.png";
+                    "/placeholders/profile.png";
                 }}
               />
             </div>
@@ -751,7 +751,7 @@ export default function PublicContractViewPage() {
                       className="h-full w-full object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
-                          "/placeholder-profile.png";
+                          "/placeholders/profile.png";
                       }}
                     />
                   </div>

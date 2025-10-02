@@ -890,7 +890,6 @@ export default function Dashboard() {
       {!accountLimits.isPro && (
         <div className="mb-6 text-center">
           <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-lg">
-            <span className="text-sm text-gray-600">Powered by</span>
             <span className="font-bold text-gray-800">Talon</span>
           </div>
         </div>

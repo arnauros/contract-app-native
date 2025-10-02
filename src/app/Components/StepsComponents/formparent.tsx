@@ -315,9 +315,9 @@ const FormParent: React.FC<FormParentProps> = ({
             data.blocks?.[0]?.type === "header"
               ? data.blocks[0].data.text
               : data.blocks?.[0]?.type === "paragraph"
-              ? data.blocks[0].data.text.substring(0, 50) +
-                (data.blocks[0].data.text.length > 50 ? "..." : "")
-              : "Untitled Contract",
+                ? data.blocks[0].data.text.substring(0, 50) +
+                  (data.blocks[0].data.text.length > 50 ? "..." : "")
+                : "Untitled Contract",
           content: {
             time: Date.now(),
             blocks: data.blocks,

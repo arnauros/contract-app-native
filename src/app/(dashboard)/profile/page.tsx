@@ -17,10 +17,10 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState<string>(
-    "/placeholder-profile.png"
+    "/placeholders/profile.png"
   );
   const [profileBannerUrl, setProfileBannerUrl] = useState<string>(
-    "/placeholder-banner.png"
+    "/placeholders/banner.png"
   );
   const [imagesLoaded, setImagesLoaded] = useState(false);
 
