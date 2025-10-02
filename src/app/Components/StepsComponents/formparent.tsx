@@ -75,12 +75,12 @@ const FormParent: React.FC<FormParentProps> = ({
           id: doc.id,
           ...doc.data(),
         }));
-        
+
         console.log("📄 Contract loading: Found contracts", {
           count: contractsData.length,
-          contracts: contractsData.map(c => ({ id: c.id, title: c.title }))
+          contracts: contractsData.map((c) => ({ id: c.id, title: c.title })),
         });
-        
+
         setContracts(contractsData);
       } catch (error) {
         console.error("❌ Contract loading error:", error);
@@ -646,9 +646,8 @@ const FormParent: React.FC<FormParentProps> = ({
                             setSelectedContractId(e.target.value)
                           }
                           className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
-                          required
                         >
-                          <option value="">Select a contract</option>
+                          <option value="">Select a contract (optional)</option>
                           {contracts.map((contract) => {
                             // Get contract title from content blocks or use fallback
                             const contractTitle =
@@ -724,11 +723,13 @@ const FormParent: React.FC<FormParentProps> = ({
             }
             onSubmit={async (message: string, files: File[]) => {
               // Validate contract selection for invoice mode
-              if (documentType === "invoice" && !selectedContractId) {
-                toast.error("Please select a contract to generate an invoice from");
+              if (documentType === "invoice" && (!selectedContractId || selectedContractId === "")) {
+                toast.error(
+                  "Please select a contract to generate an invoice from"
+                );
                 return;
               }
-              
+
               setFormData({ ...formData, projectBrief: message });
 
               let processedSummaries: Record<string, string> = {};
