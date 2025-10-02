@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     }
 
     // Check for customers by email in Stripe
-    let stripeCustomers = [];
+    let stripeCustomers: any[] = [];
     if (email) {
       try {
         const customers = await stripe.customers.list({
