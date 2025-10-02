@@ -299,19 +299,19 @@ const FormParent: React.FC<FormParentProps> = ({
 
       // Compose the effective payload combining state + any overrides (avoids stale state)
       const effective: FormData = {
-        projectBrief: override?.projectBrief ?? formData.projectBrief,
-        techStack: override?.techStack ?? formData.techStack,
-        startDate: override?.startDate ?? formData.startDate,
-        endDate: override?.endDate ?? formData.endDate,
-        budget: override?.budget ?? formData.budget,
-        attachments: override?.attachments ?? formData.attachments,
-        pdf: override?.pdf ?? formData.pdf,
-        fileSummaries: override?.fileSummaries ?? formData.fileSummaries,
+        projectBrief: override?.projectBrief ?? formData.projectBrief ?? "",
+        techStack: override?.techStack ?? formData.techStack ?? "",
+        startDate: override?.startDate ?? formData.startDate ?? "",
+        endDate: override?.endDate ?? formData.endDate ?? "",
+        budget: override?.budget ?? formData.budget ?? "",
+        attachments: override?.attachments ?? formData.attachments ?? [],
+        pdf: override?.pdf ?? formData.pdf ?? "",
+        fileSummaries: override?.fileSummaries ?? formData.fileSummaries ?? {},
         // Include client information
-        clientName: override?.clientName ?? formData.clientName,
-        clientEmail: override?.clientEmail ?? formData.clientEmail,
-        clientCompany: override?.clientCompany ?? formData.clientCompany,
-        paymentTerms: override?.paymentTerms ?? formData.paymentTerms,
+        clientName: override?.clientName ?? formData.clientName ?? "",
+        clientEmail: override?.clientEmail ?? formData.clientEmail ?? "",
+        clientCompany: override?.clientCompany ?? formData.clientCompany ?? "",
+        paymentTerms: override?.paymentTerms ?? formData.paymentTerms ?? "",
       } as FormData;
 
       console.log("🐛 Debug effective object:", {
@@ -319,7 +319,7 @@ const FormParent: React.FC<FormParentProps> = ({
         formData,
         override,
         hasStartDate: !!effective.startDate,
-        startDateValue: effective.startDate
+        startDateValue: effective.startDate,
       });
 
       console.log("Submitting payload to generator:", {
@@ -937,7 +937,7 @@ const FormParent: React.FC<FormParentProps> = ({
                     </label>
                     <input
                       type="date"
-                      value={formData.startDate}
+                      value={formData.startDate || ""}
                       onChange={(e) =>
                         handleDateChange("startDate", e.target.value)
                       }
@@ -950,7 +950,7 @@ const FormParent: React.FC<FormParentProps> = ({
                     </label>
                     <input
                       type="date"
-                      value={formData.endDate}
+                      value={formData.endDate || ""}
                       onChange={(e) =>
                         handleDateChange("endDate", e.target.value)
                       }
