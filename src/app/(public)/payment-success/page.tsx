@@ -179,11 +179,27 @@ function PaymentSuccessContent() {
       console.log("Payment completed with session ID:", sessionId);
 
       // Verify the payment status with Stripe
-      verifyPaymentStatus(sessionId).then((verified) => {
+      verifyPaymentStatus(sessionId).then(async (verified) => {
         if (verified) {
           console.log(
-            "Payment successfully verified, redirecting to dashboard shortly"
+            "Payment successfully verified, creating session and redirecting to dashboard"
           );
+          
+          // Create session cookie to allow dashboard access
+          try {
+            if (user) {
+              const { createSession } = await import("@/lib/firebase/authUtils");
+              const sessionResult = await createSession(user);
+              if (sessionResult.success) {
+                console.log("Session created successfully after payment");
+              } else {
+                console.error("Failed to create session after payment:", sessionResult.error);
+              }
+            }
+          } catch (sessionError) {
+            console.error("Error creating session after payment:", sessionError);
+          }
+          
           // Set a timeout to redirect after successful verification
           const timer = setTimeout(() => {
             setRedirecting(true);

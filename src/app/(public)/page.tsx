@@ -37,6 +37,9 @@ function UpgradeHandler() {
       const url = new URL(window.location.href);
       url.searchParams.delete("upgraded");
       window.history.replaceState({}, "", url.toString());
+      
+      // Note: Session cookie creation should be handled by the payment success page
+      // or by the user logging in after the upgrade
     }
   }, [searchParams]);
 

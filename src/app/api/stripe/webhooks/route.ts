@@ -318,6 +318,20 @@ export async function POST(req: Request) {
           console.log(`Completed checkout for user ${userId}`);
 
           if (subscriptionData) {
+            // Create session cookie for the user to allow dashboard access
+            try {
+              // Get user's ID token to create session cookie
+              const userRecord = await auth.getUser(userId);
+              console.log(`Creating session cookie for user ${userId}`);
+              
+              // Note: We can't create a session cookie from webhook context
+              // The user needs to be authenticated on the client side
+              // This will be handled by the payment success page
+              
+            } catch (sessionError) {
+              console.error(`Failed to create session cookie for user ${userId}:`, sessionError);
+            }
+
             // Return response with cookie
             return createResponseWithCookie(
               { received: true, status: subscriptionData.status },
