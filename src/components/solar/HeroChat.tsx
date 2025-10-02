@@ -138,7 +138,9 @@ export function HeroChat({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!message.trim()) return;
+    // Allow submission if message is empty but we're in dashboard mode with onSubmit callback
+    // This allows contract-based invoice generation without requiring a message
+    if (!message.trim() && !onSubmit) return;
 
     // Check authentication on submit (only for homepage flow)
     if (!onSubmit) {

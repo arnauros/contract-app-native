@@ -597,11 +597,25 @@ export function ContractEditor({
               childList: true,
               subtree: true,
               attributes: true,
+              attributeFilter: ['data-level', 'class'],
             });
           }
 
+          // Also set up a periodic check to ensure styles are applied
+          const styleInterval = setInterval(() => {
+            applyTypographyScale();
+          }, 1000);
+
+          // Store interval for cleanup
+          (editor as any)._styleInterval = styleInterval;
+
           // Cleanup observer on component unmount
-          return () => observer.disconnect();
+          return () => {
+            observer.disconnect();
+            if ((editor as any)._styleInterval) {
+              clearInterval((editor as any)._styleInterval);
+            }
+          };
         };
 
         // Apply the fix
@@ -609,6 +623,67 @@ export function ContractEditor({
 
         // Store cleanup function for later use
         (editor as any)._dropdownStylingCleanup = cleanup;
+
+        // Define the typography scale function outside for reuse
+        const applyTypographyScale = () => {
+          const allHeaders = document.querySelectorAll(
+            ".ce-header[data-level], h1.ce-header, h2.ce-header, h3.ce-header, h4.ce-header, h5.ce-header, h6.ce-header"
+          );
+          
+          allHeaders.forEach((header) => {
+            const level = header.getAttribute("data-level") || "1";
+            const levelNum = parseInt(level);
+            
+            switch (levelNum) {
+              case 1:
+                (header as HTMLElement).style.setProperty("font-size", "2em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "bold", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.2", "important");
+                break;
+              case 2:
+                (header as HTMLElement).style.setProperty("font-size", "1.5em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.3", "important");
+                break;
+              case 3:
+                (header as HTMLElement).style.setProperty("font-size", "1.25em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                break;
+              case 4:
+                (header as HTMLElement).style.setProperty("font-size", "1.125em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                break;
+              case 5:
+                (header as HTMLElement).style.setProperty("font-size", "1em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                break;
+              case 6:
+                (header as HTMLElement).style.setProperty("font-size", "0.875em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                break;
+              default:
+                (header as HTMLElement).style.setProperty("font-size", "2em", "important");
+                (header as HTMLElement).style.setProperty("font-weight", "bold", "important");
+                (header as HTMLElement).style.setProperty("line-height", "1.2", "important");
+            }
+          });
+        };
+
+        // Add click listener to reapply styles when user interacts with editor
+        const handleEditorClick = () => {
+          setTimeout(() => {
+            applyTypographyScale();
+          }, 100);
+        };
+
+        if (containerRef.current) {
+          containerRef.current.addEventListener('click', handleEditorClick);
+          (editor as any)._clickListener = handleEditorClick;
+        }
 
         // Apply standard typography scale immediately after editor is ready
         setTimeout(() => {

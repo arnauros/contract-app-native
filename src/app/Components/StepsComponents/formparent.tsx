@@ -191,9 +191,9 @@ const FormParent: React.FC<FormParentProps> = ({
       requestType,
       contracts: accountLimits.contracts,
       invoices: accountLimits.invoices,
-      isPro: accountLimits.isPro
+      isPro: accountLimits.isPro,
     });
-    
+
     if (!accountLimits.loading) {
       if (requestType === "contract" && !accountLimits.contracts.canCreate) {
         console.log("❌ Contract creation blocked - limit reached");
