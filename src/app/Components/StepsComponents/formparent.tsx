@@ -290,7 +290,7 @@ const FormParent: React.FC<FormParentProps> = ({
             console.log("👤 User document data:", userData);
             console.log("📋 Contract settings:", userData.contractSettings);
             console.log("💰 Invoice settings:", userData.invoiceSettings);
-            
+
             userSettings = {
               contract: userData.contractSettings || {},
               invoice: userData.invoiceSettings || {},
@@ -302,15 +302,21 @@ const FormParent: React.FC<FormParentProps> = ({
 
           // Fetch contract data if a contract is selected
           if (selectedContractId) {
-            console.log("🔍 Fetching contract data for ID:", selectedContractId);
+            console.log(
+              "🔍 Fetching contract data for ID:",
+              selectedContractId
+            );
             const contractDoc = await getDoc(
               doc(db, "contracts", selectedContractId)
             );
             if (contractDoc.exists()) {
               const contractDocData = contractDoc.data();
               console.log("📄 Contract document data:", contractDocData);
-              console.log("📄 Contract content blocks:", contractDocData.content?.blocks);
-              
+              console.log(
+                "📄 Contract content blocks:",
+                contractDocData.content?.blocks
+              );
+
               contractData = {
                 id: contractDoc.id,
                 title:
@@ -325,9 +331,15 @@ const FormParent: React.FC<FormParentProps> = ({
                   contractDocData.budget || contractDocData.totalAmount || "",
                 currency: contractDocData.currency || "USD",
               };
-              console.log("📋 Processed contract data for invoice:", contractData);
+              console.log(
+                "📋 Processed contract data for invoice:",
+                contractData
+              );
             } else {
-              console.log("❌ Contract document not found for ID:", selectedContractId);
+              console.log(
+                "❌ Contract document not found for ID:",
+                selectedContractId
+              );
             }
           } else {
             console.log("ℹ️ No contract selected for invoice generation");
@@ -653,11 +665,103 @@ const FormParent: React.FC<FormParentProps> = ({
                           })}
                         </select>
                         {selectedContractId && (
-                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                            <p className="text-xs text-green-700">
-                              ✓ Contract selected - client details will be
-                              populated automatically
-                            </p>
+                          <div className="mt-2 space-y-2">
+                            <div className="p-2 bg-green-50 border border-green-200 rounded-md">
+                              <p className="text-xs text-green-700">
+                                ✓ Contract selected - client details will be
+                                populated automatically
+                              </p>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (!selectedContractId || !user) return;
+                                
+                                try {
+                                  const loadingToast = toast.loading("Generating invoice from contract...");
+                                  
+                                  // Get contract data
+                                  const db = getFirestore();
+                                  const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
+                                  
+                                  if (!contractDoc.exists()) {
+                                    toast.error("Contract not found");
+                                    return;
+                                  }
+                                  
+                                  const contractData = contractDoc.data();
+                                  
+                                  // Get user settings
+                                  const userDoc = await getDoc(doc(db, "users", user.uid));
+                                  const userData = userDoc.exists() ? userDoc.data() : {};
+                                  
+                                  const userSettings = {
+                                    contract: userData.contractSettings || {},
+                                    invoice: userData.invoiceSettings || {},
+                                  };
+                                  
+                                  // Generate invoice directly from contract
+                                  const response = await fetch("/api/generateInvoice", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      projectBrief: `Generate invoice for: ${contractData.title || "Contract"}`,
+                                      userSettings,
+                                      contractData: {
+                                        id: contractDoc.id,
+                                        title: contractData.title || contractData.content?.blocks?.[0]?.data?.text || "Contract",
+                                        clientName: contractData.clientName || "",
+                                        clientEmail: contractData.clientEmail || "",
+                                        clientCompany: contractData.clientCompany || "",
+                                        paymentTerms: contractData.paymentTerms || "Net 30 days",
+                                        totalAmount: contractData.budget || contractData.totalAmount || "",
+                                        currency: contractData.currency || "USD",
+                                      },
+                                    }),
+                                  });
+                                  
+                                  const data = await response.json();
+                                  
+                                  if (!response.ok) {
+                                    throw new Error(data.error || "Failed to generate invoice");
+                                  }
+                                  
+                                  // Save invoice
+                                  const invoiceId = `invoice_${Date.now()}`;
+                                  await saveInvoice({
+                                    id: invoiceId,
+                                    userId: user.uid,
+                                    title: data.title || "Invoice",
+                                    issueDate: data.issueDate,
+                                    dueDate: data.dueDate,
+                                    currency: data.currency,
+                                    client: data.client,
+                                    from: data.from,
+                                    items: data.items,
+                                    subtotal: data.subtotal,
+                                    tax: data.tax,
+                                    total: data.total,
+                                    notes: data.notes,
+                                    status: "draft",
+                                    contractId: selectedContractId,
+                                    createdAt: new Date(),
+                                    updatedAt: new Date(),
+                                  });
+                                  
+                                  toast.dismiss(loadingToast);
+                                  toast.success("Invoice generated successfully!");
+                                  
+                                  // Redirect to invoice
+                                  router.push(`/Invoices/${invoiceId}`);
+                                  
+                                } catch (error) {
+                                  console.error("Error generating invoice from contract:", error);
+                                  toast.error("Failed to generate invoice from contract");
+                                }
+                              }}
+                              className="w-full px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                              🧾 Generate Invoice from Contract
+                            </button>
                           </div>
                         )}
                       </div>

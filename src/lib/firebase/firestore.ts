@@ -118,7 +118,7 @@ export const saveContract = async (contract: Contract) => {
 
     const contractRef = doc(firestore, "contracts", contract.id);
     await setDoc(contractRef, contractWithUser);
-    
+
     // Extract contract data for future invoice generation (background task)
     setTimeout(async () => {
       try {
@@ -128,7 +128,7 @@ export const saveContract = async (contract: Contract) => {
         console.error("❌ Background contract extraction failed:", error);
       }
     }, 1000); // Wait 1 second after save
-    
+
     return { success: true, contractId: contract.id };
   } catch (error) {
     console.error("Error saving contract:", error);
@@ -894,15 +894,18 @@ export const extractContractDataForInvoice = async (contractId: string) => {
     const db = getFirestore();
     const contractRef = doc(db, "contracts", contractId);
     const contractSnap = await getDoc(contractRef);
-    
+
     if (!contractSnap.exists()) {
       console.log("❌ Contract not found for extraction:", contractId);
       return null;
     }
-    
+
     const contractData = contractSnap.data();
-    console.log("🔍 Extracting contract data for invoice generation:", contractData);
-    
+    console.log(
+      "🔍 Extracting contract data for invoice generation:",
+      contractData
+    );
+
     // Extract client information from contract content
     const extractedData = {
       clientName: contractData.clientName || "",
@@ -917,36 +920,51 @@ export const extractContractDataForInvoice = async (contractId: string) => {
       },
       projectBrief: contractData.projectBrief || "",
     };
-    
+
     // Try to extract from content blocks if not in direct fields
     if (contractData.content?.blocks) {
       contractData.content.blocks.forEach((block: any) => {
         if (block.type === "paragraph" && block.data?.text) {
           const text = block.data.text.toLowerCase();
-          
+
           // Extract client name
-          if (text.includes("client") && text.includes("name") && !extractedData.clientName) {
-            const nameMatch = block.data.text.match(/(?:client|name)[:\s]+([^\n\r,]+)/i);
+          if (
+            text.includes("client") &&
+            text.includes("name") &&
+            !extractedData.clientName
+          ) {
+            const nameMatch = block.data.text.match(
+              /(?:client|name)[:\s]+([^\n\r,]+)/i
+            );
             if (nameMatch) extractedData.clientName = nameMatch[1].trim();
           }
-          
+
           // Extract client email
           if (text.includes("email") && !extractedData.clientEmail) {
-            const emailMatch = block.data.text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+            const emailMatch = block.data.text.match(
+              /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+            );
             if (emailMatch) extractedData.clientEmail = emailMatch[1];
           }
-          
+
           // Extract payment terms
-          if (text.includes("payment") && text.includes("term") && !extractedData.paymentTerms) {
-            const paymentMatch = block.data.text.match(/(?:payment|term)[:\s]+([^\n\r,]+)/i);
-            if (paymentMatch) extractedData.paymentTerms = paymentMatch[1].trim();
+          if (
+            text.includes("payment") &&
+            text.includes("term") &&
+            !extractedData.paymentTerms
+          ) {
+            const paymentMatch = block.data.text.match(
+              /(?:payment|term)[:\s]+([^\n\r,]+)/i
+            );
+            if (paymentMatch)
+              extractedData.paymentTerms = paymentMatch[1].trim();
           }
         }
       });
     }
-    
+
     console.log("📋 Extracted contract data:", extractedData);
-    
+
     // Update contract with extracted data for future use
     await updateDoc(contractRef, {
       clientName: extractedData.clientName,
@@ -960,10 +978,9 @@ export const extractContractDataForInvoice = async (contractId: string) => {
       projectBrief: extractedData.projectBrief,
       updatedAt: serverTimestamp(),
     });
-    
+
     console.log("✅ Contract data extracted and saved for invoice generation");
     return extractedData;
-    
   } catch (error) {
     console.error("❌ Error extracting contract data:", error);
     return null;

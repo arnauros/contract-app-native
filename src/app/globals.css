@@ -296,7 +296,13 @@ body {
   line-height: 1.5 !important;
 }
 
-/* H1 - 32px (2em) */
+/* H1 - 32px (2em) - Override Tailwind prose and CDN styles */
+.prose .ce-header[data-level="1"],
+.prose h1.ce-header[data-level="1"],
+.prose h1[data-level="1"],
+.codex-editor .ce-block .ce-block__content .ce-header[data-level="1"],
+.codex-editor .ce-block .ce-block__content h1.ce-header[data-level="1"],
+.codex-editor .ce-block .ce-block__content h1[data-level="1"],
 .ce-header[data-level="1"],
 .codex-editor .ce-header[data-level="1"],
 .ce-block .ce-header[data-level="1"],
@@ -319,7 +325,11 @@ h1.ce-header,
   line-height: 1.2 !important;
 }
 
-/* H2 - 24px (1.5em) */
+/* H2 - 24px (1.5em) - Override Tailwind prose styles */
+.prose .ce-header[data-level="2"],
+.prose h2.ce-header[data-level="2"],
+.prose h2[data-level="2"],
+.prose h2,
 .ce-header[data-level="2"],
 .codex-editor .ce-header[data-level="2"],
 .ce-block .ce-header[data-level="2"],

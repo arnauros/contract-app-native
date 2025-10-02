@@ -532,16 +532,32 @@ export function ContractEditor({
 
             // Apply standard typography scale to all headings
             const applyTypographyScale = () => {
-              // H1 - 32px (2em)
-              const h1Elements = document.querySelectorAll('h1.ce-header[data-level="1"], h1[data-level="1"]');
-              h1Elements.forEach((h1) => {
-                (h1 as HTMLElement).style.fontSize = "2em";
-                (h1 as HTMLElement).style.fontWeight = "bold";
-                (h1 as HTMLElement).style.lineHeight = "1.2";
+              // H1 - 32px (2em) - Target all possible H1 selectors
+              const h1Selectors = [
+                'h1.ce-header[data-level="1"]',
+                'h1[data-level="1"]',
+                '.ce-header[data-level="1"]',
+                ".ce-block h1",
+                ".ce-block__content h1",
+                ".codex-editor h1",
+                '.ce-block .ce-header[data-level="1"]',
+                '.ce-block__content .ce-header[data-level="1"]',
+                '.codex-editor .ce-header[data-level="1"]',
+              ];
+
+              h1Selectors.forEach((selector) => {
+                const h1Elements = document.querySelectorAll(selector);
+                h1Elements.forEach((h1) => {
+                  (h1 as HTMLElement).style.fontSize = "2em";
+                  (h1 as HTMLElement).style.fontWeight = "bold";
+                  (h1 as HTMLElement).style.lineHeight = "1.2";
+                });
               });
 
               // H2 - 24px (1.5em)
-              const h2Elements = document.querySelectorAll('h2.ce-header[data-level="2"], h2[data-level="2"]');
+              const h2Elements = document.querySelectorAll(
+                'h2.ce-header[data-level="2"], h2[data-level="2"]'
+              );
               h2Elements.forEach((h2) => {
                 (h2 as HTMLElement).style.fontSize = "1.5em";
                 (h2 as HTMLElement).style.fontWeight = "600";
@@ -549,7 +565,9 @@ export function ContractEditor({
               });
 
               // H3 - 20px (1.25em)
-              const h3Elements = document.querySelectorAll('h3.ce-header[data-level="3"], h3[data-level="3"]');
+              const h3Elements = document.querySelectorAll(
+                'h3.ce-header[data-level="3"], h3[data-level="3"]'
+              );
               h3Elements.forEach((h3) => {
                 (h3 as HTMLElement).style.fontSize = "1.25em";
                 (h3 as HTMLElement).style.fontWeight = "600";
@@ -557,7 +575,9 @@ export function ContractEditor({
               });
 
               // H4 - 18px (1.125em)
-              const h4Elements = document.querySelectorAll('h4.ce-header[data-level="4"], h4[data-level="4"]');
+              const h4Elements = document.querySelectorAll(
+                'h4.ce-header[data-level="4"], h4[data-level="4"]'
+              );
               h4Elements.forEach((h4) => {
                 (h4 as HTMLElement).style.fontSize = "1.125em";
                 (h4 as HTMLElement).style.fontWeight = "600";
@@ -565,7 +585,7 @@ export function ContractEditor({
               });
 
               // Body text - 16px
-              const paragraphs = document.querySelectorAll('.ce-paragraph, p');
+              const paragraphs = document.querySelectorAll(".ce-paragraph, p");
               paragraphs.forEach((p) => {
                 (p as HTMLElement).style.fontSize = "16px";
                 (p as HTMLElement).style.fontWeight = "normal";
@@ -598,44 +618,137 @@ export function ContractEditor({
         // Apply standard typography scale immediately after editor is ready
         setTimeout(() => {
           const applyTypographyScale = () => {
-            // H1 - 32px (2em)
-            const h1Elements = document.querySelectorAll('h1.ce-header[data-level="1"], h1[data-level="1"]');
-            h1Elements.forEach((h1) => {
-              (h1 as HTMLElement).style.setProperty("font-size", "2em", "important");
-              (h1 as HTMLElement).style.setProperty("font-weight", "bold", "important");
-              (h1 as HTMLElement).style.setProperty("line-height", "1.2", "important");
+            // H1 - 32px (2em) - Target all possible H1 selectors including prose
+            const h1Selectors = [
+              '.prose h1.ce-header[data-level="1"]',
+              '.prose h1[data-level="1"]',
+              '.prose .ce-header[data-level="1"]',
+              'h1.ce-header[data-level="1"]',
+              'h1[data-level="1"]',
+              '.ce-header[data-level="1"]',
+              ".ce-block h1",
+              ".ce-block__content h1",
+              ".codex-editor h1",
+              '.ce-block .ce-header[data-level="1"]',
+              '.ce-block__content .ce-header[data-level="1"]',
+              '.codex-editor .ce-header[data-level="1"]',
+            ];
+
+            h1Selectors.forEach((selector) => {
+              const h1Elements = document.querySelectorAll(selector);
+              h1Elements.forEach((h1) => {
+                (h1 as HTMLElement).style.setProperty(
+                  "font-size",
+                  "2em",
+                  "important"
+                );
+                (h1 as HTMLElement).style.setProperty(
+                  "font-weight",
+                  "bold",
+                  "important"
+                );
+                (h1 as HTMLElement).style.setProperty(
+                  "line-height",
+                  "1.2",
+                  "important"
+                );
+              });
             });
 
-            // H2 - 24px (1.5em)
-            const h2Elements = document.querySelectorAll('h2.ce-header[data-level="2"], h2[data-level="2"]');
-            h2Elements.forEach((h2) => {
-              (h2 as HTMLElement).style.setProperty("font-size", "1.5em", "important");
-              (h2 as HTMLElement).style.setProperty("font-weight", "600", "important");
-              (h2 as HTMLElement).style.setProperty("line-height", "1.3", "important");
+            // H2 - 24px (1.5em) - Target prose styles too
+            const h2Selectors = [
+              '.prose h2.ce-header[data-level="2"]',
+              '.prose h2[data-level="2"]',
+              '.prose .ce-header[data-level="2"]',
+              ".prose h2",
+              'h2.ce-header[data-level="2"]',
+              'h2[data-level="2"]',
+              '.ce-header[data-level="2"]',
+            ];
+
+            h2Selectors.forEach((selector) => {
+              const h2Elements = document.querySelectorAll(selector);
+              h2Elements.forEach((h2) => {
+                (h2 as HTMLElement).style.setProperty(
+                  "font-size",
+                  "1.5em",
+                  "important"
+                );
+                (h2 as HTMLElement).style.setProperty(
+                  "font-weight",
+                  "600",
+                  "important"
+                );
+                (h2 as HTMLElement).style.setProperty(
+                  "line-height",
+                  "1.3",
+                  "important"
+                );
+              });
             });
 
             // H3 - 20px (1.25em)
-            const h3Elements = document.querySelectorAll('h3.ce-header[data-level="3"], h3[data-level="3"]');
+            const h3Elements = document.querySelectorAll(
+              'h3.ce-header[data-level="3"], h3[data-level="3"]'
+            );
             h3Elements.forEach((h3) => {
-              (h3 as HTMLElement).style.setProperty("font-size", "1.25em", "important");
-              (h3 as HTMLElement).style.setProperty("font-weight", "600", "important");
-              (h3 as HTMLElement).style.setProperty("line-height", "1.4", "important");
+              (h3 as HTMLElement).style.setProperty(
+                "font-size",
+                "1.25em",
+                "important"
+              );
+              (h3 as HTMLElement).style.setProperty(
+                "font-weight",
+                "600",
+                "important"
+              );
+              (h3 as HTMLElement).style.setProperty(
+                "line-height",
+                "1.4",
+                "important"
+              );
             });
 
             // H4 - 18px (1.125em)
-            const h4Elements = document.querySelectorAll('h4.ce-header[data-level="4"], h4[data-level="4"]');
+            const h4Elements = document.querySelectorAll(
+              'h4.ce-header[data-level="4"], h4[data-level="4"]'
+            );
             h4Elements.forEach((h4) => {
-              (h4 as HTMLElement).style.setProperty("font-size", "1.125em", "important");
-              (h4 as HTMLElement).style.setProperty("font-weight", "600", "important");
-              (h4 as HTMLElement).style.setProperty("line-height", "1.4", "important");
+              (h4 as HTMLElement).style.setProperty(
+                "font-size",
+                "1.125em",
+                "important"
+              );
+              (h4 as HTMLElement).style.setProperty(
+                "font-weight",
+                "600",
+                "important"
+              );
+              (h4 as HTMLElement).style.setProperty(
+                "line-height",
+                "1.4",
+                "important"
+              );
             });
 
             // Body text - 16px
-            const paragraphs = document.querySelectorAll('.ce-paragraph, p');
+            const paragraphs = document.querySelectorAll(".ce-paragraph, p");
             paragraphs.forEach((p) => {
-              (p as HTMLElement).style.setProperty("font-size", "16px", "important");
-              (p as HTMLElement).style.setProperty("font-weight", "normal", "important");
-              (p as HTMLElement).style.setProperty("line-height", "1.5", "important");
+              (p as HTMLElement).style.setProperty(
+                "font-size",
+                "16px",
+                "important"
+              );
+              (p as HTMLElement).style.setProperty(
+                "font-weight",
+                "normal",
+                "important"
+              );
+              (p as HTMLElement).style.setProperty(
+                "line-height",
+                "1.5",
+                "important"
+              );
             });
           };
 
