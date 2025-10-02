@@ -182,7 +182,8 @@ export default function Dashboard() {
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [isBulkDeleteInvoicesModalOpen, setIsBulkDeleteInvoicesModalOpen] =
     useState(false);
-  const [isDeleteInvoiceModalOpen, setIsDeleteInvoiceModalOpen] = useState(false);
+  const [isDeleteInvoiceModalOpen, setIsDeleteInvoiceModalOpen] =
+    useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
 
   // Get recent comments from all contracts
@@ -871,7 +872,9 @@ export default function Dashboard() {
       // Add a title
       pdf.setFontSize(20);
       pdf.setFont("helvetica", "bold");
-      pdf.text(invoiceData.title || "Invoice", 105, yPosition, { align: "center" });
+      pdf.text(invoiceData.title || "Invoice", 105, yPosition, {
+        align: "center",
+      });
       yPosition += 20;
 
       // Add invoice details
@@ -883,11 +886,19 @@ export default function Dashboard() {
 
       // Invoice number and dates
       if (invoiceData.issueDate) {
-        pdf.text(`Issue Date: ${new Date(invoiceData.issueDate).toLocaleDateString()}`, margin, yPosition);
+        pdf.text(
+          `Issue Date: ${new Date(invoiceData.issueDate).toLocaleDateString()}`,
+          margin,
+          yPosition
+        );
         yPosition += 10;
       }
       if (invoiceData.dueDate) {
-        pdf.text(`Due Date: ${new Date(invoiceData.dueDate).toLocaleDateString()}`, margin, yPosition);
+        pdf.text(
+          `Due Date: ${new Date(invoiceData.dueDate).toLocaleDateString()}`,
+          margin,
+          yPosition
+        );
         yPosition += 10;
       }
       yPosition += 10;
@@ -898,13 +909,17 @@ export default function Dashboard() {
         pdf.text("From:", margin, yPosition);
         yPosition += 8;
         pdf.setFont("helvetica", "normal");
-        if (invoiceData.from.name) pdf.text(invoiceData.from.name, margin, yPosition);
+        if (invoiceData.from.name)
+          pdf.text(invoiceData.from.name, margin, yPosition);
         yPosition += 6;
-        if (invoiceData.from.company) pdf.text(invoiceData.from.company, margin, yPosition);
+        if (invoiceData.from.company)
+          pdf.text(invoiceData.from.company, margin, yPosition);
         yPosition += 6;
-        if (invoiceData.from.email) pdf.text(invoiceData.from.email, margin, yPosition);
+        if (invoiceData.from.email)
+          pdf.text(invoiceData.from.email, margin, yPosition);
         yPosition += 6;
-        if (invoiceData.from.address) pdf.text(invoiceData.from.address, margin, yPosition);
+        if (invoiceData.from.address)
+          pdf.text(invoiceData.from.address, margin, yPosition);
         yPosition += 15;
       }
 
@@ -913,13 +928,17 @@ export default function Dashboard() {
         pdf.text("To:", margin, yPosition);
         yPosition += 8;
         pdf.setFont("helvetica", "normal");
-        if (invoiceData.client.name) pdf.text(invoiceData.client.name, margin, yPosition);
+        if (invoiceData.client.name)
+          pdf.text(invoiceData.client.name, margin, yPosition);
         yPosition += 6;
-        if (invoiceData.client.company) pdf.text(invoiceData.client.company, margin, yPosition);
+        if (invoiceData.client.company)
+          pdf.text(invoiceData.client.company, margin, yPosition);
         yPosition += 6;
-        if (invoiceData.client.email) pdf.text(invoiceData.client.email, margin, yPosition);
+        if (invoiceData.client.email)
+          pdf.text(invoiceData.client.email, margin, yPosition);
         yPosition += 6;
-        if (invoiceData.client.address) pdf.text(invoiceData.client.address, margin, yPosition);
+        if (invoiceData.client.address)
+          pdf.text(invoiceData.client.address, margin, yPosition);
         yPosition += 15;
       }
 
@@ -950,14 +969,22 @@ export default function Dashboard() {
           const description = pdf.splitTextToSize(item.description || "", 90);
           pdf.text(description, margin, yPosition);
           pdf.text(String(item.quantity || 0), margin + 100, yPosition);
-          pdf.text(new Intl.NumberFormat(undefined, {
-            style: "currency",
-            currency: invoiceData.currency || "USD",
-          }).format(item.unitPrice || 0), margin + 130, yPosition);
-          pdf.text(new Intl.NumberFormat(undefined, {
-            style: "currency",
-            currency: invoiceData.currency || "USD",
-          }).format(item.total || 0), margin + 160, yPosition);
+          pdf.text(
+            new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: invoiceData.currency || "USD",
+            }).format(item.unitPrice || 0),
+            margin + 130,
+            yPosition
+          );
+          pdf.text(
+            new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: invoiceData.currency || "USD",
+            }).format(item.total || 0),
+            margin + 160,
+            yPosition
+          );
           yPosition += Math.max(6 * description.length, 8);
         });
 
@@ -966,27 +993,39 @@ export default function Dashboard() {
         // Totals
         pdf.setFont("helvetica", "bold");
         pdf.text("Subtotal:", margin + 130, yPosition);
-        pdf.text(new Intl.NumberFormat(undefined, {
-          style: "currency",
-          currency: invoiceData.currency || "USD",
-        }).format(invoiceData.subtotal || 0), margin + 160, yPosition);
+        pdf.text(
+          new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: invoiceData.currency || "USD",
+          }).format(invoiceData.subtotal || 0),
+          margin + 160,
+          yPosition
+        );
         yPosition += 8;
 
         if (invoiceData.tax) {
           pdf.text("Tax:", margin + 130, yPosition);
-          pdf.text(new Intl.NumberFormat(undefined, {
-            style: "currency",
-            currency: invoiceData.currency || "USD",
-          }).format(invoiceData.tax), margin + 160, yPosition);
+          pdf.text(
+            new Intl.NumberFormat(undefined, {
+              style: "currency",
+              currency: invoiceData.currency || "USD",
+            }).format(invoiceData.tax),
+            margin + 160,
+            yPosition
+          );
           yPosition += 8;
         }
 
         pdf.setFontSize(14);
         pdf.text("Total:", margin + 130, yPosition);
-        pdf.text(new Intl.NumberFormat(undefined, {
-          style: "currency",
-          currency: invoiceData.currency || "USD",
-        }).format(invoiceData.total || 0), margin + 160, yPosition);
+        pdf.text(
+          new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency: invoiceData.currency || "USD",
+          }).format(invoiceData.total || 0),
+          margin + 160,
+          yPosition
+        );
       }
 
       // Notes
@@ -1461,7 +1500,7 @@ export default function Dashboard() {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Total
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 z-10 bg-gray-50">
                   Actions
                 </th>
               </tr>
@@ -1521,10 +1560,10 @@ export default function Dashboard() {
                     }).format(typeof inv.total === "number" ? inv.total : 0)}
                   </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap"
+                    className="px-6 py-4 whitespace-nowrap text-center"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => router.push(`/Invoices/${inv.id}`)}
                         className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-md hover:bg-gray-100"

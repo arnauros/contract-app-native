@@ -9,7 +9,14 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useTutorial } from "@/lib/hooks/useTutorial";
 import { useAccountLimits } from "@/lib/hooks/useAccountLimits";
 import toast from "react-hot-toast";
-import { doc, getFirestore, getDoc, query, where, getDocs } from "firebase/firestore";
+import {
+  doc,
+  getFirestore,
+  getDoc,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { collection } from "firebase/firestore";
 
 export interface FormData {
@@ -48,7 +55,7 @@ const FormParent: React.FC<FormParentProps> = ({
   useEffect(() => {
     const loadContracts = async () => {
       if (!user) return;
-      
+
       try {
         const db = getFirestore();
         const contractsRef = collection(db, "contracts");
@@ -57,9 +64,9 @@ const FormParent: React.FC<FormParentProps> = ({
           where("userId", "==", user.uid)
         );
         const contractsSnapshot = await getDocs(contractsQuery);
-        const contractsData = contractsSnapshot.docs.map(doc => ({
+        const contractsData = contractsSnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
         setContracts(contractsData);
       } catch (error) {
@@ -277,11 +284,13 @@ const FormParent: React.FC<FormParentProps> = ({
 
           // Fetch contract data if a contract is selected
           if (selectedContractId) {
-            const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
+            const contractDoc = await getDoc(
+              doc(db, "contracts", selectedContractId)
+            );
             if (contractDoc.exists()) {
               contractData = {
                 id: contractDoc.id,
-                ...contractDoc.data()
+                ...contractDoc.data(),
               };
             }
           }
@@ -577,7 +586,10 @@ const FormParent: React.FC<FormParentProps> = ({
               <div className="space-y-4">
                 {/* Contract Selection for Invoices Only */}
                 {(() => {
-                  const requestType = typeof window !== "undefined" ? localStorage.getItem("hero-request-type") || "contract" : "contract";
+                  const requestType =
+                    typeof window !== "undefined"
+                      ? localStorage.getItem("hero-request-type") || "contract"
+                      : "contract";
                   if (requestType === "invoice" && contracts.length > 0) {
                     return (
                       <div>
@@ -586,22 +598,30 @@ const FormParent: React.FC<FormParentProps> = ({
                         </label>
                         <select
                           value={selectedContractId}
-                          onChange={(e) => setSelectedContractId(e.target.value)}
+                          onChange={(e) =>
+                            setSelectedContractId(e.target.value)
+                          }
                           className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                         >
                           <option value="">Select a contract (optional)</option>
-                          {contracts.map((contract) => (
-                            <option key={contract.id} value={contract.id}>
-                              {contract.title || `Contract ${contract.id.slice(0, 8)}`}
-                            </option>
-                          ))}
+                          {contracts.map((contract) => {
+                            // Get contract title from content blocks or use fallback
+                            const contractTitle = contract.content?.blocks?.[0]?.data?.text || 
+                                                contract.title || 
+                                                `Contract ${contract.id.slice(0, 8)}`;
+                            return (
+                              <option key={contract.id} value={contract.id}>
+                                {contractTitle}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     );
                   }
                   return null;
                 })()}
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">

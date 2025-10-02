@@ -326,36 +326,36 @@ export function HeroChat({
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      {/* Document Type Toggle */}
-      {showDocumentTypeToggle && (
-        <div className="mb-4 flex justify-center">
-          <div className="bg-gray-100 rounded-lg p-1 flex">
-            <button
-              onClick={() => handleDocumentTypeChange("contract")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                documentType === "contract"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              📄 Contract
-            </button>
-            <button
-              onClick={() => handleDocumentTypeChange("invoice")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                documentType === "invoice"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              🧾 Invoice
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="relative">
         <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
+          {/* Document Type Toggle */}
+          {showDocumentTypeToggle && (
+            <div className="px-4 pt-3 pb-2 flex justify-center">
+              <div className="bg-gray-100 rounded-lg p-1 flex">
+                <button
+                  onClick={() => handleDocumentTypeChange("contract")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    documentType === "contract"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  📄 Contract
+                </button>
+                <button
+                  onClick={() => handleDocumentTypeChange("invoice")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    documentType === "invoice"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  🧾 Invoice
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="p-4">
             <div className="relative">
               <textarea
