@@ -28,6 +28,11 @@ export interface FormData {
   attachments: File[];
   pdf?: string;
   fileSummaries: { [key: string]: string };
+  // Client information fields
+  clientName?: string;
+  clientEmail?: string;
+  clientCompany?: string;
+  paymentTerms?: string;
 }
 
 interface FormParentProps {
@@ -135,6 +140,11 @@ const FormParent: React.FC<FormParentProps> = ({
             selectedContract.content?.blocks?.[0]?.data?.text ||
             selectedContract.title ||
             prev.projectBrief,
+          // Populate client information from selected contract
+          clientName: selectedContract.clientName || prev.clientName,
+          clientEmail: selectedContract.clientEmail || prev.clientEmail,
+          clientCompany: selectedContract.clientCompany || prev.clientCompany,
+          paymentTerms: selectedContract.paymentTerms || prev.paymentTerms,
         }));
 
         console.log("✅ Form fields populated:", {
@@ -144,6 +154,10 @@ const FormParent: React.FC<FormParentProps> = ({
           projectBrief:
             selectedContract.content?.blocks?.[0]?.data?.text ||
             selectedContract.title,
+          clientName: selectedContract.clientName,
+          clientEmail: selectedContract.clientEmail,
+          clientCompany: selectedContract.clientCompany,
+          paymentTerms: selectedContract.paymentTerms,
         });
       }
     }
@@ -520,15 +534,13 @@ const FormParent: React.FC<FormParentProps> = ({
               }))
             ),
           },
-          // Include extracted client data if available
-          ...(data.extractedData && {
-            clientName: data.extractedData.clientName,
-            clientEmail: data.extractedData.clientEmail,
-            clientCompany: data.extractedData.clientCompany,
-            paymentTerms: data.extractedData.paymentTerms,
-            totalAmount: data.extractedData.totalAmount,
-            currency: data.extractedData.currency,
-          }),
+          // Include client data from form (prioritize form data over extracted data)
+          clientName: formData.clientName || data.extractedData?.clientName || "",
+          clientEmail: formData.clientEmail || data.extractedData?.clientEmail || "",
+          clientCompany: formData.clientCompany || data.extractedData?.clientCompany || "",
+          paymentTerms: formData.paymentTerms || data.extractedData?.paymentTerms || "Net 30 days",
+          totalAmount: data.extractedData?.totalAmount || formData.budget || "",
+          currency: data.extractedData?.currency || "USD",
           status: "draft" as const,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -543,22 +555,24 @@ const FormParent: React.FC<FormParentProps> = ({
           version: contractData.version,
           hasContent: !!contractData.content,
           hasRawContent: !!contractData.rawContent,
-          extractedData: contractData.clientName ? {
-            clientName: contractData.clientName,
-            clientEmail: contractData.clientEmail,
-            clientCompany: contractData.clientCompany,
-            paymentTerms: contractData.paymentTerms,
-            totalAmount: contractData.totalAmount,
-            currency: contractData.currency
-          } : "No extracted data",
+          extractedData: contractData.clientName
+            ? {
+                clientName: contractData.clientName,
+                clientEmail: contractData.clientEmail,
+                clientCompany: contractData.clientCompany,
+                paymentTerms: contractData.paymentTerms,
+                totalAmount: contractData.totalAmount,
+                currency: contractData.currency,
+              }
+            : "No extracted data",
           metadata: {
             startDate: contractData.metadata.startDate,
             endDate: contractData.metadata.endDate,
             budget: contractData.metadata.budget,
-            attachmentsCount: contractData.metadata.attachments.length
-          }
+            attachmentsCount: contractData.metadata.attachments.length,
+          },
         });
-        
+
         const result = await saveContract(contractData);
         const dbEndTime = performance.now();
         console.log(
@@ -645,18 +659,22 @@ const FormParent: React.FC<FormParentProps> = ({
           itemsCount: invoiceData.items?.length || 0,
           total: invoiceData.total,
           hasNotes: !!invoiceData.notes,
-          client: invoiceData.client ? {
-            name: invoiceData.client.name,
-            email: invoiceData.client.email,
-            company: invoiceData.client.company
-          } : "No client data",
-          from: invoiceData.from ? {
-            name: invoiceData.from.name,
-            email: invoiceData.from.email,
-            company: invoiceData.from.company
-          } : "No from data"
+          client: invoiceData.client
+            ? {
+                name: invoiceData.client.name,
+                email: invoiceData.client.email,
+                company: invoiceData.client.company,
+              }
+            : "No client data",
+          from: invoiceData.from
+            ? {
+                name: invoiceData.from.name,
+                email: invoiceData.from.email,
+                company: invoiceData.from.company,
+              }
+            : "No from data",
         });
-        
+
         const result = await saveInvoice(invoiceData as any);
         const dbEndTime = performance.now();
         console.log(
@@ -810,6 +828,76 @@ const FormParent: React.FC<FormParentProps> = ({
                   }
                   return null;
                 })()}
+
+                {/* Client Information Fields */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-700">Client Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Client Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. John Smith"
+                        value={formData.clientName || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, clientName: e.target.value })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Client Email
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. john@company.com"
+                        value={formData.clientEmail || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, clientEmail: e.target.value })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Client Company
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Acme Corp"
+                        value={formData.clientCompany || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, clientCompany: e.target.value })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Payment Terms
+                      </label>
+                      <select
+                        value={formData.paymentTerms || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, paymentTerms: e.target.value })
+                        }
+                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      >
+                        <option value="">Select payment terms</option>
+                        <option value="Net 15 days">Net 15 days</option>
+                        <option value="Net 30 days">Net 30 days</option>
+                        <option value="Net 45 days">Net 45 days</option>
+                        <option value="Net 60 days">Net 60 days</option>
+                        <option value="Due on receipt">Due on receipt</option>
+                        <option value="50% upfront, 50% on completion">50% upfront, 50% on completion</option>
+                        <option value="25% upfront, 75% on completion">25% upfront, 75% on completion</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
