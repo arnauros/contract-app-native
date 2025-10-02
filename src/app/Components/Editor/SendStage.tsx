@@ -35,6 +35,7 @@ import {
 import { db } from "@/lib/firebase/index";
 import { generatePreviewToken } from "@/lib/firebase/token";
 import { useRouter } from "next/navigation";
+import { saveInvoice } from "@/lib/firebase/firestore";
 // import ShareModal from "./ShareModal"; // Comment out until ShareModal is implemented
 import jsPDF from "jspdf";
 
@@ -68,6 +69,7 @@ export function SendStage({ onSend, title }: SendStageProps) {
   const [isSending, setIsSending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -139,6 +141,138 @@ export function SendStage({ onSend, title }: SendStageProps) {
       toast.error(error || "Failed to send contract. Please try again.");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    setIsGeneratingInvoice(true);
+    try {
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        throw new Error("User not authenticated");
+      }
+
+      const contractId = window.location.pathname.split("/").pop();
+      if (!contractId) {
+        throw new Error("Contract ID not found");
+      }
+
+      // Get contract data for client info
+      const contract = await getDoc(doc(db, "contracts", contractId));
+      if (!contract.exists()) {
+        throw new Error("Contract not found");
+      }
+
+      const contractData = contract.data();
+      
+      // Extract contract content text from EditorJS blocks
+      let contractContentText = "";
+      if (contractData.content?.blocks) {
+        contractContentText = contractData.content.blocks
+          .map((block: any) => {
+            if (block.type === "paragraph" && block.data?.text) {
+              return block.data.text;
+            }
+            if (block.type === "header" && block.data?.text) {
+              return block.data.text;
+            }
+            if (block.type === "list" && block.data?.items) {
+              return block.data.items.join(" ");
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join(" ");
+      }
+
+      // Extract client data using regex patterns
+      const extractClientData = (text: string) => {
+        const clientNameMatch = text.match(/(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i);
+        const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        const companyMatch = text.match(/(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i);
+        const amountMatch = text.match(/(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i);
+        const paymentMatch = text.match(/(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+?)(?:\n|$)/i);
+        
+        return {
+          clientName: clientNameMatch?.[1]?.trim() || "",
+          clientEmail: emailMatch?.[1] || "",
+          clientCompany: companyMatch?.[1]?.trim() || "",
+          totalAmount: amountMatch?.[1]?.replace(/,/g, "") || "",
+          paymentTerms: paymentMatch?.[1]?.trim() || "",
+        };
+      };
+
+      const extractedData = extractClientData(contractContentText);
+
+      // Prepare contract data for AI
+      const contractDataForAI = {
+        id: contractId,
+        title: contractData.title || "Contract",
+        clientName: extractedData.clientName || clientName || "",
+        clientEmail: extractedData.clientEmail || clientEmail || "",
+        clientCompany: extractedData.clientCompany || "",
+        paymentTerms: extractedData.paymentTerms || "Net 30 days",
+        totalAmount: extractedData.totalAmount || "",
+        currency: "USD",
+        contractContentText: contractContentText,
+      };
+
+      // Call the generate invoice API
+      const response = await fetch("/api/generateInvoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contractData: contractDataForAI,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate invoice");
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.invoiceData) {
+        // Generate a unique ID for the invoice
+        const generatedId = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+        
+        const invoiceData = {
+          id: generatedId,
+          userId: auth.currentUser.uid,
+          title: data.invoiceData.title || "Untitled Invoice",
+          status: "draft" as const,
+          issueDate: data.invoiceData.issueDate || undefined,
+          dueDate: data.invoiceData.dueDate || undefined,
+          currency: data.invoiceData.currency || "USD",
+          client: data.invoiceData.client || {},
+          from: data.invoiceData.from || {},
+          items: data.invoiceData.items || [],
+          subtotal: data.invoiceData.subtotal || 0,
+          tax: data.invoiceData.tax || 0,
+          total: data.invoiceData.total || 0,
+          notes: data.invoiceData.notes || "",
+          contractId: contractId, // Link invoice to the contract
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        // Save the invoice to Firestore
+        await saveInvoice(invoiceData);
+        
+        toast.success("Invoice generated successfully!");
+        
+        // Navigate to the invoice edit page
+        router.push(`/Invoices/${generatedId}/edit`);
+      } else {
+        throw new Error(data.error || "Failed to generate invoice");
+      }
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate invoice");
+    } finally {
+      setIsGeneratingInvoice(false);
     }
   };
 
@@ -523,6 +657,30 @@ export function SendStage({ onSend, title }: SendStageProps) {
           <p className="text-gray-600">
             The contract has been sent to {clientEmail}
           </p>
+          <div className="pt-4">
+            <button
+              onClick={handleGenerateInvoice}
+              disabled={isGeneratingInvoice}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGeneratingInvoice ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Generate Invoice
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );

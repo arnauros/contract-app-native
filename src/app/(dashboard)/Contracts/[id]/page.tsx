@@ -1227,17 +1227,6 @@ export default function ContractPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Generate Invoice action - subtle */}
-      <div className="flex justify-end px-4 pt-4">
-        <button
-          onClick={handleGenerateInvoice}
-          disabled={isGeneratingInvoice}
-          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all duration-200 ease-in-out disabled:opacity-50"
-          title="Generate Invoice"
-        >
-          {isGeneratingInvoice ? "Generating..." : "Invoice"}
-        </button>
-      </div>
       {/* Debug button - only in development */}
       {process.env.NODE_ENV === "development" && SHOW_DEBUG_BUTTONS && (
         <button

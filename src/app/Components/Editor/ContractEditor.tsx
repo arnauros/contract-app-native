@@ -1812,55 +1812,6 @@ export function ContractEditor({
             </div>
           )}
 
-          {/* Overlapping circular avatar - only show if not removed */}
-          {logoUrl !== "/placeholder-logo.png" && (
-            <div className="absolute -bottom-16 left-6 h-32 w-32 group">
-              <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100">
-                <img
-                  src={
-                    logoUrl +
-                    ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
-                  }
-                  alt="Profile image"
-                  className="w-full h-full object-cover"
-                  title="Edit Profile Picture In Settings"
-                />
-              </div>
-              {/* Remove profile image button - only in draft mode */}
-              {stage === "edit" && (
-                <button
-                  onClick={() => {
-                    const contractId = window.location.pathname
-                      .split("/")
-                      .pop();
-                    setLogoUrl("/placeholder-logo.png");
-                    if (contractId) {
-                      localStorage.setItem(
-                        `contract-logo-removed-${contractId}`,
-                        "true"
-                      );
-                    }
-                  }}
-                  className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  title="Remove profile image"
-                >
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-          )}
           {/* Spacer to account for the overlapping avatar */}
           <div className="h-8" />
 
