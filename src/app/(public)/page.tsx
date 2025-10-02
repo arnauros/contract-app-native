@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Hero } from "@/components/solar/Hero";
@@ -16,28 +16,10 @@ import PricingSection from "@/components/PricingSection";
 import AboutSection from "@/components/AboutSection";
 import toast from "react-hot-toast";
 
-export default function LandingPage() {
-  const [debugInfo, setDebugInfo] = useState({
-    hostname: "",
-    pathname: "",
-    fullUrl: "",
-  });
+function UpgradeHandler() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Enhanced logging for debugging
-    console.log("🚀 LANDING PAGE DEBUG INFO 🚀");
-    console.log("Landing page mounted at time:", new Date().toISOString());
-    console.log("Current URL:", window.location.href);
-    console.log("Current hostname:", window.location.hostname);
-
-    // Set debug info for display
-    setDebugInfo({
-      hostname: window.location.hostname,
-      pathname: window.location.pathname,
-      fullUrl: window.location.href,
-    });
-
     // Handle upgrade success
     const upgraded = searchParams?.get("upgraded");
     if (upgraded === "true") {
@@ -58,8 +40,36 @@ export default function LandingPage() {
     }
   }, [searchParams]);
 
+  return null;
+}
+
+export default function LandingPage() {
+  const [debugInfo, setDebugInfo] = useState({
+    hostname: "",
+    pathname: "",
+    fullUrl: "",
+  });
+
+  useEffect(() => {
+    // Enhanced logging for debugging
+    console.log("🚀 LANDING PAGE DEBUG INFO 🚀");
+    console.log("Landing page mounted at time:", new Date().toISOString());
+    console.log("Current URL:", window.location.href);
+    console.log("Current hostname:", window.location.hostname);
+
+    // Set debug info for display
+    setDebugInfo({
+      hostname: window.location.hostname,
+      pathname: window.location.pathname,
+      fullUrl: window.location.href,
+    });
+  }, []);
+
   return (
     <main className="relative mx-auto flex flex-col overflow-x-hidden">
+      <Suspense fallback={null}>
+        <UpgradeHandler />
+      </Suspense>
       <div className="pt-32 relative bg-gray-50">
         <VerticalLines />
         <Hero />
