@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { saveContract, saveInvoice } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useTutorial } from "@/lib/hooks/useTutorial";
+import { useAccountLimits } from "@/lib/hooks/useAccountLimits";
 import toast from "react-hot-toast";
 import { doc, getFirestore, getDoc } from "firebase/firestore";
 import { collection } from "firebase/firestore";
@@ -39,6 +40,7 @@ const FormParent: React.FC<FormParentProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { trackAction } = useTutorial();
+  const accountLimits = useAccountLimits();
 
   useEffect(() => {
     router.prefetch("/Contracts/[id]");
@@ -129,6 +131,14 @@ const FormParent: React.FC<FormParentProps> = ({
   const handleSubmit = async (override?: Partial<FormData>) => {
     if (!user) {
       toast.error("You must be logged in to create a contract");
+      return;
+    }
+
+    // Check account limits before creating contract
+    if (!accountLimits.loading && !accountLimits.contracts.canCreate) {
+      toast.error(
+        `You've reached the maximum number of contracts for the free tier (${accountLimits.contracts.limit}). Upgrade to Pro to create unlimited contracts.`
+      );
       return;
     }
 

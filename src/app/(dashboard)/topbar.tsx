@@ -124,9 +124,10 @@ export default function Topbar({ pathname }: TopbarProps) {
   const router = useRouter();
 
   // Check if we're on a contract or invoice page
-  const isContractOrInvoicePage = currentPathname?.includes('/contracts/') || 
-                                  currentPathname?.includes('/Invoices/') ||
-                                  currentPathname?.includes('/invoice/');
+  const isContractOrInvoicePage =
+    currentPathname?.includes("/contracts/") ||
+    currentPathname?.includes("/Invoices/") ||
+    currentPathname?.includes("/invoice/");
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
     "edit"
   );
@@ -698,7 +699,7 @@ export default function Topbar({ pathname }: TopbarProps) {
                   }
 
                   const { url } = await response.json();
-                  
+
                   // Redirect to Stripe Checkout
                   if (url) {
                     window.location.href = url;

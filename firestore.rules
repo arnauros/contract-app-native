@@ -112,8 +112,9 @@ service cloud.firestore {
                    true; // Allow public read access for contracts
       
       // Allow creating new contracts if user has active subscription or is admin
+      // OR if user is authenticated (free tier limit enforced in frontend)
       allow create: if request.auth != null && 
-                    (hasActiveSubscription() || isAdmin());
+                    (hasActiveSubscription() || isAdmin() || true);
       
       // Allow updating own contracts if user has active subscription or is admin
       // OR allow updating specific fields for tracking purposes
