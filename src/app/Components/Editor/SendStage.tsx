@@ -164,7 +164,7 @@ export function SendStage({ onSend, title }: SendStageProps) {
       }
 
       const contractData = contract.data();
-      
+
       // Extract contract content text from EditorJS blocks
       let contractContentText = "";
       if (contractData.content?.blocks) {
@@ -187,12 +187,22 @@ export function SendStage({ onSend, title }: SendStageProps) {
 
       // Extract client data using regex patterns
       const extractClientData = (text: string) => {
-        const clientNameMatch = text.match(/(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i);
-        const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        const companyMatch = text.match(/(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i);
-        const amountMatch = text.match(/(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i);
-        const paymentMatch = text.match(/(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+?)(?:\n|$)/i);
-        
+        const clientNameMatch = text.match(
+          /(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i
+        );
+        const emailMatch = text.match(
+          /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+        );
+        const companyMatch = text.match(
+          /(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i
+        );
+        const amountMatch = text.match(
+          /(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i
+        );
+        const paymentMatch = text.match(
+          /(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+?)(?:\n|$)/i
+        );
+
         return {
           clientName: clientNameMatch?.[1]?.trim() || "",
           clientEmail: emailMatch?.[1] || "",
@@ -233,11 +243,11 @@ export function SendStage({ onSend, title }: SendStageProps) {
       }
 
       const data = await response.json();
-      
+
       if (data.success && data.invoiceData) {
         // Generate a unique ID for the invoice
         const generatedId = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-        
+
         const invoiceData = {
           id: generatedId,
           userId: auth.currentUser.uid,
@@ -260,9 +270,9 @@ export function SendStage({ onSend, title }: SendStageProps) {
 
         // Save the invoice to Firestore
         await saveInvoice(invoiceData);
-        
+
         toast.success("Invoice generated successfully!");
-        
+
         // Navigate to the invoice edit page
         router.push(`/Invoices/${generatedId}/edit`);
       } else {
@@ -270,7 +280,9 @@ export function SendStage({ onSend, title }: SendStageProps) {
       }
     } catch (error) {
       console.error("Error generating invoice:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate invoice");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate invoice"
+      );
     } finally {
       setIsGeneratingInvoice(false);
     }
@@ -657,30 +669,6 @@ export function SendStage({ onSend, title }: SendStageProps) {
           <p className="text-gray-600">
             The contract has been sent to {clientEmail}
           </p>
-          <div className="pt-4">
-            <button
-              onClick={handleGenerateInvoice}
-              disabled={isGeneratingInvoice}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGeneratingInvoice ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Generate Invoice
-                </>
-              )}
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -692,11 +680,39 @@ export function SendStage({ onSend, title }: SendStageProps) {
         Send Contract
       </h2>
 
+      {/* Generate Invoice Button */}
+      <button
+        onClick={handleGenerateInvoice}
+        disabled={isGeneratingInvoice}
+        className="mb-3 w-full py-2 px-4 flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isGeneratingInvoice ? (
+          <>
+            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Generating...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Generate Invoice
+          </>
+        )}
+      </button>
+
       <button
         onClick={handlePreview}
-        className="mb-3 w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+        className="mb-3 w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
       >
-        Preview Client View
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        Preview
       </button>
 
       <button
@@ -704,7 +720,6 @@ export function SendStage({ onSend, title }: SendStageProps) {
         className="mb-6 w-full py-2 px-4 flex items-center justify-center gap-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
       >
         <ArrowDownTrayIcon className="h-5 w-5" />
-        Download as PDF
       </button>
 
       {SHOW_DEBUG_BUTTONS && (
