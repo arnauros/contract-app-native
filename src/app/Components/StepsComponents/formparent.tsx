@@ -301,6 +301,9 @@ const FormParent: React.FC<FormParentProps> = ({
       let userSettings = null;
       let contractData = null;
       if (isInvoice && user) {
+        console.log("🧾 Invoice generation: Starting data fetch...");
+        console.log("🧾 Selected contract ID:", selectedContractId);
+        
         try {
           const db = getFirestore();
           const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -310,15 +313,19 @@ const FormParent: React.FC<FormParentProps> = ({
               contract: userData.contractSettings || {},
               invoice: userData.invoiceSettings || {},
             };
+            console.log("👤 User settings loaded:", userSettings);
           }
 
           // Fetch contract data if a contract is selected
           if (selectedContractId) {
+            console.log("📄 Fetching contract data for ID:", selectedContractId);
             const contractDoc = await getDoc(
               doc(db, "contracts", selectedContractId)
             );
             if (contractDoc.exists()) {
               const contractDocData = contractDoc.data();
+              console.log("📄 Raw contract document data:", contractDocData);
+              
               contractData = {
                 id: contractDoc.id,
                 title:
@@ -333,12 +340,36 @@ const FormParent: React.FC<FormParentProps> = ({
                   contractDocData.budget || contractDocData.totalAmount || "",
                 currency: contractDocData.currency || "USD",
               };
+              console.log("📋 Processed contract data for invoice:", contractData);
+            } else {
+              console.log("❌ Contract document not found for ID:", selectedContractId);
             }
+          } else {
+            console.log("ℹ️ No contract selected for invoice generation");
           }
         } catch (error) {
-          console.log("Failed to load user settings or contract data:", error);
+          console.log("❌ Failed to load user settings or contract data:", error);
         }
       }
+
+      const requestPayload = {
+        projectBrief: effective.projectBrief,
+        techStack: isInvoice ? undefined : effective.techStack,
+        startDate: isInvoice ? undefined : effective.startDate,
+        endDate: isInvoice ? undefined : effective.endDate,
+        budget: isInvoice ? undefined : effective.budget,
+        currency: "USD",
+        pdf: isInvoice ? undefined : effective.pdf,
+        debug: debugMode,
+        attachments: payloadAttachments,
+        userSettings: isInvoice ? userSettings : undefined,
+        contractData: isInvoice ? contractData : undefined,
+      };
+      
+      console.log("🚀 Sending request to API:", {
+        endpoint: isInvoice ? "/api/generateInvoice" : "/api/generateContract",
+        payload: requestPayload
+      });
 
       const response = await fetch(
         isInvoice ? "/api/generateInvoice" : "/api/generateContract",
@@ -347,19 +378,7 @@ const FormParent: React.FC<FormParentProps> = ({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            projectBrief: effective.projectBrief,
-            techStack: isInvoice ? undefined : effective.techStack,
-            startDate: isInvoice ? undefined : effective.startDate,
-            endDate: isInvoice ? undefined : effective.endDate,
-            budget: isInvoice ? undefined : effective.budget,
-            currency: "USD",
-            pdf: isInvoice ? undefined : effective.pdf,
-            debug: debugMode,
-            attachments: payloadAttachments,
-            userSettings: isInvoice ? userSettings : undefined,
-            contractData: isInvoice ? contractData : undefined,
-          }),
+          body: JSON.stringify(requestPayload),
           signal: controller.signal,
         }
       );
@@ -723,7 +742,10 @@ const FormParent: React.FC<FormParentProps> = ({
             }
             onSubmit={async (message: string, files: File[]) => {
               // Validate contract selection for invoice mode
-              if (documentType === "invoice" && (!selectedContractId || selectedContractId === "")) {
+              if (
+                documentType === "invoice" &&
+                (!selectedContractId || selectedContractId === "")
+              ) {
                 toast.error(
                   "Please select a contract to generate an invoice from"
                 );
