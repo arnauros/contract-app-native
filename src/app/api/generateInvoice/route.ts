@@ -50,8 +50,22 @@ export async function POST(request: Request) {
     // Extract user settings and contract data
     const userSettings = data.userSettings;
     const contractData = data.contractData;
-    console.log("User settings:", userSettings);
-    console.log("Contract data:", contractData);
+    console.log("🔧 User settings received:", userSettings);
+    console.log("📄 Contract data received:", contractData);
+    
+    // Log specific contract fields
+    if (contractData) {
+      console.log("📋 Contract data breakdown:", {
+        id: contractData.id,
+        title: contractData.title,
+        clientName: contractData.clientName,
+        clientEmail: contractData.clientEmail,
+        clientCompany: contractData.clientCompany,
+        paymentTerms: contractData.paymentTerms,
+        totalAmount: contractData.totalAmount,
+        currency: contractData.currency
+      });
+    }
 
     const cacheKey = JSON.stringify({
       projectBrief: data.projectBrief || "",
@@ -178,7 +192,7 @@ ${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
     clearTimeout(timeoutId);
 
     const content = completion.choices?.[0]?.message?.content;
-    console.log("OpenAI response content:", content);
+    console.log("🤖 OpenAI response content:", content);
 
     if (!content) {
       console.error("No content in OpenAI response");
@@ -191,7 +205,17 @@ ${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
     let parsed: GeneratedInvoice | null = null;
     try {
       parsed = JSON.parse(content);
-      console.log("Parsed invoice:", JSON.stringify(parsed, null, 2));
+      console.log("📄 Parsed invoice:", JSON.stringify(parsed, null, 2));
+      
+      // Log specific invoice fields to see what was populated
+      console.log("🧾 Invoice content breakdown:", {
+        title: parsed.title,
+        client: parsed.client,
+        from: parsed.from,
+        items: parsed.items,
+        total: parsed.total,
+        notes: parsed.notes
+      });
     } catch (e) {
       console.error("Failed to parse JSON from OpenAI:", e);
       console.error("Raw content:", content);

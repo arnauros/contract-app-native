@@ -288,50 +288,38 @@ body {
   font-weight: 600 !important;
 }
 
-/* Override EditorJS CDN styles with maximum specificity */
-.codex-editor .ce-block .ce-block__content .ce-header[data-level="1"],
-.codex-editor .ce-block .ce-block__content h1.ce-header[data-level="1"],
-.codex-editor .ce-block .ce-block__content h1[data-level="1"] {
+/* Override EditorJS CDN styles - target actual DOM structure */
+.codex-editor .ce-block .ce-block__content h1.ce-header {
   font-size: 2em !important; /* 32px */
   font-weight: bold !important;
   line-height: 1.2 !important;
 }
 
-.codex-editor .ce-block .ce-block__content .ce-header[data-level="2"],
-.codex-editor .ce-block .ce-block__content h2.ce-header[data-level="2"],
-.codex-editor .ce-block .ce-block__content h2[data-level="2"] {
+.codex-editor .ce-block .ce-block__content h2.ce-header {
   font-size: 1.5em !important; /* 24px */
   font-weight: 600 !important;
   line-height: 1.3 !important;
 }
 
-.codex-editor .ce-block .ce-block__content .ce-header[data-level="3"],
-.codex-editor .ce-block .ce-block__content h3.ce-header[data-level="3"],
-.codex-editor .ce-block .ce-block__content h3[data-level="3"] {
+.codex-editor .ce-block .ce-block__content h3.ce-header {
   font-size: 1.25em !important; /* 20px */
   font-weight: 600 !important;
   line-height: 1.4 !important;
 }
 
-.codex-editor .ce-block .ce-block__content .ce-header[data-level="4"],
-.codex-editor .ce-block .ce-block__content h4.ce-header[data-level="4"],
-.codex-editor .ce-block .ce-block__content h4[data-level="4"] {
+.codex-editor .ce-block .ce-block__content h4.ce-header {
   font-size: 1.125em !important; /* 18px */
   font-weight: 600 !important;
   line-height: 1.4 !important;
 }
 
-.codex-editor .ce-block .ce-block__content .ce-header[data-level="5"],
-.codex-editor .ce-block .ce-block__content h5.ce-header[data-level="5"],
-.codex-editor .ce-block .ce-block__content h5[data-level="5"] {
+.codex-editor .ce-block .ce-block__content h5.ce-header {
   font-size: 1em !important; /* 16px */
   font-weight: 600 !important;
   line-height: 1.4 !important;
 }
 
-.codex-editor .ce-block .ce-block__content .ce-header[data-level="6"],
-.codex-editor .ce-block .ce-block__content h6.ce-header[data-level="6"],
-.codex-editor .ce-block .ce-block__content h6[data-level="6"] {
+.codex-editor .ce-block .ce-block__content h6.ce-header {
   font-size: 0.875em !important; /* 14px */
   font-weight: 600 !important;
   line-height: 1.4 !important;

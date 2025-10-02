@@ -102,30 +102,48 @@ const FormParent: React.FC<FormParentProps> = ({
 
   // Populate form fields when contract is selected for invoice generation
   useEffect(() => {
-    if (documentType === "invoice" && selectedContractId && contracts.length > 0) {
-      const selectedContract = contracts.find(c => c.id === selectedContractId);
+    if (
+      documentType === "invoice" &&
+      selectedContractId &&
+      contracts.length > 0
+    ) {
+      const selectedContract = contracts.find(
+        (c) => c.id === selectedContractId
+      );
       if (selectedContract) {
-        console.log("🔄 Populating form fields from selected contract:", selectedContract);
-        
+        console.log(
+          "🔄 Populating form fields from selected contract:",
+          selectedContract
+        );
+
         // Extract dates from contract if available
-        const startDate = selectedContract.startDate || selectedContract.createdAt?.toDate?.()?.toISOString().split('T')[0] || "";
+        const startDate =
+          selectedContract.startDate ||
+          selectedContract.createdAt?.toDate?.()?.toISOString().split("T")[0] ||
+          "";
         const endDate = selectedContract.endDate || "";
-        const budget = selectedContract.budget || selectedContract.totalAmount || "";
-        
+        const budget =
+          selectedContract.budget || selectedContract.totalAmount || "";
+
         // Update form data with contract information
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           startDate,
           endDate,
           budget: budget.toString(),
-          projectBrief: selectedContract.content?.blocks?.[0]?.data?.text || selectedContract.title || prev.projectBrief
+          projectBrief:
+            selectedContract.content?.blocks?.[0]?.data?.text ||
+            selectedContract.title ||
+            prev.projectBrief,
         }));
-        
+
         console.log("✅ Form fields populated:", {
           startDate,
           endDate,
           budget,
-          projectBrief: selectedContract.content?.blocks?.[0]?.data?.text || selectedContract.title
+          projectBrief:
+            selectedContract.content?.blocks?.[0]?.data?.text ||
+            selectedContract.title,
         });
       }
     }

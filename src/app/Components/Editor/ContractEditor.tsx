@@ -585,7 +585,7 @@ export function ContractEditor({
 
           // Check if our CSS is being applied
           const testElement = document.querySelector(
-            '.codex-editor .ce-block .ce-block__content .ce-header[data-level="1"]'
+            ".codex-editor .ce-block .ce-block__content h1.ce-header"
           );
           if (testElement) {
             const testStyle = window.getComputedStyle(testElement);
@@ -598,6 +598,23 @@ export function ContractEditor({
           } else {
             console.log("❌ No H1 elements found with our selector");
           }
+
+          // Test all heading selectors
+          ["h1", "h2", "h3", "h4", "h5", "h6"].forEach((tag) => {
+            const element = document.querySelector(
+              `.codex-editor .ce-block .ce-block__content ${tag}.ce-header`
+            );
+            if (element) {
+              const style = window.getComputedStyle(element);
+              console.log(`✅ ${tag.toUpperCase()} found:`, {
+                fontSize: style.fontSize,
+                fontWeight: style.fontWeight,
+                lineHeight: style.lineHeight,
+              });
+            } else {
+              console.log(`❌ No ${tag.toUpperCase()} elements found`);
+            }
+          });
         }, 2000);
 
         // Process content to replace placeholders with actual values
