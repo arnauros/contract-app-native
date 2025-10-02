@@ -661,7 +661,7 @@ export default function PublicContractViewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50">
       {/* Profile Banner */}
       <div
         className="w-full h-40 bg-gradient-to-r from-blue-100 to-indigo-100"
@@ -690,7 +690,7 @@ export default function PublicContractViewPage() {
             </div>
 
             <h1 className="text-xl font-bold text-gray-900 truncate">
-              {contract.title || "Contract"}
+              {contract.title}
             </h1>
           </div>
         </div>
