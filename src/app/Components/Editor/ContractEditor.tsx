@@ -53,6 +53,11 @@ export function ContractEditor({
     if (initialContent?.logoUrl) {
       return initialContent.logoUrl;
     }
+    // Check if logo was explicitly removed for this contract
+    const removedLogo = localStorage.getItem(`contract-logo-removed-${contractId}`);
+    if (removedLogo === "true") {
+      return "/placeholder-logo.png";
+    }
     // Otherwise try localStorage for this specific contract
     const savedLogo = localStorage.getItem(`contract-logo-${contractId}`);
     if (savedLogo) {
@@ -80,6 +85,11 @@ export function ContractEditor({
     // First check if it was provided in initialContent
     if (initialContent?.bannerUrl) {
       return initialContent.bannerUrl;
+    }
+    // Check if banner was explicitly removed for this contract
+    const removedBanner = localStorage.getItem(`contract-banner-removed-${contractId}`);
+    if (removedBanner === "true") {
+      return "/placeholder-banner.png";
     }
     // Otherwise try localStorage for this specific contract
     const savedBanner = localStorage.getItem(`contract-banner-${contractId}`);
@@ -294,6 +304,22 @@ export function ContractEditor({
           createdAt: new Date(),
           version: 1,
         } as any);
+
+        // Save removal state to localStorage for persistence
+        const removedLogo = localStorage.getItem(`contract-logo-removed-${contractId}`);
+        const removedBanner = localStorage.getItem(`contract-banner-removed-${contractId}`);
+        
+        if (logoUrl === "/placeholder-logo.png" && removedLogo !== "true") {
+          localStorage.setItem(`contract-logo-removed-${contractId}`, "true");
+        } else if (logoUrl !== "/placeholder-logo.png" && removedLogo === "true") {
+          localStorage.removeItem(`contract-logo-removed-${contractId}`);
+        }
+        
+        if (bannerUrl === "/placeholder-banner.png" && removedBanner !== "true") {
+          localStorage.setItem(`contract-banner-removed-${contractId}`, "true");
+        } else if (bannerUrl !== "/placeholder-banner.png" && removedBanner === "true") {
+          localStorage.removeItem(`contract-banner-removed-${contractId}`);
+        }
 
         // Update status using the centralized manager
         if (statusManager) {
@@ -1715,94 +1741,94 @@ export function ContractEditor({
     <div className="content-wrapper relative min-h-screen">
       <div className="px-6 pt-6">
         <div className="max-w-4xl mx-auto">
-          {/* Banner with overlapping profile image (matches Settings layout) */}
-          <div className="mb-12 relative group">
-            {bannerUrl !== "/placeholder-banner.png" ? (
-              <>
+          {/* Banner with overlapping profile image (matches Settings layout) - only show if not removed */}
+          {bannerUrl !== "/placeholder-banner.png" && (
+            <div className="mb-12 relative group">
+              <img
+                src={
+                  bannerUrl +
+                  (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
+                }
+                alt="Contract banner"
+                className="w-full h-40 object-cover rounded-lg"
+                title="Edit Profile Picture In Settings"
+              />
+              <div className="absolute inset-0 rounded-lg" />
+              {/* Remove banner button - only in draft mode */}
+              {stage === "edit" && (
+                <button
+                  onClick={() => {
+                    const contractId = window.location.pathname.split("/").pop();
+                    setBannerUrl("/placeholder-banner.png");
+                    if (contractId) {
+                      localStorage.setItem(`contract-banner-removed-${contractId}`, "true");
+                    }
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Remove banner image"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Overlapping circular avatar - only show if not removed */}
+          {logoUrl !== "/placeholder-logo.png" && (
+            <div className="absolute -bottom-16 left-6 h-32 w-32 group">
+              <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100">
                 <img
                   src={
-                    bannerUrl +
-                    (bannerUrl.includes("?") ? "" : `?t=${Date.now()}`)
+                    logoUrl +
+                    ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
                   }
-                  alt="Contract banner"
-                  className="w-full h-40 object-cover rounded-lg"
+                  alt="Profile image"
+                  className="w-full h-full object-cover"
                   title="Edit Profile Picture In Settings"
                 />
-                <div className="absolute inset-0 rounded-lg" />
-                {/* Remove banner button - only in draft mode */}
-                {stage === "edit" && (
-                  <button
-                    onClick={() => setBannerUrl("/placeholder-banner.png")}
-                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                    title="Remove banner image"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </>
-            ) : (
-              <div
-                className="w-full h-40 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center"
-                title="Edit Profile Picture In Settings"
-              >
-                <div className="text-gray-500 text-center">
-                  <div className="text-sm font-medium">No banner image</div>
-                  <div className="text-xs mt-1">Add one in Settings</div>
-                </div>
               </div>
-            )}
-
-            {/* Overlapping circular avatar - only show if not removed */}
-            {logoUrl !== "/placeholder-logo.png" && (
-              <div className="absolute -bottom-16 left-6 h-32 w-32 group">
-                <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100">
-                  <img
-                    src={
-                      logoUrl +
-                      ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
+              {/* Remove profile image button - only in draft mode */}
+              {stage === "edit" && (
+                <button
+                  onClick={() => {
+                    const contractId = window.location.pathname.split("/").pop();
+                    setLogoUrl("/placeholder-logo.png");
+                    if (contractId) {
+                      localStorage.setItem(`contract-logo-removed-${contractId}`, "true");
                     }
-                    alt="Profile image"
-                    className="w-full h-full object-cover"
-                    title="Edit Profile Picture In Settings"
-                  />
-                </div>
-                {/* Remove profile image button - only in draft mode */}
-                {stage === "edit" && (
-                  <button
-                    onClick={() => setLogoUrl("/placeholder-logo.png")}
-                    className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                    title="Remove profile image"
+                  }}
+                  className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Remove profile image"
+                >
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
           {/* Spacer to account for the overlapping avatar */}
           <div className="h-8" />
 
