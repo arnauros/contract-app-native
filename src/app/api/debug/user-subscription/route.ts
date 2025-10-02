@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     const stripeCustomerId = userData?.stripeCustomerId;
 
     // Check Stripe directly if we have a customer ID
-    let stripeSubscriptions = [];
+    let stripeSubscriptions: any[] = [];
     if (stripeCustomerId) {
       try {
         const subscriptions = await stripe.subscriptions.list({
