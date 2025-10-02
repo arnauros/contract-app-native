@@ -57,8 +57,12 @@ const FormParent: React.FC<FormParentProps> = ({
   // Load contracts for invoice generation
   useEffect(() => {
     const loadContracts = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log("🔍 Contract loading: No user, skipping");
+        return;
+      }
 
+      console.log("🔍 Contract loading: Starting for user", user.uid);
       try {
         const db = getFirestore();
         const contractsRef = collection(db, "contracts");
@@ -71,9 +75,15 @@ const FormParent: React.FC<FormParentProps> = ({
           id: doc.id,
           ...doc.data(),
         }));
+        
+        console.log("📄 Contract loading: Found contracts", {
+          count: contractsData.length,
+          contracts: contractsData.map(c => ({ id: c.id, title: c.title }))
+        });
+        
         setContracts(contractsData);
       } catch (error) {
-        console.error("Error loading contracts:", error);
+        console.error("❌ Contract loading error:", error);
       }
     };
 
@@ -448,9 +458,11 @@ const FormParent: React.FC<FormParentProps> = ({
           toast.error(result.error, { id: loadingToast });
         } else {
           console.log("Contract saved successfully:", result);
-          
+
           // Refresh account limits after contract creation
-          console.log("🔄 Refreshing account limits after contract creation...");
+          console.log(
+            "🔄 Refreshing account limits after contract creation..."
+          );
           refreshLimits();
 
           // Track tutorial action
