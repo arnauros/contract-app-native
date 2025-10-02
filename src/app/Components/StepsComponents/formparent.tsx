@@ -25,6 +25,7 @@ export interface FormData {
   startDate: string;
   endDate: string;
   budget?: string;
+  currency?: string;
   attachments: File[];
   pdf?: string;
   fileSummaries: { [key: string]: string };
@@ -1033,24 +1034,41 @@ const FormParent: React.FC<FormParentProps> = ({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Budget (USD)
+                      Budget
                     </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 5,000"
-                      value={
-                        formData.budget
-                          ? Number(formData.budget).toLocaleString()
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const numericValue = e.target.value.replace(/,/g, "");
-                        if (numericValue === "" || /^\d+$/.test(numericValue)) {
-                          setFormData({ ...formData, budget: numericValue });
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 focus:outline-none focus:z-10 flex items-center gap-1"
+                          >
+                            {formData.currency || "$"}
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {/* Currency dropdown - hidden for now, can be implemented later */}
+                        </div>
+                        <div className="w-px h-6 bg-gray-200"></div>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="5,000"
+                        value={
+                          formData.budget
+                            ? Number(formData.budget).toLocaleString()
+                            : ""
                         }
-                      }}
-                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
-                    />
+                        onChange={(e) => {
+                          const numericValue = e.target.value.replace(/,/g, "");
+                          if (numericValue === "" || /^\d+$/.test(numericValue)) {
+                            setFormData({ ...formData, budget: numericValue });
+                          }
+                        }}
+                        className="w-full rounded-md border border-gray-200 pl-16 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

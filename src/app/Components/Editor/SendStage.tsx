@@ -244,11 +244,11 @@ export function SendStage({ onSend, title }: SendStageProps) {
 
       const data = await response.json();
       console.log("🔍 SendStage - Full API response:", data);
-      
+
       if (data && data.title) {
         // Generate a unique ID for the invoice
         const generatedId = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-        
+
         const invoiceData = {
           id: generatedId,
           userId: auth.currentUser.uid,
@@ -272,9 +272,9 @@ export function SendStage({ onSend, title }: SendStageProps) {
         // Save the invoice to Firestore
         console.log("💾 SendStage - Saving invoice to Firestore:", invoiceData);
         await saveInvoice(invoiceData);
-        
+
         toast.success("Invoice generated successfully!");
-        
+
         // Navigate to the invoice edit page
         router.push(`/Invoices/${generatedId}/edit`);
       } else {
