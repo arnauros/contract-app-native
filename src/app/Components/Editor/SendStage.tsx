@@ -243,36 +243,38 @@ export function SendStage({ onSend, title }: SendStageProps) {
       }
 
       const data = await response.json();
-
-      if (data.success && data.invoiceData) {
+      console.log("🔍 SendStage - Full API response:", data);
+      
+      if (data && data.title) {
         // Generate a unique ID for the invoice
         const generatedId = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-
+        
         const invoiceData = {
           id: generatedId,
           userId: auth.currentUser.uid,
-          title: data.invoiceData.title || "Untitled Invoice",
+          title: data.title || "Untitled Invoice",
           status: "draft" as const,
-          issueDate: data.invoiceData.issueDate || undefined,
-          dueDate: data.invoiceData.dueDate || undefined,
-          currency: data.invoiceData.currency || "USD",
-          client: data.invoiceData.client || {},
-          from: data.invoiceData.from || {},
-          items: data.invoiceData.items || [],
-          subtotal: data.invoiceData.subtotal || 0,
-          tax: data.invoiceData.tax || 0,
-          total: data.invoiceData.total || 0,
-          notes: data.invoiceData.notes || "",
+          issueDate: data.issueDate || undefined,
+          dueDate: data.dueDate || undefined,
+          currency: data.currency || "USD",
+          client: data.client || {},
+          from: data.from || {},
+          items: data.items || [],
+          subtotal: data.subtotal || 0,
+          tax: data.tax || 0,
+          total: data.total || 0,
+          notes: data.notes || "",
           contractId: contractId, // Link invoice to the contract
           createdAt: new Date(),
           updatedAt: new Date(),
         };
 
         // Save the invoice to Firestore
+        console.log("💾 SendStage - Saving invoice to Firestore:", invoiceData);
         await saveInvoice(invoiceData);
-
+        
         toast.success("Invoice generated successfully!");
-
+        
         // Navigate to the invoice edit page
         router.push(`/Invoices/${generatedId}/edit`);
       } else {
@@ -688,16 +690,42 @@ export function SendStage({ onSend, title }: SendStageProps) {
       >
         {isGeneratingInvoice ? (
           <>
-            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg
+              className="animate-spin h-4 w-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
             Generating...
           </>
         ) : (
           <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             Generate Invoice
           </>
@@ -708,9 +736,24 @@ export function SendStage({ onSend, title }: SendStageProps) {
         onClick={handlePreview}
         className="mb-3 w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+          />
         </svg>
         Preview
       </button>
