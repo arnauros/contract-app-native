@@ -1714,7 +1714,7 @@ export function ContractEditor({
   return (
     <div className="content-wrapper relative min-h-screen">
       <div className="px-6 pt-6">
-        <div className="max-w-full mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Banner with overlapping profile image (matches Settings layout) */}
           <div className="mb-12 relative group">
             {bannerUrl !== "/placeholder-banner.png" ? (
