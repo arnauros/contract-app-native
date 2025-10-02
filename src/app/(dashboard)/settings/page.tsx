@@ -264,6 +264,10 @@ export default function SettingsPage() {
   });
 
   const [invoiceSettings, setInvoiceSettings] = useState({
+    name: "",
+    email: "",
+    company: "",
+    address: "",
     iban: "",
     bankName: "",
     bicSwift: "",
@@ -339,7 +343,25 @@ export default function SettingsPage() {
               setContractSettings(userData.contractSettings);
             }
             if (userData.invoiceSettings) {
-              setInvoiceSettings(userData.invoiceSettings);
+              setInvoiceSettings({
+                name: userData.invoiceSettings.name || user.displayName || "",
+                email: userData.invoiceSettings.email || user.email || "",
+                company: userData.invoiceSettings.company || "",
+                address: userData.invoiceSettings.address || "",
+                iban: userData.invoiceSettings.iban || "",
+                bankName: userData.invoiceSettings.bankName || "",
+                bicSwift: userData.invoiceSettings.bicSwift || "",
+                taxId: userData.invoiceSettings.taxId || "",
+                paymentTerms: userData.invoiceSettings.paymentTerms || "net30",
+                currency: userData.invoiceSettings.currency || "USD",
+              });
+            } else {
+              // Initialize with user data if no settings exist
+              setInvoiceSettings(prev => ({
+                ...prev,
+                name: user.displayName || "",
+                email: user.email || "",
+              }));
             }
           }
         } catch (error) {
@@ -1271,6 +1293,82 @@ export default function SettingsPage() {
                   </h2>
 
                   <div className="space-y-6">
+                    {/* Your Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Name
+                      </label>
+                      <input
+                        type="text"
+                        value={invoiceSettings.name}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            name: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Your Name"
+                      />
+                    </div>
+
+                    {/* Your Email */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Email
+                      </label>
+                      <input
+                        type="email"
+                        value={invoiceSettings.email}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            email: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="your.email@example.com"
+                      />
+                    </div>
+
+                    {/* Your Company */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Company
+                      </label>
+                      <input
+                        type="text"
+                        value={invoiceSettings.company}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            company: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Your Company"
+                      />
+                    </div>
+
+                    {/* Your Address */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Address
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={invoiceSettings.address}
+                        onChange={(e) =>
+                          setInvoiceSettings({
+                            ...invoiceSettings,
+                            address: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="123 Main St, City, State 12345"
+                      />
+                    </div>
+
                     {/* Default IBAN */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">

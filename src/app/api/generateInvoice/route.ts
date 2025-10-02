@@ -90,12 +90,13 @@ export async function POST(request: Request) {
 - Email: ${userSettings.invoice.email || "your.email@example.com"}
 - Address: ${userSettings.invoice.address || "Your Address"}
 - Currency: ${userSettings.invoice.currency || "USD"}
-- Payment Terms: ${userSettings.invoice.paymentTerms || ""}
-- IBAN: ${userSettings.invoice.iban || ""}
-- Bank Name: ${userSettings.invoice.bankName || ""}
-- Tax ID: ${userSettings.invoice.taxId || ""}
+- Payment Terms: ${userSettings.invoice.paymentTerms || "Net 30 days"}
+- IBAN: ${userSettings.invoice.iban || "ibaniban"}
+- Bank Name: ${userSettings.invoice.bankName || "banknakmee"}
+- BIC/SWIFT: ${userSettings.invoice.bicSwift || "siwiwiwi"}
+- Tax ID: ${userSettings.invoice.taxId || "taxatxtaxtaxt"}
 
-IMPORTANT: If any of the above fields are empty, use the fallback values provided in parentheses.`;
+IMPORTANT: Use the exact values provided above. If any fields are empty, use the fallback values in parentheses.`;
     }
 
     if (userSettings?.contract) {
@@ -116,7 +117,8 @@ IMPORTANT: If any of the above fields are empty, use the fallback values provide
 - Payment Terms: ${contractData.paymentTerms || ""}
 - Total Amount: ${contractData.totalAmount || ""}
 - Currency: ${contractData.currency || "USD"}
-`;
+
+CRITICAL: Use the client information above to populate the "Bill To" section of the invoice.`;
     }
 
     const controller = new AbortController();

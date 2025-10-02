@@ -298,9 +298,16 @@ const FormParent: React.FC<FormParentProps> = ({
               doc(db, "contracts", selectedContractId)
             );
             if (contractDoc.exists()) {
+              const contractDocData = contractDoc.data();
               contractData = {
                 id: contractDoc.id,
-                ...contractDoc.data(),
+                title: contractDocData.title || contractDocData.content?.blocks?.[0]?.data?.text || "Contract",
+                clientName: contractDocData.clientName || "",
+                clientEmail: contractDocData.clientEmail || "",
+                clientCompany: contractDocData.clientCompany || "",
+                paymentTerms: contractDocData.paymentTerms || "Net 30 days",
+                totalAmount: contractDocData.budget || contractDocData.totalAmount || "",
+                currency: contractDocData.currency || "USD",
               };
             }
           }
@@ -624,6 +631,13 @@ const FormParent: React.FC<FormParentProps> = ({
                             );
                           })}
                         </select>
+                        {selectedContractId && (
+                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                            <p className="text-xs text-green-700">
+                              ✓ Contract selected - client details will be populated automatically
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   }

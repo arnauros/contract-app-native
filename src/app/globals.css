@@ -290,7 +290,7 @@ body {
 
 /* Header block styling */
 .ce-header[data-level="1"] {
-  font-size: 2em !important;
+  font-size: 2.5em !important;
   font-weight: bold !important;
 }
 
@@ -394,7 +394,9 @@ body {
 
 .pulse-animation {
   animation: pulse 1s infinite;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 /* Add these color variables for different types */

@@ -19,7 +19,9 @@ export interface AccountLimits {
   loading: boolean;
 }
 
-export function useAccountLimits(): AccountLimits & { refreshLimits: () => void } {
+export function useAccountLimits(): AccountLimits & {
+  refreshLimits: () => void;
+} {
   const { user } = useAuth();
   const subscriptionStatus = useSubscription();
   const [limits, setLimits] = useState<AccountLimits>({
@@ -55,10 +57,7 @@ export function useAccountLimits(): AccountLimits & { refreshLimits: () => void 
 
       // Check invoices count
       const invoicesRef = collection(db, "invoices");
-      const invoicesQuery = query(
-        invoicesRef,
-        where("userId", "==", user.uid)
-      );
+      const invoicesQuery = query(invoicesRef, where("userId", "==", user.uid));
       const invoicesSnapshot = await getDocs(invoicesQuery);
       const invoicesCount = invoicesSnapshot.size;
 
