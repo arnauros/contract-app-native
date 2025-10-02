@@ -532,56 +532,49 @@ export function ContractEditor({
 
             // Apply standard typography scale to all headings
             const applyTypographyScale = () => {
-              // H1 - 32px (2em) - Target all possible H1 selectors
-              const h1Selectors = [
-                'h1.ce-header[data-level="1"]',
-                'h1[data-level="1"]',
-                '.ce-header[data-level="1"]',
-                ".ce-block h1",
-                ".ce-block__content h1",
-                ".codex-editor h1",
-                '.ce-block .ce-header[data-level="1"]',
-                '.ce-block__content .ce-header[data-level="1"]',
-                '.codex-editor .ce-header[data-level="1"]',
-              ];
-
-              h1Selectors.forEach((selector) => {
-                const h1Elements = document.querySelectorAll(selector);
-                h1Elements.forEach((h1) => {
-                  (h1 as HTMLElement).style.fontSize = "2em";
-                  (h1 as HTMLElement).style.fontWeight = "bold";
-                  (h1 as HTMLElement).style.lineHeight = "1.2";
-                });
-              });
-
-              // H2 - 24px (1.5em)
-              const h2Elements = document.querySelectorAll(
-                'h2.ce-header[data-level="2"], h2[data-level="2"]'
-              );
-              h2Elements.forEach((h2) => {
-                (h2 as HTMLElement).style.fontSize = "1.5em";
-                (h2 as HTMLElement).style.fontWeight = "600";
-                (h2 as HTMLElement).style.lineHeight = "1.3";
-              });
-
-              // H3 - 20px (1.25em)
-              const h3Elements = document.querySelectorAll(
-                'h3.ce-header[data-level="3"], h3[data-level="3"]'
-              );
-              h3Elements.forEach((h3) => {
-                (h3 as HTMLElement).style.fontSize = "1.25em";
-                (h3 as HTMLElement).style.fontWeight = "600";
-                (h3 as HTMLElement).style.lineHeight = "1.4";
-              });
-
-              // H4 - 18px (1.125em)
-              const h4Elements = document.querySelectorAll(
-                'h4.ce-header[data-level="4"], h4[data-level="4"]'
-              );
-              h4Elements.forEach((h4) => {
-                (h4 as HTMLElement).style.fontSize = "1.125em";
-                (h4 as HTMLElement).style.fontWeight = "600";
-                (h4 as HTMLElement).style.lineHeight = "1.4";
+              // Target all header elements regardless of their current level
+              const allHeaders = document.querySelectorAll('.ce-header[data-level], h1.ce-header, h2.ce-header, h3.ce-header, h4.ce-header, h5.ce-header, h6.ce-header');
+              
+              allHeaders.forEach((header) => {
+                const level = header.getAttribute('data-level') || '1';
+                const levelNum = parseInt(level);
+                
+                switch (levelNum) {
+                  case 1:
+                    (header as HTMLElement).style.fontSize = "2em";
+                    (header as HTMLElement).style.fontWeight = "bold";
+                    (header as HTMLElement).style.lineHeight = "1.2";
+                    break;
+                  case 2:
+                    (header as HTMLElement).style.fontSize = "1.5em";
+                    (header as HTMLElement).style.fontWeight = "600";
+                    (header as HTMLElement).style.lineHeight = "1.3";
+                    break;
+                  case 3:
+                    (header as HTMLElement).style.fontSize = "1.25em";
+                    (header as HTMLElement).style.fontWeight = "600";
+                    (header as HTMLElement).style.lineHeight = "1.4";
+                    break;
+                  case 4:
+                    (header as HTMLElement).style.fontSize = "1.125em";
+                    (header as HTMLElement).style.fontWeight = "600";
+                    (header as HTMLElement).style.lineHeight = "1.4";
+                    break;
+                  case 5:
+                    (header as HTMLElement).style.fontSize = "1em";
+                    (header as HTMLElement).style.fontWeight = "600";
+                    (header as HTMLElement).style.lineHeight = "1.4";
+                    break;
+                  case 6:
+                    (header as HTMLElement).style.fontSize = "0.875em";
+                    (header as HTMLElement).style.fontWeight = "600";
+                    (header as HTMLElement).style.lineHeight = "1.4";
+                    break;
+                  default:
+                    (header as HTMLElement).style.fontSize = "2em";
+                    (header as HTMLElement).style.fontWeight = "bold";
+                    (header as HTMLElement).style.lineHeight = "1.2";
+                }
               });
 
               // Body text - 16px
@@ -618,73 +611,49 @@ export function ContractEditor({
         // Apply standard typography scale immediately after editor is ready
         setTimeout(() => {
           const applyTypographyScale = () => {
-            // H1 - 32px (2em) - Target all possible H1 selectors including prose
-            const h1Selectors = [
-              '.prose h1.ce-header[data-level="1"]',
-              '.prose h1[data-level="1"]',
-              '.prose .ce-header[data-level="1"]',
-              'h1.ce-header[data-level="1"]',
-              'h1[data-level="1"]',
-              '.ce-header[data-level="1"]',
-              ".ce-block h1",
-              ".ce-block__content h1",
-              ".codex-editor h1",
-              '.ce-block .ce-header[data-level="1"]',
-              '.ce-block__content .ce-header[data-level="1"]',
-              '.codex-editor .ce-header[data-level="1"]',
-            ];
-
-            h1Selectors.forEach((selector) => {
-              const h1Elements = document.querySelectorAll(selector);
-              h1Elements.forEach((h1) => {
-                (h1 as HTMLElement).style.setProperty(
-                  "font-size",
-                  "2em",
-                  "important"
-                );
-                (h1 as HTMLElement).style.setProperty(
-                  "font-weight",
-                  "bold",
-                  "important"
-                );
-                (h1 as HTMLElement).style.setProperty(
-                  "line-height",
-                  "1.2",
-                  "important"
-                );
-              });
-            });
-
-            // H2 - 24px (1.5em) - Target prose styles too
-            const h2Selectors = [
-              '.prose h2.ce-header[data-level="2"]',
-              '.prose h2[data-level="2"]',
-              '.prose .ce-header[data-level="2"]',
-              ".prose h2",
-              'h2.ce-header[data-level="2"]',
-              'h2[data-level="2"]',
-              '.ce-header[data-level="2"]',
-            ];
-
-            h2Selectors.forEach((selector) => {
-              const h2Elements = document.querySelectorAll(selector);
-              h2Elements.forEach((h2) => {
-                (h2 as HTMLElement).style.setProperty(
-                  "font-size",
-                  "1.5em",
-                  "important"
-                );
-                (h2 as HTMLElement).style.setProperty(
-                  "font-weight",
-                  "600",
-                  "important"
-                );
-                (h2 as HTMLElement).style.setProperty(
-                  "line-height",
-                  "1.3",
-                  "important"
-                );
-              });
+            // Target all header elements regardless of their current level
+            const allHeaders = document.querySelectorAll('.ce-header[data-level], h1.ce-header, h2.ce-header, h3.ce-header, h4.ce-header, h5.ce-header, h6.ce-header');
+            
+            allHeaders.forEach((header) => {
+              const level = header.getAttribute('data-level') || '1';
+              const levelNum = parseInt(level);
+              
+              switch (levelNum) {
+                case 1:
+                  (header as HTMLElement).style.setProperty("font-size", "2em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "bold", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.2", "important");
+                  break;
+                case 2:
+                  (header as HTMLElement).style.setProperty("font-size", "1.5em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.3", "important");
+                  break;
+                case 3:
+                  (header as HTMLElement).style.setProperty("font-size", "1.25em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                  break;
+                case 4:
+                  (header as HTMLElement).style.setProperty("font-size", "1.125em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                  break;
+                case 5:
+                  (header as HTMLElement).style.setProperty("font-size", "1em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                  break;
+                case 6:
+                  (header as HTMLElement).style.setProperty("font-size", "0.875em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "600", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.4", "important");
+                  break;
+                default:
+                  (header as HTMLElement).style.setProperty("font-size", "2em", "important");
+                  (header as HTMLElement).style.setProperty("font-weight", "bold", "important");
+                  (header as HTMLElement).style.setProperty("line-height", "1.2", "important");
+              }
             });
 
             // H3 - 20px (1.25em)

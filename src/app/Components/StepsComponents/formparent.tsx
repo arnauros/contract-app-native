@@ -672,96 +672,6 @@ const FormParent: React.FC<FormParentProps> = ({
                                 populated automatically
                               </p>
                             </div>
-                            <button
-                              onClick={async () => {
-                                if (!selectedContractId || !user) return;
-                                
-                                try {
-                                  const loadingToast = toast.loading("Generating invoice from contract...");
-                                  
-                                  // Get contract data
-                                  const db = getFirestore();
-                                  const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
-                                  
-                                  if (!contractDoc.exists()) {
-                                    toast.error("Contract not found");
-                                    return;
-                                  }
-                                  
-                                  const contractData = contractDoc.data();
-                                  
-                                  // Get user settings
-                                  const userDoc = await getDoc(doc(db, "users", user.uid));
-                                  const userData = userDoc.exists() ? userDoc.data() : {};
-                                  
-                                  const userSettings = {
-                                    contract: userData.contractSettings || {},
-                                    invoice: userData.invoiceSettings || {},
-                                  };
-                                  
-                                  // Generate invoice directly from contract
-                                  const response = await fetch("/api/generateInvoice", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                      projectBrief: `Generate invoice for: ${contractData.title || "Contract"}`,
-                                      userSettings,
-                                      contractData: {
-                                        id: contractDoc.id,
-                                        title: contractData.title || contractData.content?.blocks?.[0]?.data?.text || "Contract",
-                                        clientName: contractData.clientName || "",
-                                        clientEmail: contractData.clientEmail || "",
-                                        clientCompany: contractData.clientCompany || "",
-                                        paymentTerms: contractData.paymentTerms || "Net 30 days",
-                                        totalAmount: contractData.budget || contractData.totalAmount || "",
-                                        currency: contractData.currency || "USD",
-                                      },
-                                    }),
-                                  });
-                                  
-                                  const data = await response.json();
-                                  
-                                  if (!response.ok) {
-                                    throw new Error(data.error || "Failed to generate invoice");
-                                  }
-                                  
-                                  // Save invoice
-                                  const invoiceId = `invoice_${Date.now()}`;
-                                  await saveInvoice({
-                                    id: invoiceId,
-                                    userId: user.uid,
-                                    title: data.title || "Invoice",
-                                    issueDate: data.issueDate,
-                                    dueDate: data.dueDate,
-                                    currency: data.currency,
-                                    client: data.client,
-                                    from: data.from,
-                                    items: data.items,
-                                    subtotal: data.subtotal,
-                                    tax: data.tax,
-                                    total: data.total,
-                                    notes: data.notes,
-                                    status: "draft",
-                                    contractId: selectedContractId,
-                                    createdAt: new Date(),
-                                    updatedAt: new Date(),
-                                  });
-                                  
-                                  toast.dismiss(loadingToast);
-                                  toast.success("Invoice generated successfully!");
-                                  
-                                  // Redirect to invoice
-                                  router.push(`/Invoices/${invoiceId}`);
-                                  
-                                } catch (error) {
-                                  console.error("Error generating invoice from contract:", error);
-                                  toast.error("Failed to generate invoice from contract");
-                                }
-                              }}
-                              className="w-full px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
-                            >
-                              🧾 Generate Invoice from Contract
-                            </button>
                           </div>
                         )}
                       </div>
@@ -817,6 +727,94 @@ const FormParent: React.FC<FormParentProps> = ({
               </div>
             }
             onSubmit={async (message: string, files: File[]) => {
+              // If contract is selected and we're generating an invoice, generate directly from contract
+              if (documentType === "invoice" && selectedContractId && user) {
+                try {
+                  const loadingToast = toast.loading("Generating invoice from contract...");
+                  
+                  // Get contract data
+                  const db = getFirestore();
+                  const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
+                  
+                  if (!contractDoc.exists()) {
+                    toast.error("Contract not found");
+                    return;
+                  }
+                  
+                  const contractData = contractDoc.data();
+                  
+                  // Get user settings
+                  const userDoc = await getDoc(doc(db, "users", user.uid));
+                  const userData = userDoc.exists() ? userDoc.data() : {};
+                  
+                  const userSettings = {
+                    contract: userData.contractSettings || {},
+                    invoice: userData.invoiceSettings || {},
+                  };
+                  
+                  // Generate invoice directly from contract
+                  const response = await fetch("/api/generateInvoice", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      projectBrief: message || `Generate invoice for: ${contractData.title || "Contract"}`,
+                      userSettings,
+                      contractData: {
+                        id: contractDoc.id,
+                        title: contractData.title || contractData.content?.blocks?.[0]?.data?.text || "Contract",
+                        clientName: contractData.clientName || "",
+                        clientEmail: contractData.clientEmail || "",
+                        clientCompany: contractData.clientCompany || "",
+                        paymentTerms: contractData.paymentTerms || "Net 30 days",
+                        totalAmount: contractData.budget || contractData.totalAmount || "",
+                        currency: contractData.currency || "USD",
+                      },
+                    }),
+                  });
+                  
+                  const data = await response.json();
+                  
+                  if (!response.ok) {
+                    throw new Error(data.error || "Failed to generate invoice");
+                  }
+                  
+                  // Save invoice
+                  const invoiceId = `invoice_${Date.now()}`;
+                  await saveInvoice({
+                    id: invoiceId,
+                    userId: user.uid,
+                    title: data.title || "Invoice",
+                    issueDate: data.issueDate,
+                    dueDate: data.dueDate,
+                    currency: data.currency,
+                    client: data.client,
+                    from: data.from,
+                    items: data.items,
+                    subtotal: data.subtotal,
+                    tax: data.tax,
+                    total: data.total,
+                    notes: data.notes,
+                    status: "draft",
+                    contractId: selectedContractId,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  });
+                  
+                  toast.dismiss(loadingToast);
+                  toast.success("Invoice generated successfully!");
+                  
+                  // Redirect to invoice
+                  router.push(`/Invoices/${invoiceId}`);
+                  return;
+                  
+                } catch (error) {
+                  console.error("Error generating invoice from contract:", error);
+                  toast.error("Failed to generate invoice from contract");
+                  return;
+                }
+              }
+
+              // Normal form submission flow
               setFormData({ ...formData, projectBrief: message });
 
               let processedSummaries: Record<string, string> = {};
