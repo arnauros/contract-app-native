@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
     if (!isLocalDevelopment && !isDev) {
       return NextResponse.json(
         {
-          error: "This API is only available in development or on approved domains",
+          error:
+            "This API is only available in development or on approved domains",
           hostname,
         },
         { status: 403 }
@@ -122,8 +123,8 @@ export async function POST(req: NextRequest) {
           },
         ],
         mode: "subscription",
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?upgraded=true`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/?upgraded=true`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/`,
         metadata: {
           firebaseUID: userId,
           plan: "pro",
@@ -132,7 +133,10 @@ export async function POST(req: NextRequest) {
       });
       console.log("Upgrade API: Created checkout session:", session.id);
     } catch (sessionError) {
-      console.error("Upgrade API: Failed to create checkout session:", sessionError);
+      console.error(
+        "Upgrade API: Failed to create checkout session:",
+        sessionError
+      );
       return NextResponse.json(
         { error: "Failed to create checkout session" },
         { status: 500 }

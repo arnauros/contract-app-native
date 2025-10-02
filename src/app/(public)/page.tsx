@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Hero } from "@/components/solar/Hero";
 import ProblemSolution from "@/components/solar/ProblemSolution";
@@ -13,6 +14,7 @@ import VerticalLines from "@/components/solar/VerticalLines";
 import BentoFeatures from "@/components/solar/BentoFeatures";
 import PricingSection from "@/components/PricingSection";
 import AboutSection from "@/components/AboutSection";
+import toast from "react-hot-toast";
 
 export default function LandingPage() {
   const [debugInfo, setDebugInfo] = useState({
@@ -20,6 +22,7 @@ export default function LandingPage() {
     pathname: "",
     fullUrl: "",
   });
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     // Enhanced logging for debugging
@@ -34,7 +37,26 @@ export default function LandingPage() {
       pathname: window.location.pathname,
       fullUrl: window.location.href,
     });
-  }, []);
+
+    // Handle upgrade success
+    const upgraded = searchParams?.get("upgraded");
+    if (upgraded === "true") {
+      toast.success("🎉 Welcome to Pro! Your subscription is now active.", {
+        duration: 5000,
+        style: {
+          background: "#10B981",
+          color: "white",
+          fontSize: "16px",
+          padding: "16px",
+        },
+      });
+      
+      // Clean up the URL by removing the query parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete("upgraded");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
 
   return (
     <main className="relative mx-auto flex flex-col overflow-x-hidden">
