@@ -47,7 +47,9 @@ const FormParent: React.FC<FormParentProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [contracts, setContracts] = useState<any[]>([]);
   const [selectedContractId, setSelectedContractId] = useState<string>("");
-  const [documentType, setDocumentType] = useState<"contract" | "invoice">("contract");
+  const [documentType, setDocumentType] = useState<"contract" | "invoice">(
+    "contract"
+  );
   const { user } = useAuth();
   const { trackAction } = useTutorial();
   const accountLimits = useAccountLimits();
@@ -80,7 +82,9 @@ const FormParent: React.FC<FormParentProps> = ({
 
   // Sync document type with localStorage
   useEffect(() => {
-    const storedType = localStorage.getItem("hero-request-type") as "contract" | "invoice";
+    const storedType = localStorage.getItem("hero-request-type") as
+      | "contract"
+      | "invoice";
     if (storedType) {
       setDocumentType(storedType);
     }
@@ -178,8 +182,8 @@ const FormParent: React.FC<FormParentProps> = ({
       return;
     }
 
-          // Use the current document type
-          const requestType = documentType;
+    // Use the current document type
+    const requestType = documentType;
 
     // Check account limits based on request type
     if (!accountLimits.loading) {

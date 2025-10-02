@@ -124,10 +124,8 @@ service cloud.firestore {
                     (request.resource.data.diff(resource.data).affectedKeys()
                       .hasOnly(['lastViewedAt', 'metadata.viewCount', 'metadata.lastViewedFrom', 'metadata.lastActivity', 'metadata.userAgent']));
       
-      // Allow deleting own contracts if user has active subscription or is admin
-      allow delete: if request.auth != null && 
-                    isOwner(contractId) && 
-                    (hasActiveSubscription() || isAdmin());
+      // Allow deleting own contracts (basic user right)
+      allow delete: if request.auth != null && isOwner(contractId);
       
       // Allow access to subcollections
       match /{document=**} {
@@ -157,7 +155,8 @@ service cloud.firestore {
       // Still gated by authentication and ownership of the new document
       allow create: if request.auth != null && (request.resource.data.userId == request.auth.uid || hasActiveSubscription() || isAdmin() || hasDevBypass());
       allow update: if (request.auth != null && resource.data.userId == request.auth.uid) && (hasActiveSubscription() || isAdmin() || hasDevBypass());
-      allow delete: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin() || hasDevBypass();
+      // Allow owners to delete their own invoices (basic user right)
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
       // Subcollections (e.g., notes, history)
       match /{document=**} {
