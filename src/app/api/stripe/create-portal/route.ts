@@ -25,9 +25,10 @@ export async function POST(req: Request) {
     const isLocalDevelopment =
       hostname.includes("localhost") ||
       hostname.includes("127.0.0.1") ||
+      hostname.includes("vercel.app") ||
+      hostname.includes("arnau.design") ||
       (isDev && hostname.match(/localhost:\d+/));
 
-    // In development, allow all hostnames
     if (!isLocalDevelopment && !isDev) {
       return NextResponse.json(
         {
@@ -148,13 +149,19 @@ export async function POST(req: Request) {
             stripeError.message &&
             stripeError.message.includes("configuration")
           ) {
+            // Determine if we're in live or test mode
+            const isLiveMode =
+              process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_");
+            const portalUrl = isLiveMode
+              ? "https://dashboard.stripe.com/settings/billing/portal"
+              : "https://dashboard.stripe.com/test/settings/billing/portal";
+
             return NextResponse.json(
               {
                 error: stripeError.message,
-                details:
-                  "Your test mode customer portal configuration is missing. Please configure it in your Stripe dashboard.",
-                helpUrl:
-                  "https://dashboard.stripe.com/test/settings/billing/portal",
+                details: `Your ${isLiveMode ? "live" : "test"} mode customer portal configuration is missing. Please configure it in your Stripe dashboard.`,
+                helpUrl: portalUrl,
+                mode: isLiveMode ? "live" : "test",
               },
               { status: 400 }
             );

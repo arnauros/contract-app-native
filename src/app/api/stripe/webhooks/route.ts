@@ -4,6 +4,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { UserSubscription } from "@/lib/stripe/config";
 import { cookies } from "next/headers";
+import { initAdmin } from "@/lib/firebase/admin";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -86,6 +87,18 @@ export async function POST(req: Request) {
       eventId: event.id,
       created: new Date(event.created * 1000).toISOString(),
     });
+
+    // Initialize Firebase Admin
+    const firebaseInitialized = initAdmin();
+    if (!firebaseInitialized) {
+      console.error(
+        "Firebase Admin not initialized - webhook cannot process events"
+      );
+      return NextResponse.json(
+        { error: "Firebase Admin not configured" },
+        { status: 500 }
+      );
+    }
 
     const db = getFirestore();
     const auth = getAuth();
