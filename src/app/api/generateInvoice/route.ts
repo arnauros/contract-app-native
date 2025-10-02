@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const contractData = data.contractData;
     console.log("🔧 User settings received:", userSettings);
     console.log("📄 Contract data received:", contractData);
-    
+
     // Log specific contract fields
     if (contractData) {
       console.log("📋 Contract data breakdown:", {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         clientCompany: contractData.clientCompany,
         paymentTerms: contractData.paymentTerms,
         totalAmount: contractData.totalAmount,
-        currency: contractData.currency
+        currency: contractData.currency,
       });
     }
 
@@ -206,7 +206,7 @@ ${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
     try {
       parsed = JSON.parse(content);
       console.log("📄 Parsed invoice:", JSON.stringify(parsed, null, 2));
-      
+
       // Log specific invoice fields to see what was populated
       console.log("🧾 Invoice content breakdown:", {
         title: parsed.title,
@@ -214,7 +214,7 @@ ${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
         from: parsed.from,
         items: parsed.items,
         total: parsed.total,
-        notes: parsed.notes
+        notes: parsed.notes,
       });
     } catch (e) {
       console.error("Failed to parse JSON from OpenAI:", e);

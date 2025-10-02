@@ -520,6 +520,15 @@ const FormParent: React.FC<FormParentProps> = ({
               }))
             ),
           },
+          // Include extracted client data if available
+          ...(data.extractedData && {
+            clientName: data.extractedData.clientName,
+            clientEmail: data.extractedData.clientEmail,
+            clientCompany: data.extractedData.clientCompany,
+            paymentTerms: data.extractedData.paymentTerms,
+            totalAmount: data.extractedData.totalAmount,
+            currency: data.extractedData.currency,
+          }),
           status: "draft" as const,
           createdAt: new Date(),
           updatedAt: new Date(),

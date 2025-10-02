@@ -19,6 +19,56 @@ const openai = new OpenAI({
 // Simple in-memory cache for development (use Redis in production)
 const cache = new Map<string, any>();
 
+// Function to extract client details and payment terms from contract text
+function extractContractData(contractText: string) {
+  const extracted = {
+    clientName: "",
+    clientEmail: "",
+    clientCompany: "",
+    paymentTerms: "",
+    totalAmount: "",
+    currency: "USD"
+  };
+
+  // Extract client name (look for patterns like "Client:", "Company:", "Client Name:")
+  const clientNameMatch = contractText.match(/(?:Client|Company|Client Name)[:\s]+([^\n\r,]+)/i);
+  if (clientNameMatch) {
+    extracted.clientName = clientNameMatch[1].trim();
+  }
+
+  // Extract client email
+  const emailMatch = contractText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (emailMatch) {
+    extracted.clientEmail = emailMatch[1];
+  }
+
+  // Extract client company (look for patterns like "Company:", "Organization:")
+  const companyMatch = contractText.match(/(?:Company|Organization|Corporation)[:\s]+([^\n\r,]+)/i);
+  if (companyMatch) {
+    extracted.clientCompany = companyMatch[1].trim();
+  }
+
+  // Extract payment terms (look for patterns like "Payment Terms:", "Payment Schedule:")
+  const paymentMatch = contractText.match(/(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+(?:\n[^\n\r]+)*?)(?=\n\n|\n[A-Z]|$)/i);
+  if (paymentMatch) {
+    extracted.paymentTerms = paymentMatch[1].trim();
+  }
+
+  // Extract total amount (look for patterns like "$50,000", "Total: $5000", "Budget: $10000")
+  const amountMatch = contractText.match(/(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i);
+  if (amountMatch) {
+    extracted.totalAmount = amountMatch[1].replace(/,/g, "");
+  }
+
+  // Extract currency
+  const currencyMatch = contractText.match(/\$([0-9,]+)/);
+  if (currencyMatch) {
+    extracted.currency = "USD";
+  }
+
+  return extracted;
+}
+
 export async function POST(request: Request) {
   try {
     // Log environment variables (without exposing the full API key)
@@ -254,7 +304,14 @@ export async function POST(request: Request) {
 
       console.log("Generated blocks:", blocks);
 
-      const result = { blocks };
+      // Extract client details and payment terms from the generated contract
+      const extractedData = extractContractData(contractText);
+      console.log("📋 Extracted contract data:", extractedData);
+
+      const result = { 
+        blocks,
+        extractedData // Include extracted data in the response
+      };
 
       // Cache the result (skip when debug flag is set)
       if (!data?.debug) {
