@@ -673,48 +673,56 @@ export default function Topbar({ pathname }: TopbarProps) {
             </div>
           )}
 
-          {/* Pro Upgrade Button - Hidden on contract/invoice pages */}
+          {/* Pro Status - Hidden on contract/invoice pages */}
           {!isContractOrInvoicePage && (
-            <button
-              onClick={async () => {
-                if (!user?.uid || !user?.email) {
-                  toast.error("Please log in to upgrade");
-                  return;
-                }
+            <>
+              {accountLimits.isPro ? (
+                <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-md">
+                  PRO
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!user?.uid || !user?.email) {
+                      toast.error("Please log in to upgrade");
+                      return;
+                    }
 
-                try {
-                  const response = await fetch("/api/stripe/upgrade", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      userId: user.uid,
-                      email: user.email,
-                    }),
-                  });
+                    try {
+                      const response = await fetch("/api/stripe/upgrade", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          userId: user.uid,
+                          email: user.email,
+                        }),
+                      });
 
-                  if (!response.ok) {
-                    throw new Error("Failed to create checkout session");
-                  }
+                      if (!response.ok) {
+                        throw new Error("Failed to create checkout session");
+                      }
 
-                  const { url } = await response.json();
+                      const { url } = await response.json();
 
-                  // Redirect to Stripe Checkout
-                  if (url) {
-                    window.location.href = url;
-                  } else {
-                    throw new Error("No checkout URL received");
-                  }
-                } catch (error) {
-                  console.error("Upgrade error:", error);
-                  toast.error("Failed to start upgrade process");
-                }
-              }}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              Upgrade to Pro
-            </button>
+                      // Redirect to Stripe Checkout
+                      if (url) {
+                        window.location.href = url;
+                      } else {
+                        throw new Error("No checkout URL received");
+                      }
+                    } catch (error) {
+                      console.error("Upgrade error:", error);
+                      toast.error("Failed to start upgrade process");
+                    }
+                  }}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  Upgrade to Pro
+                </button>
+              )}
+            </>
           )}
 
           {/* Setup Guide Pill - Hidden on contract/invoice pages */}
