@@ -54,11 +54,14 @@ export function useAccountLimits(): AccountLimits & {
       );
       const contractsSnapshot = await getDocs(contractsQuery);
       const contractsCount = contractsSnapshot.size;
-      
+
       console.log("🔍 Contract count check:", {
         userId: user.uid,
-        contractsFound: contractsSnapshot.docs.map(doc => ({ id: doc.id, title: doc.data().title })),
-        contractsCount
+        contractsFound: contractsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          title: doc.data().title,
+        })),
+        contractsCount,
       });
 
       // Check invoices count
@@ -66,11 +69,14 @@ export function useAccountLimits(): AccountLimits & {
       const invoicesQuery = query(invoicesRef, where("userId", "==", user.uid));
       const invoicesSnapshot = await getDocs(invoicesQuery);
       const invoicesCount = invoicesSnapshot.size;
-      
+
       console.log("🔍 Invoice count check:", {
         userId: user.uid,
-        invoicesFound: invoicesSnapshot.docs.map(doc => ({ id: doc.id, title: doc.data().title })),
-        invoicesCount
+        invoicesFound: invoicesSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          title: doc.data().title,
+        })),
+        invoicesCount,
       });
 
       // Set limits based on subscription status
@@ -91,7 +97,7 @@ export function useAccountLimits(): AccountLimits & {
         isPro,
         loading: false,
       };
-      
+
       console.log("📊 Final account limits:", finalLimits);
       setLimits(finalLimits);
     } catch (error) {

@@ -448,6 +448,10 @@ const FormParent: React.FC<FormParentProps> = ({
           toast.error(result.error, { id: loadingToast });
         } else {
           console.log("Contract saved successfully:", result);
+          
+          // Refresh account limits after contract creation
+          console.log("🔄 Refreshing account limits after contract creation...");
+          refreshLimits();
 
           // Track tutorial action
           trackAction("contract_created");
