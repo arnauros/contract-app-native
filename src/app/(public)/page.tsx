@@ -50,7 +50,7 @@ export default function LandingPage() {
           padding: "16px",
         },
       });
-      
+
       // Clean up the URL by removing the query parameter
       const url = new URL(window.location.href);
       url.searchParams.delete("upgraded");

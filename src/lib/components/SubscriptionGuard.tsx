@@ -173,7 +173,8 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
     // Check if user has access - either admin, has active subscription, is within grace period, or is a free user
     const gracePeriodAccess = isWithinGracePeriod();
     const isFreeUser = user && !isActive && !subscriptionLoading; // Free user if authenticated but no active subscription
-    const hasMainAccess = isAdmin || isActive || gracePeriodAccess || isFreeUser;
+    const hasMainAccess =
+      isAdmin || isActive || gracePeriodAccess || isFreeUser;
 
     // Log complete state for debugging
     console.log("SubscriptionGuard: Access check state", {
