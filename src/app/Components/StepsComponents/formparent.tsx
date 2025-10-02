@@ -585,10 +585,10 @@ const FormParent: React.FC<FormParentProps> = ({
               }
             : "No extracted data",
           metadata: {
-            startDate: contractData.metadata.startDate,
-            endDate: contractData.metadata.endDate,
-            budget: contractData.metadata.budget,
-            attachmentsCount: contractData.metadata.attachments.length,
+            startDate: contractData.metadata?.startDate || "",
+            endDate: contractData.metadata?.endDate || "",
+            budget: contractData.metadata?.budget || "",
+            attachmentsCount: contractData.metadata?.attachments?.length || 0,
           },
         });
 
@@ -962,14 +962,15 @@ const FormParent: React.FC<FormParentProps> = ({
                       Budget (USD)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="100"
-                      placeholder="e.g. 5000"
-                      value={formData.budget || ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, budget: e.target.value })
-                      }
+                      type="text"
+                      placeholder="e.g. 5,000"
+                      value={formData.budget ? Number(formData.budget).toLocaleString() : ""}
+                      onChange={(e) => {
+                        const numericValue = e.target.value.replace(/,/g, '');
+                        if (numericValue === '' || /^\d+$/.test(numericValue)) {
+                          setFormData({ ...formData, budget: numericValue });
+                        }
+                      }}
                       className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                     />
                   </div>
