@@ -964,10 +964,14 @@ const FormParent: React.FC<FormParentProps> = ({
                     <input
                       type="text"
                       placeholder="e.g. 5,000"
-                      value={formData.budget ? Number(formData.budget).toLocaleString() : ""}
+                      value={
+                        formData.budget
+                          ? Number(formData.budget).toLocaleString()
+                          : ""
+                      }
                       onChange={(e) => {
-                        const numericValue = e.target.value.replace(/,/g, '');
-                        if (numericValue === '' || /^\d+$/.test(numericValue)) {
+                        const numericValue = e.target.value.replace(/,/g, "");
+                        if (numericValue === "" || /^\d+$/.test(numericValue)) {
                           setFormData({ ...formData, budget: numericValue });
                         }
                       }}
