@@ -1044,20 +1044,46 @@ const FormParent: React.FC<FormParentProps> = ({
                             className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 focus:outline-none focus:z-10 hover:bg-gray-50 rounded-l-md transition-colors flex items-center gap-1"
                           >
                             {formData.currency || "$"}
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
                             </svg>
                           </button>
-                          
+
                           {/* Currency Dropdown */}
-                          <div className="absolute left-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                          <div className="absolute left-0 bottom-full mb-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                             {[
                               { symbol: "$", code: "USD", name: "US Dollar" },
                               { symbol: "€", code: "EUR", name: "Euro" },
-                              { symbol: "£", code: "GBP", name: "British Pound" },
-                              { symbol: "¥", code: "JPY", name: "Japanese Yen" },
-                              { symbol: "C$", code: "CAD", name: "Canadian Dollar" },
-                              { symbol: "A$", code: "AUD", name: "Australian Dollar" },
+                              {
+                                symbol: "£",
+                                code: "GBP",
+                                name: "British Pound",
+                              },
+                              {
+                                symbol: "¥",
+                                code: "JPY",
+                                name: "Japanese Yen",
+                              },
+                              {
+                                symbol: "C$",
+                                code: "CAD",
+                                name: "Canadian Dollar",
+                              },
+                              {
+                                symbol: "A$",
+                                code: "AUD",
+                                name: "Australian Dollar",
+                              },
                             ].map((currency) => (
                               <button
                                 key={currency.code}
@@ -1074,8 +1100,12 @@ const FormParent: React.FC<FormParentProps> = ({
                                     : "text-gray-700"
                                 }`}
                               >
-                                <span className="font-medium">{currency.symbol}</span>
-                                <span className="text-xs text-gray-500">{currency.code}</span>
+                                <span className="font-medium">
+                                  {currency.symbol}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {currency.code}
+                                </span>
                               </button>
                             ))}
                           </div>
