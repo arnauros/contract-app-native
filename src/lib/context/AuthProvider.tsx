@@ -41,10 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           previousUserId && user && previousUserId !== user.uid;
 
         if (isUserSwitch) {
-          console.warn("User account switch detected:", {
-            previous: previousUserId,
-            current: user.uid,
-          });
           // Clear all user-specific data to prevent conflicts
           localStorage.clear();
         }
@@ -55,7 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Store or clear user ID in localStorage for image defaults
         if (user) {
           localStorage.setItem("userId", user.uid);
-          console.log("User ID stored in localStorage:", user.uid);
 
           // Synchronize subscription cookies with auth claims
           try {
@@ -71,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Clear userId from localStorage on logout
           localStorage.removeItem("userId");
           localStorage.removeItem("subscription_status");
-          console.log("User data cleared from localStorage");
         }
 
         setLoading(false);
@@ -89,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearTimeout(timer);
       };
     } catch (err) {
+      console.error("AuthProvider: Error initializing auth:", err);
       const error =
         err instanceof Error ? err : new Error("Failed to initialize auth");
       setError(error);

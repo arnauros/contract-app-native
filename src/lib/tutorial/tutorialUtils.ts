@@ -17,8 +17,8 @@ export async function initializeTutorialForUser(
       const userData = userDoc.data();
       const existingTutorial = userData.tutorialState;
 
-      if (existingTutorial) {
-        // Return existing tutorial state
+      if (existingTutorial && existingTutorial.steps) {
+        // Return existing tutorial state only if it has steps
         return existingTutorial as TutorialState;
       }
     }
@@ -120,6 +120,17 @@ export async function dismissTutorial(userId: string): Promise<void> {
 
   await updateDoc(userRef, {
     "tutorialState.isActive": false,
+    "tutorialState.isDismissed": true,
+  });
+}
+
+export async function reopenTutorial(userId: string): Promise<void> {
+  const db = getFirestore();
+  const userRef = doc(db, "users", userId);
+
+  await updateDoc(userRef, {
+    "tutorialState.isActive": true,
+    "tutorialState.isDismissed": false,
   });
 }
 
@@ -134,6 +145,7 @@ export async function resetTutorialForUser(
     const newTutorialState: TutorialState = {
       isActive: false,
       isCompleted: false,
+      isDismissed: false,
       steps: TUTORIAL_CONFIG.steps.map((step) => ({
         ...step,
         completed: false,
@@ -141,10 +153,14 @@ export async function resetTutorialForUser(
       startedAt: new Date(),
     };
 
-    // Force update the tutorial state (overwrite existing)
-    await updateDoc(userRef, {
-      tutorialState: newTutorialState,
-    });
+    // Use setDoc with merge to ensure the document exists
+    await setDoc(
+      userRef,
+      {
+        tutorialState: newTutorialState,
+      },
+      { merge: true }
+    );
 
     console.log("🎯 Tutorial: Reset tutorial state for user:", userId);
     return newTutorialState;
@@ -159,7 +175,7 @@ export function shouldShowTutorial(
 ): boolean {
   if (!tutorialState) return true; // New user
   if (tutorialState.isCompleted) return false; // Already completed
-  if (!tutorialState.isActive) return false; // User dismissed it
+  if (tutorialState.isDismissed) return false; // User dismissed it
 
-  return true;
+  return true; // Show tutorial if not completed and not dismissed
 }

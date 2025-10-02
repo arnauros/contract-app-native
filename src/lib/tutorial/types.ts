@@ -11,6 +11,7 @@ export interface TutorialStep {
 export interface TutorialState {
   isActive: boolean;
   isCompleted: boolean;
+  isDismissed?: boolean;
   steps: TutorialStep[];
   currentStep?: string;
   startedAt?: Date;

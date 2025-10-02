@@ -42,7 +42,7 @@ export function useTutorial() {
             tutorialState
           );
 
-          if (tutorialState) {
+          if (tutorialState && tutorialState.steps) {
             setTutorialState(tutorialState);
             console.log("🎯 Tutorial: Set existing tutorial state:", {
               isActive: tutorialState.isActive,
@@ -123,8 +123,11 @@ export function useTutorial() {
 
       const actionToStepMap: Record<string, string> = {
         contract_created: "create_contract",
-        contracts_viewed: "view_contracts",
         contract_sent: "send_contract",
+        invoice_created: "create_invoice",
+        invoice_sent: "send_invoice",
+        profile_updated: "customize_profile",
+        payment_setup: "setup_payments",
         settings_viewed: "explore_settings",
       };
 

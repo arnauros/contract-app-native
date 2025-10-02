@@ -50,14 +50,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { handleMockSubscriptionChange } from "@/lib/test-helpers";
+// Removed mock subscription helper - using real Stripe
 import { getAuth } from "firebase/auth";
 import FormParent, {
   FormData,
 } from "@/app/Components/StepsComponents/formparent";
 import Modal from "@/app/Components/Modal";
-import TutorialChecklist from "@/components/TutorialChecklist";
+import StripeSetupGuide from "@/components/StripeSetupGuide";
 import { useTutorial, useTutorialActions } from "@/lib/hooks/useTutorial";
+import { useAccountLimits } from "@/lib/hooks/useAccountLimits";
 
 interface StatCardProps {
   title: string;
@@ -112,236 +113,7 @@ const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => {
   );
 };
 
-// Mock Stripe Portal Component for development
-function MockStripePortal() {
-  const [open, setOpen] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const searchParams = useSearchParams();
-  const userId = searchParams?.get("userId") || "unknown";
-  const error = searchParams?.get("error");
-  const { user } = useAuth();
-  // Import showToast from utils
-  const { showToast } = require("@/lib/utils");
-
-  // Close dialog and go back to dashboard
-  const handleClose = () => {
-    setOpen(false);
-    // Navigate to dashboard without the mockStripePortal parameter
-    window.history.pushState({}, "", "/dashboard");
-  };
-
-  // Mock cancellation of subscription
-  const handleCancelSubscription = async () => {
-    if (!userId) {
-      showToast.error("User ID not found");
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-      // Use the utility function to update subscription status
-      const success = await handleMockSubscriptionChange(userId, "canceled");
-
-      if (success) {
-        showToast.success("Subscription cancelled successfully");
-
-        // If we have a user object, force a token refresh to update claims
-        if (user) {
-          try {
-            await user.getIdToken(true);
-            console.log("User token refreshed after cancellation");
-          } catch (refreshError) {
-            console.error("Error refreshing token:", refreshError);
-          }
-        }
-
-        // Close the dialog and redirect to dashboard after a short delay
-        setTimeout(() => {
-          window.location.href = "/dashboard?subscription=canceled";
-        }, 1500);
-      } else {
-        throw new Error("Failed to update subscription status");
-      }
-    } catch (error) {
-      console.error("Error canceling subscription:", error);
-      showToast.error("Failed to cancel subscription");
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Mock upgrading subscription to yearly
-  const handleUpgradeSubscription = async () => {
-    if (!userId) {
-      showToast.error("User ID not found");
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-      // Use the utility function to update subscription status
-      const success = await handleMockSubscriptionChange(userId, "active");
-
-      if (success) {
-        showToast.success("Subscription upgraded to yearly plan");
-
-        // If we have a user object, force a token refresh to update claims
-        if (user) {
-          try {
-            await user.getIdToken(true);
-            console.log("User token refreshed after upgrade");
-          } catch (refreshError) {
-            console.error("Error refreshing token:", refreshError);
-          }
-        }
-
-        // Close the dialog and redirect to dashboard after a short delay
-        setTimeout(() => {
-          window.location.href = "/dashboard?subscription=upgraded";
-        }, 1500);
-      } else {
-        throw new Error("Failed to update subscription status");
-      }
-    } catch (error) {
-      console.error("Error upgrading subscription:", error);
-      showToast.error("Failed to upgrade subscription");
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Mock updating payment method
-  const handleUpdatePayment = () => {
-    showToast.success("Payment method updated in mock portal");
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogTitle className="flex items-center">
-          <svg
-            className="h-10 mr-2"
-            viewBox="0 0 60 25"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M5 10.1c0-1.6 1.3-2.2 3.4-2.2 2.8 0 6.3.9 9.1 2.4V3.1c-3-.8-6.4-1.4-9.5-1.4C2.6 1.7 0 4.5 0 10.3c0 9 12.6 7.6 12.6 11.6 0 1.5-1.3 2-3.8 2-3.3 0-7.5-1.4-10.7-3.2v7.2c3.5 1.3 7.8 1.9 10.7 1.9 5.5 0 9.1-2.7 9.1-8.2-.1-9.3-12.9-7.7-12.9-11.5zM37.1 5h-7.4l-.1 22.9h7.5V5zM60 13.8c0-5.6-2.7-9.1-8.9-9.1-2.9 0-4.9.7-6.9 2.3l-.5-1.9h-6.7v30.8l7.5-1.6v-7c1.4.5 3.2.9 4.9.9 5.3 0 10.6-3.1 10.6-14.4zm-14.1 6.5v-9.3c.9-.8 2.1-1 3.4-1 2.7 0 3.3 2 3.3 5v5.5c0 2.9-.6 4.7-3.3 4.7-1.3.1-2.5-.3-3.4-4.9zm-22.1-20.6c2.4 0 4.4-2 4.4-4.4 0-2.4-2-4.4-4.4-4.4-2.4 0-4.4 2-4.4 4.4 0 2.4 2 4.4 4.4 4.4z"
-              fill="#6460e8"
-              fillRule="evenodd"
-            />
-          </svg>
-          Mock Customer Portal
-        </DialogTitle>
-        <DialogDescription>
-          This is a mock Stripe Customer Portal for development purposes only.
-          {error && (
-            <div className="mt-2 p-2 bg-yellow-50 rounded text-sm text-yellow-700">
-              Note: This mock portal is shown because of an error: {error}
-            </div>
-          )}
-        </DialogDescription>
-
-        <div className="py-4">
-          <div className="bg-gray-50 p-4 rounded-md mb-4">
-            <h3 className="font-medium text-gray-900">Subscription Details</h3>
-            <div className="mt-2 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Status:</span>
-                <span className="font-medium text-green-600">Active</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Plan:</span>
-                <span>Monthly Subscription</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Price:</span>
-                <span>$9.99 / month</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Next billing date:</span>
-                <span>Jan 1, 2025</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Customer ID:</span>
-                <span className="font-mono text-xs">{userId}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-md mb-4">
-            <h3 className="font-medium text-gray-900">Available Plans</h3>
-            <div className="mt-2 space-y-4">
-              <div className="border rounded-md p-3 bg-white flex justify-between items-center">
-                <div>
-                  <p className="font-medium">Yearly Plan (Save 20%)</p>
-                  <p className="text-gray-500 text-sm">$99.00 / year</p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="border-blue-500 text-blue-600"
-                  onClick={handleUpgradeSubscription}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? "Processing..." : "Upgrade"}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h3 className="font-medium text-gray-900 mb-2">
-                Cancel Subscription
-              </h3>
-              <p className="text-sm text-gray-500 mb-3">
-                You will lose access to premium features when your current
-                billing period ends.
-              </p>
-              <Button
-                variant="outline"
-                className="border-red-500 text-red-600 w-full"
-                onClick={handleCancelSubscription}
-                disabled={isProcessing}
-              >
-                {isProcessing ? "Processing..." : "Cancel Subscription"}
-              </Button>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h3 className="font-medium text-gray-900 mb-2">
-                Update Payment Method
-              </h3>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleUpdatePayment}
-                disabled={isProcessing}
-              >
-                Update Payment Method
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={isProcessing}
-          >
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// Mock Stripe Portal Component removed - using real Stripe customer portal
 
 // Add conditional logging to prevent duplicate logs in development
 const logDebug = (...args: any[]) => {
@@ -388,6 +160,7 @@ export default function Dashboard() {
   // Tutorial system
   const { tutorialState, shouldShow, updateTutorialState, trackAction } =
     useTutorial();
+  const accountLimits = useAccountLimits();
   const [stats, setStats] = useState({
     total: 0,
     pendingClient: 0,
@@ -1096,20 +869,15 @@ export default function Dashboard() {
 
   // Fix the searchParams null issue
   const searchParams = useSearchParams();
-  const showMockPortal = searchParams?.get("mockStripePortal") === "true";
+  // Removed mock portal logic - using real Stripe customer portal
   const subscriptionCanceled = searchParams?.get("subscription") === "canceled";
   const subscriptionUpgraded = searchParams?.get("subscription") === "upgraded";
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Tutorial Checklist - Always show in development */}
-      {process.env.NODE_ENV === "development" ? (
-        <TutorialChecklist
-          tutorialState={tutorialState}
-          onStateChange={updateTutorialState}
-        />
-      ) : shouldShow && tutorialState ? (
-        <TutorialChecklist
+      {/* Setup Guide - Show when tutorial should be shown */}
+      {shouldShow && tutorialState ? (
+        <StripeSetupGuide
           tutorialState={tutorialState}
           onStateChange={updateTutorialState}
         />
@@ -1117,6 +885,17 @@ export default function Dashboard() {
 
       {/* User info moved to topbar */}
       <div className="mb-6" />
+
+      {/* Talon Logo for Free Accounts */}
+      {!accountLimits.isPro && (
+        <div className="mb-6 text-center">
+          <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-lg">
+            <span className="text-sm text-gray-600">Powered by</span>
+            <span className="font-bold text-gray-800">Talon</span>
+          </div>
+        </div>
+      )}
+
       {/* Personalized greeting above the form */}
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-gray-800">
@@ -1367,8 +1146,8 @@ export default function Dashboard() {
                             contract.content?.techStack)
                             ? ` • ${contract.content.clientName}`
                             : contract.content?.clientName
-                            ? contract.content.clientName
-                            : ""}
+                              ? contract.content.clientName
+                              : ""}
                         </>
                       )}
                     </div>
@@ -1382,8 +1161,8 @@ export default function Dashboard() {
                         contract.status === "draft"
                           ? "bg-yellow-50 text-yellow-700"
                           : contract.status === "pending"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-green-50 text-green-700"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-green-50 text-green-700"
                       }`}
                     >
                       {getStatusText(contract.status)}
@@ -1535,10 +1314,10 @@ export default function Dashboard() {
                         inv.status === "paid"
                           ? "bg-green-50 text-green-700"
                           : inv.status === "overdue"
-                          ? "bg-red-50 text-red-700"
-                          : inv.status === "sent"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-yellow-50 text-yellow-700"
+                            ? "bg-red-50 text-red-700"
+                            : inv.status === "sent"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-yellow-50 text-yellow-700"
                       }`}
                     >
                       {inv.status || "draft"}
@@ -1667,10 +1446,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Show the mock Stripe portal when the URL parameter is present */}
-      {process.env.NODE_ENV === "development" && showMockPortal && (
-        <MockStripePortal />
-      )}
+      {/* Mock Stripe portal removed - using real Stripe customer portal */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

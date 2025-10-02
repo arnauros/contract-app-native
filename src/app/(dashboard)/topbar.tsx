@@ -12,6 +12,10 @@ import UsersDisplay from "@/app/Components/UsersDisplay";
 import useActiveUsers from "@/lib/hooks/useActiveUsers";
 import { useAuth } from "@/lib/hooks/useAuth";
 import Link from "next/link";
+import SetupGuidePill from "@/components/SetupGuidePill";
+import { useTutorial } from "@/lib/hooks/useTutorial";
+import { reopenTutorial } from "@/lib/tutorial/tutorialUtils";
+import { useAccountLimits } from "@/lib/hooks/useAccountLimits";
 
 interface TopbarProps {
   pathname: string;
@@ -112,6 +116,9 @@ function SavingIndicator() {
 
 export default function Topbar({ pathname }: TopbarProps) {
   const { toggleSidebar } = useSidebar();
+  const { tutorialState, updateTutorialState } = useTutorial();
+  const { loggedIn, user } = useAuth();
+  const accountLimits = useAccountLimits();
   const params = useParams();
   const router = useRouter();
   const [currentStage, setCurrentStage] = useState<"edit" | "sign" | "send">(
@@ -121,7 +128,6 @@ export default function Topbar({ pathname }: TopbarProps) {
     "edit" | "sign" | "send" | null
   >(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const { loggedIn, user } = useAuth();
 
   // Removed legacy PDF upload handler (processing now tied to primary form input)
 
@@ -469,6 +475,14 @@ export default function Topbar({ pathname }: TopbarProps) {
     <header className="sticky top-0 bg-white border-b border-gray-200 z-10">
       <div className="flex items-center justify-between h-14 px-4">
         <div className="flex items-center gap-4">
+          {/* Talon Logo for Free Accounts */}
+          {!accountLimits.isPro && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Powered by</span>
+              <span className="font-bold text-gray-800">Talon</span>
+            </div>
+          )}
+
           {(isContractPage || isInvoicePage || isInvoiceEditPage) && (
             <div className="text-sm">{getBreadcrumbJSX()}</div>
           )}
@@ -651,6 +665,68 @@ export default function Topbar({ pathname }: TopbarProps) {
               </button>
             </div>
           )}
+
+          {/* Pro Upgrade Button */}
+          <button
+            onClick={async () => {
+              if (!user?.uid || !user?.email) {
+                toast.error("Please log in to upgrade");
+                return;
+              }
+
+              try {
+                const response = await fetch("/api/stripe/upgrade", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    userId: user.uid,
+                    email: user.email,
+                  }),
+                });
+
+                if (!response.ok) {
+                  throw new Error("Failed to create checkout session");
+                }
+
+                const { url } = await response.json();
+
+                // Redirect to Stripe Checkout
+                if (url) {
+                  window.location.href = url;
+                } else {
+                  throw new Error("No checkout URL received");
+                }
+              } catch (error) {
+                console.error("Upgrade error:", error);
+                toast.error("Failed to start upgrade process");
+              }
+            }}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            Upgrade to Pro
+          </button>
+
+          {/* Setup Guide Pill */}
+          <SetupGuidePill
+            tutorialState={tutorialState}
+            onReopen={async () => {
+              if (tutorialState && user) {
+                try {
+                  await reopenTutorial(user.uid);
+                  const updatedState = {
+                    ...tutorialState,
+                    isActive: true,
+                    isDismissed: false,
+                  };
+                  updateTutorialState(updatedState);
+                } catch (error) {
+                  console.error("Error reopening tutorial:", error);
+                }
+              }
+            }}
+          />
 
           {/* User settings: avatar moved to furthest right */}
           <Link href="/settings" className="flex items-center">

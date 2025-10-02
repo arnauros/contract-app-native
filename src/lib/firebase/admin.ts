@@ -19,9 +19,12 @@ export function initAdmin() {
   }
 
   // Check for service account key
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    console.error(
-      "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set"
+  if (
+    !process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY === "disabled-for-development"
+  ) {
+    console.warn(
+      "FIREBASE_SERVICE_ACCOUNT_KEY is not set or disabled for development"
     );
     // In development mode or build process, we can gracefully degrade
     if (

@@ -48,32 +48,7 @@ import {
 } from "firebase/firestore";
 import ProfileImageUploader from "@/app/Components/ProfileImageUploader";
 
-// New function to create a test stripe customer ID for development
-const createTestStripeCustomer = async (userId: string) => {
-  if (process.env.NODE_ENV !== "development") return;
-
-  try {
-    const db = getFirestore();
-    // Add a mock stripeCustomerId to the user document
-    await setDoc(
-      doc(db, "users", userId),
-      {
-        stripeCustomerId: `mock_cus_${Math.random()
-          .toString(36)
-          .substring(2, 15)}`,
-        // Don't overwrite other fields
-      },
-      { merge: true }
-    );
-
-    toast.success("Created test Stripe customer ID");
-    // Reload the page to refresh subscription status
-    window.location.reload();
-  } catch (error) {
-    console.error("Error creating test Stripe customer:", error);
-    toast.error("Failed to create test customer");
-  }
-};
+// Mock customer creation removed - using real Stripe integration
 
 export default function SettingsPage() {
   const { user, loading, isAdmin } = useAuth();
@@ -1450,13 +1425,13 @@ export default function SettingsPage() {
             <DialogDescription>
               This action is permanent and cannot be undone. All of your data
               will be permanently deleted.
-              {isSubscriptionActive && (
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700">
-                  You have an active subscription. Please cancel your
-                  subscription first before deleting your account.
-                </div>
-              )}
             </DialogDescription>
+            {isSubscriptionActive && (
+              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700">
+                You have an active subscription. Please cancel your subscription
+                first before deleting your account.
+              </div>
+            )}
           </DialogHeader>
 
           <div className="py-4">

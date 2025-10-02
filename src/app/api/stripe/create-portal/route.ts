@@ -42,17 +42,6 @@ export async function POST(req: Request) {
     // Check if Stripe is configured
     if (!stripe) {
       console.error("Stripe is not configured - missing STRIPE_SECRET_KEY");
-
-      if (isDev) {
-        // In development, we'll mock the Stripe customer portal
-        return NextResponse.json({
-          url: `${
-            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-          }/dashboard?mockStripePortal=true&t=${Date.now()}`,
-          _devNote: "This is a mock URL for development only",
-        });
-      }
-
       return NextResponse.json(
         { error: "Stripe is not configured correctly on the server" },
         { status: 500 }
@@ -84,20 +73,13 @@ export async function POST(req: Request) {
     // Make sure Firebase Admin is initialized
     if (!adminInitialized) {
       console.error("Firebase Admin is not initialized");
-
-      if (isDev) {
-        // In development, we'll mock the Stripe customer portal
-        return NextResponse.json({
-          url: `${
-            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-          }/dashboard?mockStripePortal=true&t=${Date.now()}`,
-          _devNote:
-            "This is a mock URL for development only - Firebase Admin not initialized",
-        });
-      }
-
       return NextResponse.json(
-        { error: "Server configuration error: Firebase Admin not initialized" },
+        {
+          error:
+            "Firebase Admin not configured. Please set up FIREBASE_SERVICE_ACCOUNT_KEY for production use.",
+          details:
+            "This endpoint requires Firebase Admin SDK to access user data",
+        },
         { status: 500 }
       );
     }
@@ -110,16 +92,6 @@ export async function POST(req: Request) {
         const userDoc = await db.collection("users").doc(userId).get();
 
         if (!userDoc.exists) {
-          if (isDev) {
-            // In development, provide a mock customer portal if the document doesn't exist
-            return NextResponse.json({
-              url: `${
-                process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-              }/dashboard?mockStripePortal=true&t=${Date.now()}`,
-              _devNote: "This is a mock URL for development - user not found",
-            });
-          }
-
           return NextResponse.json(
             {
               error: "User not found",
@@ -133,17 +105,6 @@ export async function POST(req: Request) {
         const userData = userDoc.data();
 
         if (!userData?.stripeCustomerId) {
-          if (isDev) {
-            // In development, provide a mock customer portal if stripeCustomerId doesn't exist
-            return NextResponse.json({
-              url: `${
-                process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-              }/dashboard?mockStripePortal=true&userId=${userId}&t=${Date.now()}`,
-              _devNote:
-                "This is a mock URL for development - no Stripe customer ID",
-            });
-          }
-
           return NextResponse.json(
             {
               error: "No Stripe customer found",
@@ -157,15 +118,16 @@ export async function POST(req: Request) {
 
         console.log(`Found customer: ${userData.stripeCustomerId}`);
 
-        // Check if we're in development mode and the Stripe customer ID starts with "mock_"
-        if (isDev && userData.stripeCustomerId.startsWith("mock_")) {
-          // For mock customers, return a mock portal URL
-          return NextResponse.json({
-            url: `${
-              process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-            }/dashboard?mockStripePortal=true&userId=${userId}&t=${Date.now()}`,
-            _devNote: "This is a mock URL for a mock customer",
-          });
+        // Check if the Stripe customer ID starts with "mock_" - this should not happen in production
+        if (userData.stripeCustomerId.startsWith("mock_")) {
+          return NextResponse.json(
+            {
+              error: "Mock customer ID detected",
+              details: `User has mock customer ID: ${userData.stripeCustomerId}`,
+              help: "Create a real Stripe customer for this user",
+            },
+            { status: 400 }
+          );
         }
 
         // Real Stripe customer, create a portal session
@@ -199,19 +161,6 @@ export async function POST(req: Request) {
           }
 
           // For other Stripe errors
-          if (isDev) {
-            // In development, provide a mock URL on Stripe errors
-            return NextResponse.json({
-              url: `${
-                process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-              }/dashboard?mockStripePortal=true&error=${encodeURIComponent(
-                stripeError.message
-              )}&t=${Date.now()}`,
-              _devNote: "This is a mock URL due to a Stripe error",
-              error: stripeError.message,
-            });
-          }
-
           return NextResponse.json(
             {
               error: "Stripe error when creating customer portal session",
@@ -222,18 +171,6 @@ export async function POST(req: Request) {
         }
       } catch (firestoreError) {
         console.error("Firestore error:", firestoreError);
-
-        if (isDev) {
-          // In development, provide a mock URL on Firestore errors
-          return NextResponse.json({
-            url: `${
-              process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-            }/dashboard?mockStripePortal=true&error=firestoreError&t=${Date.now()}`,
-            _devNote: "This is a mock URL due to Firestore error",
-            error: String(firestoreError),
-          });
-        }
-
         return NextResponse.json(
           {
             error: "Database error when retrieving customer",
@@ -244,17 +181,6 @@ export async function POST(req: Request) {
         );
       }
     } catch (error) {
-      if (isDev) {
-        // In development, provide a mock URL on general errors
-        return NextResponse.json({
-          url: `${
-            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-          }/dashboard?mockStripePortal=true&error=general&t=${Date.now()}`,
-          _devNote: "This is a mock URL due to a general error",
-          error: String(error),
-        });
-      }
-
       console.error("Error creating portal session:", error);
       return NextResponse.json(
         {
@@ -266,18 +192,6 @@ export async function POST(req: Request) {
     }
   } catch (error) {
     console.error("Error creating portal session:", error);
-
-    if (process.env.NODE_ENV === "development") {
-      // Final fallback for development mode
-      return NextResponse.json({
-        url: `${
-          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-        }/dashboard?mockStripePortal=true&error=uncaught&t=${Date.now()}`,
-        _devNote: "This is a mock URL due to an uncaught error",
-        error: String(error),
-      });
-    }
-
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -58,10 +58,16 @@ service cloud.firestore {
                     request.resource.data.diff(resource.data).changedKeys()
                       .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt', 'tutorialState']);
 
-      // Allow creating a minimal user profile document by the owner
+      // Allow subscription updates by the owner (for cancellation, reactivation, etc.)
+      // This is essential for subscription management to work properly
+      allow update: if request.auth != null && request.auth.uid == userId &&
+                    request.resource.data.diff(resource.data).changedKeys()
+                      .hasOnly(['subscription', 'updatedAt']);
+
+      // Allow creating a user profile document by the owner with required signup fields
       allow create: if request.auth != null && request.auth.uid == userId &&
                     request.resource.data.keys()
-                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt']);
+                      .hasOnly(['email', 'createdAt', 'subscription', 'tutorialState', 'displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt']);
 
       // For other writes, require active subscription or admin
       allow write: if (request.auth != null && request.auth.uid == userId && 

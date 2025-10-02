@@ -79,15 +79,32 @@ export function useSubscription() {
 
   // Check subscription status whenever auth state changes
   useEffect(() => {
-    if (!user || authLoading) return;
+    console.log("🔄 useSubscription useEffect triggered", {
+      user: user?.email,
+      authLoading,
+      isAdminUser,
+    });
+
+    if (!user || authLoading) {
+      console.log("⏳ useSubscription: Waiting for user/auth", {
+        user: !!user,
+        authLoading,
+      });
+      return;
+    }
 
     const checkSubscription = async () => {
       try {
+        console.log(
+          "🔍 useSubscription: Starting subscription check for user",
+          user.email
+        );
         setLoading(true);
         setError(null);
 
         // If user is admin, they always have access
         if (isAdminUser) {
+          console.log("👑 useSubscription: User is admin, granting access");
           setSubscriptionStatus({
             isActive: true,
             subscriptions: [],
@@ -101,6 +118,11 @@ export function useSubscription() {
         if (!db) {
           throw new Error("Firestore not initialized");
         }
+
+        console.log(
+          "🔥 useSubscription: Firestore initialized, checking subscriptions for user",
+          user.uid
+        );
 
         // First approach: Check for active subscriptions in the subscriptions subcollection
         let isActive = false;
@@ -117,6 +139,7 @@ export function useSubscription() {
             subscriptionsRef,
             where("status", "in", ["trialing", "active"])
           );
+          console.log("📊 useSubscription: Querying active subscriptions...");
           const snapshot = await getDocs(q);
 
           // Get all subscriptions for detailed info
@@ -127,6 +150,11 @@ export function useSubscription() {
           }));
 
           isActive = !snapshot.empty;
+          console.log("📊 useSubscription: Subscription check result", {
+            isActive,
+            subscriptionCount: subscriptions.length,
+            activeSubscriptionCount: snapshot.size,
+          });
         } catch (subError) {
           console.warn("Error checking subscriptions subcollection:", subError);
           // Continue to fallback approach
@@ -135,30 +163,58 @@ export function useSubscription() {
         // Second approach (fallback): Check user document for subscription field
         if (!isActive) {
           try {
-            console.log("Checking user document for subscription status");
+            console.log(
+              "📄 useSubscription: Checking user document for subscription status"
+            );
             const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
               const userData = userDoc.data();
+              console.log("📄 useSubscription: User document data", {
+                hasSubscription: !!userData?.subscription,
+                subscriptionStatus: userData?.subscription?.status,
+              });
               if (userData?.subscription) {
                 const status = userData.subscription.status;
                 isActive = status === "active" || status === "trialing";
 
                 if (isActive) {
-                  console.log("Found active subscription in user document");
+                  console.log(
+                    "✅ useSubscription: Found active subscription in user document"
+                  );
                   // Add the subscription from user doc to the list
                   subscriptions.push({
                     id: userData.subscription.subscriptionId || "unknown",
                     status: userData.subscription.status,
                     ...userData.subscription,
                   });
+                } else {
+                  console.log(
+                    "❌ useSubscription: User document subscription not active",
+                    { status }
+                  );
                 }
+              } else {
+                console.log(
+                  "❌ useSubscription: No subscription field in user document"
+                );
               }
+            } else {
+              console.log("❌ useSubscription: User document does not exist");
             }
           } catch (userDocError) {
-            console.error("Error checking user document:", userDocError);
+            console.error(
+              "❌ useSubscription: Error checking user document:",
+              userDocError
+            );
             // If both approaches fail, we'll return not active
           }
         }
+
+        console.log("🎯 useSubscription: Final subscription status", {
+          isActive,
+          subscriptionCount: subscriptions.length,
+          loading: false,
+        });
 
         setSubscriptionStatus({
           isActive,
@@ -167,6 +223,7 @@ export function useSubscription() {
           error: null,
         });
       } catch (err) {
+        console.error("❌ useSubscription: Error in subscription check:", err);
         const appError = errorHandler.handle(err, "checkSubscription");
         setError(appError.message);
         setSubscriptionStatus({
@@ -176,6 +233,7 @@ export function useSubscription() {
           error: appError.message,
         });
       } finally {
+        console.log("🏁 useSubscription: Subscription check completed");
         setLoading(false);
       }
     };
@@ -403,8 +461,8 @@ export function useSubscription() {
       setError(null);
       const loadingToast = toast.loading("Preparing customer portal...");
 
-      // In Next.js App Router, route.ts is handled automatically
-      const response = await fetch("/api/stripe/create-portal", {
+      // Try the main portal API first, fallback to client-side API
+      let response = await fetch("/api/stripe/create-portal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -413,6 +471,45 @@ export function useSubscription() {
           userId: user.uid,
         }),
       });
+
+      // If the main API fails due to Firebase Admin not being configured, try client-side API
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (
+          errorData.error &&
+          errorData.error.includes("Firebase Admin not configured")
+        ) {
+          console.log(
+            "Firebase Admin not available, trying client-side API..."
+          );
+
+          // Get user's Stripe customer ID from Firestore client-side
+          const { getFirestore, doc, getDoc } = await import(
+            "firebase/firestore"
+          );
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (
+              userData.stripeCustomerId &&
+              !userData.stripeCustomerId.startsWith("mock_")
+            ) {
+              response = await fetch("/api/stripe/create-portal-client", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  userId: user.uid,
+                  stripeCustomerId: userData.stripeCustomerId,
+                }),
+              });
+            }
+          }
+        }
+      }
 
       toast.dismiss(loadingToast);
 

@@ -102,8 +102,23 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
 
   // Handle access checking and redirects in useEffect, not during render
   useEffect(() => {
+    console.log("🔍 SubscriptionGuard useEffect triggered", {
+      authLoading,
+      subscriptionLoading,
+      user: user?.email,
+      isAdmin,
+      isActive,
+      accessChecked,
+      hasAccess,
+      error,
+    });
+
     // Don't do anything while loading
     if (authLoading || subscriptionLoading) {
+      console.log("⏳ SubscriptionGuard: Still loading", {
+        authLoading,
+        subscriptionLoading,
+      });
       return;
     }
 
@@ -114,6 +129,7 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
 
     // If no user, redirect to login
     if (!user) {
+      console.log("❌ SubscriptionGuard: No user, redirecting to login");
       router.push("/login");
       return;
     }
@@ -121,7 +137,9 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
     // First, check the cookie directly - this is the fastest way and accounts for
     // the case where a user cancels and resubscribes
     const cookieAccess = hasCookieAccess();
+    console.log("🍪 SubscriptionGuard: Cookie access check", { cookieAccess });
     if (cookieAccess) {
+      console.log("✅ SubscriptionGuard: Access granted via cookie");
       setHasAccess(true);
       setAccessChecked(true);
       return;

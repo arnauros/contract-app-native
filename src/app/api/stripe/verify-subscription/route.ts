@@ -23,28 +23,17 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(`Verifying subscription for user: ${userId}`);
-
     // Get user document from Firestore
     const db = getFirestore();
     const userDoc = await db.collection("users").doc(userId).get();
 
     if (!userDoc.exists) {
-      console.error(`User not found: ${userId}`);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const userData = userDoc.data();
     const subscription = userData?.subscription;
     let stripeCustomerId = userData?.stripeCustomerId;
-
-    console.log(`User document data:`, {
-      userId,
-      hasStripeCustomerId: !!stripeCustomerId,
-      hasSubscription: !!subscription,
-      subscriptionStatus: subscription?.status,
-      subscriptionId: subscription?.subscriptionId,
-    });
 
     // First check: subscription data in user document
     let isActive = false;
@@ -53,16 +42,11 @@ export async function POST(req: Request) {
       isActive =
         subscription?.status === "active" ||
         subscription?.status === "trialing";
-      console.log(
-        `Subscription status from Firestore: ${subscription.status}, isActive: ${isActive}`
-      );
+    } else {
     }
 
     // If not active but has a Stripe customer ID, check directly with Stripe as a fallback
     if (!isActive && stripeCustomerId) {
-      console.log(
-        `Subscription not active in Firestore, checking with Stripe directly`
-      );
       try {
         // Retrieve all subscriptions for the customer
         const subscriptions = await stripe.subscriptions.list({
@@ -75,11 +59,6 @@ export async function POST(req: Request) {
         if (subscriptions.data.length > 0) {
           const activeSubscription = subscriptions.data[0] as any; // Cast to any to access properties
           isActive = true;
-
-          console.log(`Found active subscription in Stripe:`, {
-            subscriptionId: activeSubscription.id,
-            status: activeSubscription.status,
-          });
 
           // Update the user's document with this subscription data - ensure no undefined values
           const subscriptionData = {
@@ -96,20 +75,12 @@ export async function POST(req: Request) {
             subscription: subscriptionData,
             updatedAt: new Date(),
           });
-
-          console.log(
-            `Updated user document with subscription data from Stripe`
-          );
         } else {
-          console.log(
-            `No active subscriptions found in Stripe for customer: ${stripeCustomerId}`
-          );
         }
       } catch (stripeError) {
-        console.error(`Error checking subscription with Stripe:`, stripeError);
+        console.error("Error checking subscription with Stripe:", stripeError);
       }
     } else if (!stripeCustomerId) {
-      console.log(`User has no Stripe customer ID, cannot check with Stripe`);
     }
 
     // Create response with the verification results
@@ -132,8 +103,6 @@ export async function POST(req: Request) {
     // Use 'active' if isActive is true, regardless of what's in the subscription.status field
     // This ensures the cookie is updated properly when a user cancels and resubscribes
     const cookieValue = isActive ? "active" : subscription?.status || "none";
-
-    console.log(`Setting subscription_status cookie to: ${cookieValue}`);
 
     response.cookies.set("subscription_status", cookieValue, {
       maxAge: 60 * 60 * 24 * 30, // 30 days

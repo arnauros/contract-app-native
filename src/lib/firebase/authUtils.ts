@@ -13,18 +13,26 @@ import {
   signInAnonymously,
   User,
   onAuthStateChanged,
+  sendEmailVerification,
 } from "firebase/auth";
 import { errorHandler } from "@/lib/utils";
 
 // Get auth instance or throw error
 const getAuthInstance = () => {
+  console.log("🔐 getAuthInstance: Getting auth instance", { hasAuth: !!auth });
   if (!auth) {
+    console.log("🔐 getAuthInstance: No auth instance, initializing Firebase");
     const { auth: newAuth } = initFirebase();
     if (!newAuth) {
+      console.error(
+        "🔐 getAuthInstance: Failed to get auth instance after initialization"
+      );
       throw new Error("Authentication service is unavailable");
     }
+    console.log("🔐 getAuthInstance: Auth instance obtained from initFirebase");
     return newAuth;
   }
+  console.log("🔐 getAuthInstance: Using existing auth instance");
   return auth;
 };
 
@@ -51,8 +59,34 @@ export const signIn = async (email: string, password: string) => {
     await createSession(result.user);
 
     return { user: result.user, error: null };
-  } catch (error) {
-    const appError = errorHandler.parseFirebaseError(error);
+  } catch (error: any) {
+    // Enhanced error handling with user-friendly messages
+    let userMessage = "An error occurred during sign in. Please try again.";
+
+    if (error.code === "auth/user-not-found") {
+      userMessage =
+        "No account found with this email address. Please check your email or sign up for a new account.";
+    } else if (error.code === "auth/wrong-password") {
+      userMessage =
+        "Incorrect password. Please try again or reset your password.";
+    } else if (error.code === "auth/invalid-email") {
+      userMessage = "Please enter a valid email address.";
+    } else if (error.code === "auth/user-disabled") {
+      userMessage = "This account has been disabled. Please contact support.";
+    } else if (error.code === "auth/too-many-requests") {
+      userMessage =
+        "Too many failed attempts. Please try again later or reset your password.";
+    } else if (error.code === "auth/network-request-failed") {
+      userMessage =
+        "Network error. Please check your connection and try again.";
+    }
+
+    const appError = {
+      code: error.code || "auth/unknown-error",
+      message: userMessage,
+      originalError: error,
+    };
+
     errorHandler.handle(appError, "signIn");
     return { user: null, error: appError };
   }
@@ -74,12 +108,45 @@ export const signUp = async (email: string, password: string) => {
       password
     );
 
+    // Send email verification
+    try {
+      await sendEmailVerification(result.user);
+      console.log("Email verification sent to:", result.user.email);
+    } catch (verificationError) {
+      console.warn("Failed to send email verification:", verificationError);
+      // Don't fail the signup if email verification fails
+    }
+
     // Create session automatically after signup
     await createSession(result.user);
 
     return { user: result.user, error: null };
-  } catch (error) {
-    const appError = errorHandler.parseFirebaseError(error);
+  } catch (error: any) {
+    // Enhanced error handling with user-friendly messages
+    let userMessage = "An error occurred during sign up. Please try again.";
+
+    if (error.code === "auth/email-already-in-use") {
+      userMessage =
+        "An account with this email already exists. Please sign in instead.";
+    } else if (error.code === "auth/invalid-email") {
+      userMessage = "Please enter a valid email address.";
+    } else if (error.code === "auth/weak-password") {
+      userMessage =
+        "Password is too weak. Please choose a stronger password with at least 8 characters, including uppercase, lowercase, and numbers.";
+    } else if (error.code === "auth/operation-not-allowed") {
+      userMessage =
+        "Email/password accounts are not enabled. Please contact support.";
+    } else if (error.code === "auth/network-request-failed") {
+      userMessage =
+        "Network error. Please check your connection and try again.";
+    }
+
+    const appError = {
+      code: error.code || "auth/unknown-error",
+      message: userMessage,
+      originalError: error,
+    };
+
     errorHandler.handle(appError, "signUp");
     return { user: null, error: appError };
   }
@@ -224,8 +291,17 @@ export const signInAnonymous = async () => {
 export const subscribeToAuthChanges = (
   callback: (user: User | null) => void
 ) => {
+  console.log("🔐 subscribeToAuthChanges: Setting up auth listener");
   const authInstance = getAuthInstance();
-  return onAuthStateChanged(authInstance, callback);
+  console.log("🔐 subscribeToAuthChanges: Auth instance obtained", {
+    hasAuth: !!authInstance,
+  });
+  return onAuthStateChanged(authInstance, (user) => {
+    console.log("🔐 subscribeToAuthChanges: Firebase auth state changed", {
+      user: user ? { uid: user.uid, email: user.email } : null,
+    });
+    callback(user);
+  });
 };
 
 // Check if a user has admin role (put this in one place)
@@ -237,4 +313,20 @@ export const isAdmin = (email: string | null | undefined): boolean => {
 
   // Make sure hello@arnau.design is not treated as admin
   return ADMIN_EMAILS.includes(email.toLowerCase());
+};
+
+// Send email verification
+export const sendVerificationEmail = async (user: User) => {
+  try {
+    await sendEmailVerification(user);
+    return { success: true, error: null };
+  } catch (error: any) {
+    const appError = {
+      code: error.code || "auth/unknown-error",
+      message: "Failed to send verification email. Please try again.",
+      originalError: error,
+    };
+    errorHandler.handle(appError, "sendVerificationEmail");
+    return { success: false, error: appError };
+  }
 };

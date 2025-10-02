@@ -50,4 +50,4 @@ service firebase.storage {
       allow read, write: if false;
     }
   }
-} 
+}
