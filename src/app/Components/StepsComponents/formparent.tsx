@@ -1041,14 +1041,17 @@ const FormParent: React.FC<FormParentProps> = ({
                         <div className="relative">
                           <button
                             type="button"
-                            className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 focus:outline-none focus:z-10 flex items-center gap-1"
+                            onClick={() => {
+                              const currencies = ["$", "€", "£", "¥", "C$", "A$"];
+                              const currentCurrency = formData.currency || "$";
+                              const currentIndex = currencies.indexOf(currentCurrency);
+                              const nextIndex = (currentIndex + 1) % currencies.length;
+                              setFormData({ ...formData, currency: currencies[nextIndex] });
+                            }}
+                            className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 focus:outline-none focus:z-10 hover:bg-gray-50 rounded-l-md transition-colors"
                           >
                             {formData.currency || "$"}
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
                           </button>
-                          {/* Currency dropdown - hidden for now, can be implemented later */}
                         </div>
                         <div className="w-px h-6 bg-gray-200"></div>
                       </div>
@@ -1062,7 +1065,10 @@ const FormParent: React.FC<FormParentProps> = ({
                         }
                         onChange={(e) => {
                           const numericValue = e.target.value.replace(/,/g, "");
-                          if (numericValue === "" || /^\d+$/.test(numericValue)) {
+                          if (
+                            numericValue === "" ||
+                            /^\d+$/.test(numericValue)
+                          ) {
                             setFormData({ ...formData, budget: numericValue });
                           }
                         }}
