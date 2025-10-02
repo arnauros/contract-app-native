@@ -1729,16 +1729,28 @@ export function ContractEditor({
                   title="Edit Profile Picture In Settings"
                 />
                 <div className="absolute inset-0 rounded-lg" />
-                {/* Remove banner button */}
-                <button
-                  onClick={() => setBannerUrl("/placeholder-banner.png")}
-                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Remove banner image"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                {/* Remove banner button - only in draft mode */}
+                {stage === "edit" && (
+                  <button
+                    onClick={() => setBannerUrl("/placeholder-banner.png")}
+                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    title="Remove banner image"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                )}
               </>
             ) : (
               <div
@@ -1765,15 +1777,25 @@ export function ContractEditor({
                 className="w-full h-full object-cover"
                 title="Edit Profile Picture In Settings"
               />
-              {/* Remove profile image button */}
-              {logoUrl !== "/placeholder-logo.png" && (
+              {/* Remove profile image button - only in draft mode */}
+              {stage === "edit" && logoUrl !== "/placeholder-logo.png" && (
                 <button
                   onClick={() => setLogoUrl("/placeholder-logo.png")}
-                  className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
                   title="Remove profile image"
                 >
-                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               )}
