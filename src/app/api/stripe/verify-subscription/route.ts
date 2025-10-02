@@ -5,7 +5,7 @@ import Stripe from "stripe";
 import { STRIPE_API_VERSION } from "@/lib/stripe/config";
 
 // Initialize Firebase Admin
-initAdmin();
+const admin = initAdmin();
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -20,6 +20,14 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "User ID is required" },
         { status: 400 }
+      );
+    }
+
+    // Check if Firebase Admin is initialized
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Firebase Admin not initialized" },
+        { status: 500 }
       );
     }
 
