@@ -520,7 +520,7 @@ const FormParent: React.FC<FormParentProps> = ({
         startDate: isInvoice ? undefined : effective.startDate,
         endDate: isInvoice ? undefined : effective.endDate,
         budget: isInvoice ? undefined : effective.budget,
-        currency: "USD",
+        currency: effective.currency || "USD",
         pdf: isInvoice ? undefined : effective.pdf,
         debug: debugMode,
         attachments: payloadAttachments,
@@ -1041,22 +1041,9 @@ const FormParent: React.FC<FormParentProps> = ({
                         <div className="relative group">
                           <button
                             type="button"
-                            className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 focus:outline-none focus:z-10 hover:bg-gray-50 rounded-l-md transition-colors flex items-center gap-1"
+                            className="px-2 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 focus:outline-none focus:z-10 hover:bg-gray-50 rounded-l-md transition-colors"
                           >
                             {formData.currency || "$"}
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
                           </button>
 
                           {/* Currency Dropdown */}
@@ -1129,7 +1116,7 @@ const FormParent: React.FC<FormParentProps> = ({
                             setFormData({ ...formData, budget: numericValue });
                           }
                         }}
-                        className="w-full rounded-md border border-gray-200 pl-16 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                        className="w-full rounded-md border border-gray-200 pl-12 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                       />
                     </div>
                   </div>
