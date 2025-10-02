@@ -307,7 +307,20 @@ const FormParent: React.FC<FormParentProps> = ({
         attachments: override?.attachments ?? formData.attachments,
         pdf: override?.pdf ?? formData.pdf,
         fileSummaries: override?.fileSummaries ?? formData.fileSummaries,
+        // Include client information
+        clientName: override?.clientName ?? formData.clientName,
+        clientEmail: override?.clientEmail ?? formData.clientEmail,
+        clientCompany: override?.clientCompany ?? formData.clientCompany,
+        paymentTerms: override?.paymentTerms ?? formData.paymentTerms,
       } as FormData;
+
+      console.log("🐛 Debug effective object:", {
+        effective,
+        formData,
+        override,
+        hasStartDate: !!effective.startDate,
+        startDateValue: effective.startDate
+      });
 
       console.log("Submitting payload to generator:", {
         projectBrief: effective.projectBrief,
@@ -535,10 +548,16 @@ const FormParent: React.FC<FormParentProps> = ({
             ),
           },
           // Include client data from form (prioritize form data over extracted data)
-          clientName: formData.clientName || data.extractedData?.clientName || "",
-          clientEmail: formData.clientEmail || data.extractedData?.clientEmail || "",
-          clientCompany: formData.clientCompany || data.extractedData?.clientCompany || "",
-          paymentTerms: formData.paymentTerms || data.extractedData?.paymentTerms || "Net 30 days",
+          clientName:
+            formData.clientName || data.extractedData?.clientName || "",
+          clientEmail:
+            formData.clientEmail || data.extractedData?.clientEmail || "",
+          clientCompany:
+            formData.clientCompany || data.extractedData?.clientCompany || "",
+          paymentTerms:
+            formData.paymentTerms ||
+            data.extractedData?.paymentTerms ||
+            "Net 30 days",
           totalAmount: data.extractedData?.totalAmount || formData.budget || "",
           currency: data.extractedData?.currency || "USD",
           status: "draft" as const,
@@ -831,7 +850,9 @@ const FormParent: React.FC<FormParentProps> = ({
 
                 {/* Client Information Fields */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-700">Client Information</h3>
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Client Information
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -842,7 +863,10 @@ const FormParent: React.FC<FormParentProps> = ({
                         placeholder="e.g. John Smith"
                         value={formData.clientName || ""}
                         onChange={(e) =>
-                          setFormData({ ...formData, clientName: e.target.value })
+                          setFormData({
+                            ...formData,
+                            clientName: e.target.value,
+                          })
                         }
                         className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                       />
@@ -856,7 +880,10 @@ const FormParent: React.FC<FormParentProps> = ({
                         placeholder="e.g. john@company.com"
                         value={formData.clientEmail || ""}
                         onChange={(e) =>
-                          setFormData({ ...formData, clientEmail: e.target.value })
+                          setFormData({
+                            ...formData,
+                            clientEmail: e.target.value,
+                          })
                         }
                         className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                       />
@@ -870,7 +897,10 @@ const FormParent: React.FC<FormParentProps> = ({
                         placeholder="e.g. Acme Corp"
                         value={formData.clientCompany || ""}
                         onChange={(e) =>
-                          setFormData({ ...formData, clientCompany: e.target.value })
+                          setFormData({
+                            ...formData,
+                            clientCompany: e.target.value,
+                          })
                         }
                         className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                       />
@@ -882,18 +912,19 @@ const FormParent: React.FC<FormParentProps> = ({
                       <select
                         value={formData.paymentTerms || ""}
                         onChange={(e) =>
-                          setFormData({ ...formData, paymentTerms: e.target.value })
+                          setFormData({
+                            ...formData,
+                            paymentTerms: e.target.value,
+                          })
                         }
                         className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                       >
                         <option value="">Select payment terms</option>
-                        <option value="Net 15 days">Net 15 days</option>
                         <option value="Net 30 days">Net 30 days</option>
-                        <option value="Net 45 days">Net 45 days</option>
-                        <option value="Net 60 days">Net 60 days</option>
                         <option value="Due on receipt">Due on receipt</option>
-                        <option value="50% upfront, 50% on completion">50% upfront, 50% on completion</option>
-                        <option value="25% upfront, 75% on completion">25% upfront, 75% on completion</option>
+                        <option value="50% upfront, 50% on completion">
+                          50% upfront, 50% on completion
+                        </option>
                       </select>
                     </div>
                   </div>
