@@ -133,6 +133,14 @@ IMPORTANT: Use the exact values provided above. If any fields are empty, use the
 - Currency: ${contractData.currency || "USD"}
 
 CRITICAL: Use the client information above to populate the "Bill To" section of the invoice.`;
+
+      // If we have contract content text, use it for better context
+      if (contractData.contractContentText) {
+        userContext += `\n\nContract Content Context (use for generating relevant invoice items):
+${contractData.contractContentText}
+
+IMPORTANT: Use the contract content above to generate relevant invoice line items that match the actual work described in the contract.`;
+      }
     }
 
     const controller = new AbortController();
@@ -206,6 +214,41 @@ ${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
     try {
       parsed = JSON.parse(content);
       console.log("📄 Parsed invoice:", JSON.stringify(parsed, null, 2));
+
+      // Ensure "From" fields are populated from user settings if empty
+      if (
+        userSettings?.invoice &&
+        parsed &&
+        (!parsed.from || !parsed.from.name || !parsed.from.email)
+      ) {
+        console.log("🔧 Populating 'From' fields from user settings");
+        parsed.from = {
+          name: parsed.from?.name || userSettings.invoice.name || "Your Name",
+          email:
+            parsed.from?.email ||
+            userSettings.invoice.email ||
+            "your.email@example.com",
+          company:
+            parsed.from?.company ||
+            userSettings.invoice.company ||
+            "Your Company",
+          address:
+            parsed.from?.address ||
+            userSettings.invoice.address ||
+            "Your Address",
+        };
+      }
+
+      // Ensure client fields are populated from contract data if available
+      if (contractData && parsed && (!parsed.client || !parsed.client.name)) {
+        console.log("🔧 Populating client fields from contract data");
+        parsed.client = {
+          name: parsed.client?.name || contractData.clientName || "",
+          email: parsed.client?.email || contractData.clientEmail || "",
+          company: parsed.client?.company || contractData.clientCompany || "",
+          address: parsed.client?.address || "",
+        };
+      }
 
       // Log specific invoice fields to see what was populated
       console.log("🧾 Invoice content breakdown:", {

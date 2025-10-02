@@ -53,10 +53,10 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       
       // Allow limited profile updates by the owner without requiring an active subscription
-      // This permits changing only basic profile fields, image URLs, and tutorial state
+      // This permits changing basic profile fields, image URLs, tutorial state, and settings
       allow update: if request.auth != null && request.auth.uid == userId &&
                     request.resource.data.diff(resource.data).changedKeys()
-                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt', 'tutorialState']);
+                      .hasOnly(['displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt', 'tutorialState', 'contractSettings', 'invoiceSettings']);
 
       // Allow subscription updates by the owner (for cancellation, reactivation, etc.)
       // This is essential for subscription management to work properly

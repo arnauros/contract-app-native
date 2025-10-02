@@ -405,19 +405,92 @@ const FormParent: React.FC<FormParentProps> = ({
               const contractDocData = contractDoc.data();
               console.log("📄 Raw contract document data:", contractDocData);
 
+              // Extract contract content text from EditorJS blocks
+              let contractContentText = "";
+              if (contractDocData.content?.blocks) {
+                contractContentText = contractDocData.content.blocks
+                  .map((block: any) => {
+                    if (block.type === "paragraph" && block.data?.text) {
+                      return block.data.text;
+                    }
+                    if (block.type === "header" && block.data?.text) {
+                      return block.data.text;
+                    }
+                    if (block.type === "list" && block.data?.items) {
+                      return block.data.items.join(" ");
+                    }
+                    return "";
+                  })
+                  .filter(Boolean)
+                  .join(" ");
+              }
+
+              console.log(
+                "📄 FormParent - Contract content text extracted:",
+                contractContentText
+              );
+
+              // Extract client data using regex patterns from contract content
+              const extractClientData = (text: string) => {
+                // Improved regex patterns for better extraction
+                const clientNameMatch = text.match(
+                  /(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i
+                );
+                const emailMatch = text.match(
+                  /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+                );
+                const companyMatch = text.match(
+                  /(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i
+                );
+                const amountMatch = text.match(
+                  /(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i
+                );
+                const paymentMatch = text.match(
+                  /(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+?)(?:\n|$)/i
+                );
+
+                return {
+                  clientName: clientNameMatch?.[1]?.trim() || "",
+                  clientEmail: emailMatch?.[1] || "",
+                  clientCompany: companyMatch?.[1]?.trim() || "",
+                  totalAmount: amountMatch?.[1]?.replace(/,/g, "") || "",
+                  paymentTerms: paymentMatch?.[1]?.trim() || "",
+                };
+              };
+
+              const extractedData = extractClientData(contractContentText);
+              console.log(
+                "🔍 FormParent - Extracted data from contract content:",
+                extractedData
+              );
+
               contractData = {
                 id: contractDoc.id,
                 title:
                   contractDocData.title ||
                   contractDocData.content?.blocks?.[0]?.data?.text ||
                   "Contract",
-                clientName: contractDocData.clientName || "",
-                clientEmail: contractDocData.clientEmail || "",
-                clientCompany: contractDocData.clientCompany || "",
-                paymentTerms: contractDocData.paymentTerms || "Net 30 days",
+                clientName:
+                  extractedData.clientName || contractDocData.clientName || "",
+                clientEmail:
+                  extractedData.clientEmail ||
+                  contractDocData.clientEmail ||
+                  "",
+                clientCompany:
+                  extractedData.clientCompany ||
+                  contractDocData.clientCompany ||
+                  "",
+                paymentTerms:
+                  extractedData.paymentTerms ||
+                  contractDocData.paymentTerms ||
+                  "Net 30 days",
                 totalAmount:
-                  contractDocData.budget || contractDocData.totalAmount || "",
+                  extractedData.totalAmount ||
+                  contractDocData.budget ||
+                  contractDocData.totalAmount ||
+                  "",
                 currency: contractDocData.currency || "USD",
+                contractContentText: contractContentText, // Include contract content for AI context
               };
               console.log(
                 "📋 Processed contract data for invoice:",
@@ -661,6 +734,7 @@ const FormParent: React.FC<FormParentProps> = ({
           tax,
           total,
           notes: data.notes || "",
+          contractId: selectedContractId || "", // Link invoice to the contract it was generated from
           createdAt: new Date(),
           updatedAt: new Date(),
         };

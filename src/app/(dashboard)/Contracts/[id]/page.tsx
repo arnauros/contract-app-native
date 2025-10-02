@@ -303,16 +303,109 @@ export default function ContractPage() {
           };
         }
 
-        // Get contract data for client info
-        contractData = {
-          title: formData?.title || "Contract",
-          clientName: formData?.clientName || "",
-          clientEmail: formData?.clientEmail || "",
-          clientCompany: formData?.clientCompany || "",
-          paymentTerms: formData?.paymentTerms || "",
-          totalAmount: formData?.budget || "",
-          currency: formData?.currency || "USD",
+        // Get contract data for client info - check multiple sources
+        const contract = await getContract(id);
+        const contractDoc = contract?.success ? contract.contract : null;
+
+        // Extract contract content text from EditorJS blocks
+        let contractContentText = "";
+        if (contractDoc?.content?.blocks) {
+          contractContentText = contractDoc.content.blocks
+            .map((block: any) => {
+              if (block.type === "paragraph" && block.data?.text) {
+                return block.data.text;
+              }
+              if (block.type === "header" && block.data?.text) {
+                return block.data.text;
+              }
+              if (block.type === "list" && block.data?.items) {
+                return block.data.items.join(" ");
+              }
+              return "";
+            })
+            .filter(Boolean)
+            .join(" ");
+        }
+
+        console.log("📄 Contract content text extracted:", contractContentText);
+
+        // Extract client data using regex patterns from contract content
+        const extractClientData = (text: string) => {
+          // Improved regex patterns for better extraction
+          const clientNameMatch = text.match(
+            /(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i
+          );
+          const emailMatch = text.match(
+            /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+          );
+          const companyMatch = text.match(
+            /(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i
+          );
+          const amountMatch = text.match(
+            /(?:Total|Budget|Amount)[:\s]*\$?([0-9,]+(?:\.[0-9]{2})?)/i
+          );
+          const paymentMatch = text.match(
+            /(?:Payment Terms|Payment Schedule)[:\s]+([^\n\r]+?)(?:\n|$)/i
+          );
+
+          return {
+            clientName: clientNameMatch?.[1]?.trim() || "",
+            clientEmail: emailMatch?.[1] || "",
+            clientCompany: companyMatch?.[1]?.trim() || "",
+            totalAmount: amountMatch?.[1]?.replace(/,/g, "") || "",
+            paymentTerms: paymentMatch?.[1]?.trim() || "",
+          };
         };
+
+        const extractedData = extractClientData(contractContentText);
+        console.log("🔍 Extracted data from contract content:", extractedData);
+
+        // Extract client data from multiple possible sources
+        const contractDocAny = contractDoc as any;
+        const clientName =
+          extractedData.clientName ||
+          formData?.clientName ||
+          contractDocAny?.clientName ||
+          contractDocAny?.formData?.clientName ||
+          contractState?.clientName ||
+          "";
+
+        const clientEmail =
+          extractedData.clientEmail ||
+          formData?.clientEmail ||
+          contractDocAny?.clientEmail ||
+          contractDocAny?.formData?.clientEmail ||
+          "";
+
+        const clientCompany =
+          extractedData.clientCompany ||
+          formData?.clientCompany ||
+          contractDocAny?.clientCompany ||
+          contractDocAny?.formData?.clientCompany ||
+          "";
+
+        contractData = {
+          id: id,
+          title: formData?.title || contractDoc?.title || "Contract",
+          clientName,
+          clientEmail,
+          clientCompany,
+          paymentTerms:
+            extractedData.paymentTerms ||
+            formData?.paymentTerms ||
+            contractDocAny?.paymentTerms ||
+            "Net 30 days",
+          totalAmount:
+            extractedData.totalAmount ||
+            formData?.budget ||
+            contractDocAny?.budget ||
+            contractDocAny?.totalAmount ||
+            "",
+          currency: formData?.currency || contractDocAny?.currency || "USD",
+          contractContentText: contractContentText, // Include contract content for AI context
+        };
+
+        console.log("📋 Extracted contract data for invoice:", contractData);
       } catch (error) {
         console.log("Failed to load user settings or contract data:", error);
       }
@@ -374,6 +467,7 @@ export default function ContractPage() {
         tax,
         total,
         notes: data.notes || "",
+        contractId: id, // Link invoice to the contract it was generated from
         createdAt: new Date(),
         updatedAt: new Date(),
       };

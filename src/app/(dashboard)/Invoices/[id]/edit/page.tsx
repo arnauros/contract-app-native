@@ -141,10 +141,22 @@ export default function InvoiceEditPage() {
               address: invoiceData.client?.address || "",
             },
             from: {
-              name: invoiceData.from?.name || userSettings?.name || "",
-              email: invoiceData.from?.email || userSettings?.email || "",
-              company: invoiceData.from?.company || userSettings?.company || "",
-              address: invoiceData.from?.address || userSettings?.address || "",
+              name:
+                invoiceData.from?.name ||
+                userSettings?.invoiceSettings?.name ||
+                "",
+              email:
+                invoiceData.from?.email ||
+                userSettings?.invoiceSettings?.email ||
+                "",
+              company:
+                invoiceData.from?.company ||
+                userSettings?.invoiceSettings?.company ||
+                "",
+              address:
+                invoiceData.from?.address ||
+                userSettings?.invoiceSettings?.address ||
+                "",
             },
             items:
               invoiceData.items?.length > 0
@@ -613,12 +625,12 @@ export default function InvoiceEditPage() {
                 {userSettings.invoice.paymentTerms === "net30"
                   ? "Net 30 days"
                   : userSettings.invoice.paymentTerms === "net15"
-                  ? "Net 15 days"
-                  : userSettings.invoice.paymentTerms === "net7"
-                  ? "Net 7 days"
-                  : userSettings.invoice.paymentTerms === "due_on_receipt"
-                  ? "Due on receipt"
-                  : userSettings.invoice.paymentTerms}
+                    ? "Net 15 days"
+                    : userSettings.invoice.paymentTerms === "net7"
+                      ? "Net 7 days"
+                      : userSettings.invoice.paymentTerms === "due_on_receipt"
+                        ? "Due on receipt"
+                        : userSettings.invoice.paymentTerms}
               </p>
             )}
           </div>
