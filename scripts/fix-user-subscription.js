@@ -105,7 +105,6 @@ async function fixUserSubscription(email) {
 
     console.log("🎉 Subscription fix completed successfully!");
     console.log("📊 Final subscription data:", subscriptionData);
-
   } catch (error) {
     console.error("❌ Error fixing subscription:", error);
   }
@@ -118,10 +117,12 @@ if (!email) {
   process.exit(1);
 }
 
-fixUserSubscription(email).then(() => {
-  console.log("Script completed");
-  process.exit(0);
-}).catch((error) => {
-  console.error("Script failed:", error);
-  process.exit(1);
-});
+fixUserSubscription(email)
+  .then(() => {
+    console.log("Script completed");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("Script failed:", error);
+    process.exit(1);
+  });

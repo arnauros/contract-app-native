@@ -89,8 +89,8 @@ export async function POST(req: Request) {
       status: activeSubscription.status,
       customerId: customer.id,
       tier: "pro",
-      currentPeriodEnd: activeSubscription.current_period_end,
-      cancelAtPeriodEnd: activeSubscription.cancel_at_period_end || false,
+      currentPeriodEnd: (activeSubscription as any).current_period_end,
+      cancelAtPeriodEnd: (activeSubscription as any).cancel_at_period_end || false,
     };
 
     await db.collection("users").doc(userId).update({

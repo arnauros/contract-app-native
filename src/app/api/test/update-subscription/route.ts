@@ -18,10 +18,7 @@ export async function POST(req: Request) {
     const { email } = await req.json();
 
     if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     // Check if Firebase Admin is initialized
@@ -66,7 +63,7 @@ export async function POST(req: Request) {
     }
 
     const customer = customers.data[0];
-    
+
     // Get active subscriptions for this customer
     const subscriptions = await stripe.subscriptions.list({
       customer: customer.id,
@@ -76,7 +73,10 @@ export async function POST(req: Request) {
 
     if (subscriptions.data.length === 0) {
       return NextResponse.json(
-        { error: "No active subscriptions found for customer", customerId: customer.id },
+        {
+          error: "No active subscriptions found for customer",
+          customerId: customer.id,
+        },
         { status: 404 }
       );
     }
@@ -89,8 +89,8 @@ export async function POST(req: Request) {
       status: activeSubscription.status,
       customerId: customer.id,
       tier: "pro",
-      currentPeriodEnd: activeSubscription.current_period_end,
-      cancelAtPeriodEnd: activeSubscription.cancel_at_period_end || false,
+      currentPeriodEnd: (activeSubscription as any).current_period_end,
+      cancelAtPeriodEnd: (activeSubscription as any).cancel_at_period_end || false,
     };
 
     await db.collection("users").doc(userId).update({
