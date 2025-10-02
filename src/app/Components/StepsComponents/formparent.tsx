@@ -646,8 +646,9 @@ const FormParent: React.FC<FormParentProps> = ({
                             setSelectedContractId(e.target.value)
                           }
                           className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                          required
                         >
-                          <option value="">Select a contract (optional)</option>
+                          <option value="">Select a contract</option>
                           {contracts.map((contract) => {
                             // Get contract title from content blocks or use fallback
                             const contractTitle =
@@ -722,6 +723,12 @@ const FormParent: React.FC<FormParentProps> = ({
               </div>
             }
             onSubmit={async (message: string, files: File[]) => {
+              // Validate contract selection for invoice mode
+              if (documentType === "invoice" && !selectedContractId) {
+                toast.error("Please select a contract to generate an invoice from");
+                return;
+              }
+              
               setFormData({ ...formData, projectBrief: message });
 
               let processedSummaries: Record<string, string> = {};

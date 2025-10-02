@@ -555,7 +555,50 @@ export function ContractEditor({
 
         // Simple approach - let CSS handle the typography
 
-        // CSS will handle the typography automatically
+        // Debug: Log what EditorJS is actually rendering
+        setTimeout(() => {
+          console.log("🔍 EditorJS Debug - Checking heading elements:");
+
+          const allHeaders = document.querySelectorAll(
+            ".ce-header, h1, h2, h3, h4, h5, h6"
+          );
+          allHeaders.forEach((header, index) => {
+            const computedStyle = window.getComputedStyle(header);
+            console.log(`Header ${index + 1}:`, {
+              element: header,
+              tagName: header.tagName,
+              className: header.className,
+              dataLevel: header.getAttribute("data-level"),
+              computedFontSize: computedStyle.fontSize,
+              computedFontWeight: computedStyle.fontWeight,
+              computedLineHeight: computedStyle.lineHeight,
+              textContent: header.textContent?.substring(0, 50) + "...",
+            });
+          });
+
+          // Also check for any conflicting styles
+          const styleSheets = Array.from(document.styleSheets);
+          console.log(
+            "📋 All stylesheets:",
+            styleSheets.map((sheet) => sheet.href || "inline")
+          );
+
+          // Check if our CSS is being applied
+          const testElement = document.querySelector(
+            '.codex-editor .ce-block .ce-block__content .ce-header[data-level="1"]'
+          );
+          if (testElement) {
+            const testStyle = window.getComputedStyle(testElement);
+            console.log("🎯 Our H1 rule test:", {
+              element: testElement,
+              fontSize: testStyle.fontSize,
+              fontWeight: testStyle.fontWeight,
+              lineHeight: testStyle.lineHeight,
+            });
+          } else {
+            console.log("❌ No H1 elements found with our selector");
+          }
+        }, 2000);
 
         // Process content to replace placeholders with actual values
         if (companyName && editor && containerRef.current) {
