@@ -100,6 +100,37 @@ const FormParent: React.FC<FormParentProps> = ({
     }
   }, []);
 
+  // Populate form fields when contract is selected for invoice generation
+  useEffect(() => {
+    if (documentType === "invoice" && selectedContractId && contracts.length > 0) {
+      const selectedContract = contracts.find(c => c.id === selectedContractId);
+      if (selectedContract) {
+        console.log("🔄 Populating form fields from selected contract:", selectedContract);
+        
+        // Extract dates from contract if available
+        const startDate = selectedContract.startDate || selectedContract.createdAt?.toDate?.()?.toISOString().split('T')[0] || "";
+        const endDate = selectedContract.endDate || "";
+        const budget = selectedContract.budget || selectedContract.totalAmount || "";
+        
+        // Update form data with contract information
+        setFormData(prev => ({
+          ...prev,
+          startDate,
+          endDate,
+          budget: budget.toString(),
+          projectBrief: selectedContract.content?.blocks?.[0]?.data?.text || selectedContract.title || prev.projectBrief
+        }));
+        
+        console.log("✅ Form fields populated:", {
+          startDate,
+          endDate,
+          budget,
+          projectBrief: selectedContract.content?.blocks?.[0]?.data?.text || selectedContract.title
+        });
+      }
+    }
+  }, [selectedContractId, contracts, documentType]);
+
   useEffect(() => {
     router.prefetch("/Contracts/[id]");
 
@@ -303,7 +334,7 @@ const FormParent: React.FC<FormParentProps> = ({
       if (isInvoice && user) {
         console.log("🧾 Invoice generation: Starting data fetch...");
         console.log("🧾 Selected contract ID:", selectedContractId);
-        
+
         try {
           const db = getFirestore();
           const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -318,14 +349,17 @@ const FormParent: React.FC<FormParentProps> = ({
 
           // Fetch contract data if a contract is selected
           if (selectedContractId) {
-            console.log("📄 Fetching contract data for ID:", selectedContractId);
+            console.log(
+              "📄 Fetching contract data for ID:",
+              selectedContractId
+            );
             const contractDoc = await getDoc(
               doc(db, "contracts", selectedContractId)
             );
             if (contractDoc.exists()) {
               const contractDocData = contractDoc.data();
               console.log("📄 Raw contract document data:", contractDocData);
-              
+
               contractData = {
                 id: contractDoc.id,
                 title:
@@ -340,15 +374,24 @@ const FormParent: React.FC<FormParentProps> = ({
                   contractDocData.budget || contractDocData.totalAmount || "",
                 currency: contractDocData.currency || "USD",
               };
-              console.log("📋 Processed contract data for invoice:", contractData);
+              console.log(
+                "📋 Processed contract data for invoice:",
+                contractData
+              );
             } else {
-              console.log("❌ Contract document not found for ID:", selectedContractId);
+              console.log(
+                "❌ Contract document not found for ID:",
+                selectedContractId
+              );
             }
           } else {
             console.log("ℹ️ No contract selected for invoice generation");
           }
         } catch (error) {
-          console.log("❌ Failed to load user settings or contract data:", error);
+          console.log(
+            "❌ Failed to load user settings or contract data:",
+            error
+          );
         }
       }
 
@@ -365,10 +408,10 @@ const FormParent: React.FC<FormParentProps> = ({
         userSettings: isInvoice ? userSettings : undefined,
         contractData: isInvoice ? contractData : undefined,
       };
-      
+
       console.log("🚀 Sending request to API:", {
         endpoint: isInvoice ? "/api/generateInvoice" : "/api/generateContract",
-        payload: requestPayload
+        payload: requestPayload,
       });
 
       const response = await fetch(
