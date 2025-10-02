@@ -1116,7 +1116,7 @@ const FormParent: React.FC<FormParentProps> = ({
                             setFormData({ ...formData, budget: numericValue });
                           }
                         }}
-                        className="w-full rounded-md border border-gray-200 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 ml-8"
+                        className="w-full rounded-md border border-gray-200 pl-2 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
                       />
                     </div>
                   </div>
