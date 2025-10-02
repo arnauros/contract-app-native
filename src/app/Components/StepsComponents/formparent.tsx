@@ -47,6 +47,7 @@ const FormParent: React.FC<FormParentProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [contracts, setContracts] = useState<any[]>([]);
   const [selectedContractId, setSelectedContractId] = useState<string>("");
+  const [documentType, setDocumentType] = useState<"contract" | "invoice">("contract");
   const { user } = useAuth();
   const { trackAction } = useTutorial();
   const accountLimits = useAccountLimits();
@@ -76,6 +77,14 @@ const FormParent: React.FC<FormParentProps> = ({
 
     loadContracts();
   }, [user]);
+
+  // Sync document type with localStorage
+  useEffect(() => {
+    const storedType = localStorage.getItem("hero-request-type") as "contract" | "invoice";
+    if (storedType) {
+      setDocumentType(storedType);
+    }
+  }, []);
 
   useEffect(() => {
     router.prefetch("/Contracts/[id]");
@@ -169,11 +178,8 @@ const FormParent: React.FC<FormParentProps> = ({
       return;
     }
 
-    // Determine request type (contract by default)
-    const requestType =
-      (typeof window !== "undefined" &&
-        localStorage.getItem("hero-request-type")) ||
-      "contract";
+          // Use the current document type
+          const requestType = documentType;
 
     // Check account limits based on request type
     if (!accountLimits.loading) {
@@ -575,6 +581,7 @@ const FormParent: React.FC<FormParentProps> = ({
           <HeroChat
             initialMessage={formData.projectBrief}
             showDocumentTypeToggle={true}
+            onDocumentTypeChange={setDocumentType}
             onFilesProcessed={(processed) => {
               if (processed && processed.length > 0) {
                 handleFileUpload(
@@ -586,11 +593,7 @@ const FormParent: React.FC<FormParentProps> = ({
               <div className="space-y-4">
                 {/* Contract Selection for Invoices Only */}
                 {(() => {
-                  const requestType =
-                    typeof window !== "undefined"
-                      ? localStorage.getItem("hero-request-type") || "contract"
-                      : "contract";
-                  if (requestType === "invoice" && contracts.length > 0) {
+                  if (documentType === "invoice" && contracts.length > 0) {
                     return (
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -606,9 +609,10 @@ const FormParent: React.FC<FormParentProps> = ({
                           <option value="">Select a contract (optional)</option>
                           {contracts.map((contract) => {
                             // Get contract title from content blocks or use fallback
-                            const contractTitle = contract.content?.blocks?.[0]?.data?.text || 
-                                                contract.title || 
-                                                `Contract ${contract.id.slice(0, 8)}`;
+                            const contractTitle =
+                              contract.content?.blocks?.[0]?.data?.text ||
+                              contract.title ||
+                              `Contract ${contract.id.slice(0, 8)}`;
                             return (
                               <option key={contract.id} value={contract.id}>
                                 {contractTitle}

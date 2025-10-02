@@ -149,6 +149,38 @@ export default function SubscriptionDebug() {
 
           <button
             onClick={async () => {
+              if (!user) return;
+              try {
+                const response = await fetch("/api/debug/enable-dev-bypass", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ userId: user.uid }),
+                });
+
+                if (response.ok) {
+                  toast.success(
+                    "Development bypass enabled! You can now delete invoices."
+                  );
+                  setRefreshCount((prev) => prev + 1);
+                } else {
+                  const error = await response.json();
+                  toast.error("Failed to enable dev bypass: " + error.error);
+                }
+              } catch (error) {
+                console.error("Failed to enable dev bypass:", error);
+                toast.error("Failed to enable dev bypass");
+              }
+            }}
+            disabled={isLoading}
+            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
+          >
+            Enable Dev Bypass
+          </button>
+
+          <button
+            onClick={async () => {
               try {
                 if (!user) {
                   toast.error("You need to be logged in to fix cookies");
@@ -291,8 +323,8 @@ export default function SubscriptionDebug() {
                     userClaims?.subscriptionStatus === "active"
                       ? "text-green-600"
                       : userClaims?.subscriptionStatus === "canceled"
-                      ? "text-red-600"
-                      : "text-yellow-600"
+                        ? "text-red-600"
+                        : "text-yellow-600"
                   }
                 >
                   {userClaims?.subscriptionStatus || "not set"}
@@ -344,8 +376,8 @@ export default function SubscriptionDebug() {
                         firestoreData.subscription.status === "active"
                           ? "text-green-600"
                           : firestoreData.subscription.status === "canceled"
-                          ? "text-red-600"
-                          : "text-yellow-600"
+                            ? "text-red-600"
+                            : "text-yellow-600"
                       }
                     >
                       {firestoreData.subscription.status}
@@ -410,8 +442,8 @@ export default function SubscriptionDebug() {
                     cookieData?.subscription_status === "active"
                       ? "text-green-600"
                       : cookieData?.subscription_status === "canceled"
-                      ? "text-red-600"
-                      : "text-yellow-600"
+                        ? "text-red-600"
+                        : "text-yellow-600"
                   }
                 >
                   {cookieData?.subscription_status}

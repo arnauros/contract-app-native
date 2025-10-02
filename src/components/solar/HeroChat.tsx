@@ -30,6 +30,7 @@ type HeroChatProps = {
   additionalFields?: React.ReactNode;
   // Optional: show document type toggle
   showDocumentTypeToggle?: boolean;
+  onDocumentTypeChange?: (type: "contract" | "invoice") => void;
 };
 
 export function HeroChat({
@@ -40,6 +41,7 @@ export function HeroChat({
   onFilesProcessed,
   additionalFields,
   showDocumentTypeToggle = false,
+  onDocumentTypeChange,
 }: HeroChatProps) {
   const [message, setMessage] = useState(initialMessage);
   const [isTyping, setIsTyping] = useState(false);
@@ -322,13 +324,15 @@ export function HeroChat({
     try {
       localStorage.setItem("hero-request-type", type);
     } catch {}
+    // Notify parent component of the change
+    onDocumentTypeChange?.(type);
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="relative">
         <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-          {/* Document Type Toggle */}
+          {/* Document Type Toggle - Only show when showDocumentTypeToggle is true */}
           {showDocumentTypeToggle && (
             <div className="px-4 pt-3 pb-2 flex justify-center">
               <div className="bg-gray-100 rounded-lg p-1 flex">
@@ -355,7 +359,7 @@ export function HeroChat({
               </div>
             </div>
           )}
-          
+
           <div className="p-4">
             <div className="relative">
               <textarea
