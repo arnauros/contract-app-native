@@ -38,7 +38,7 @@ export interface FormData {
 
 interface FormParentProps {
   formData: FormData;
-  setFormData: (data: FormData) => void;
+  setFormData: (data: FormData | ((prev: FormData) => FormData)) => void;
   onStageChange: (stage: number) => void;
 }
 
@@ -80,11 +80,11 @@ const FormParent: React.FC<FormParentProps> = ({
         const contractsData = contractsSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })) as Array<{ id: string; title?: string; [key: string]: any }>;
 
         console.log("📄 Contract loading: Found contracts", {
           count: contractsData.length,
-          contracts: contractsData.map((c) => ({ id: c.id, title: c.title })),
+          contracts: contractsData.map((c) => ({ id: c.id, title: c.title || "Untitled" })),
         });
 
         setContracts(contractsData);
@@ -659,10 +659,10 @@ const FormParent: React.FC<FormParentProps> = ({
               }
             : "No extracted data",
           metadata: {
-            startDate: contractData.metadata?.startDate || "",
-            endDate: contractData.metadata?.endDate || "",
-            budget: contractData.metadata?.budget || "",
-            attachmentsCount: contractData.metadata?.attachments?.length || 0,
+            startDate: contractData.rawContent?.startDate || "",
+            endDate: contractData.rawContent?.endDate || "",
+            budget: contractData.rawContent?.budget || contractData.totalAmount || "",
+            attachmentsCount: contractData.rawContent?.attachments?.length || 0,
           },
         });
 

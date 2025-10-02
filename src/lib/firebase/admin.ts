@@ -184,6 +184,15 @@ export const adminAuth = (() => {
             lastSignInTime: new Date().toISOString(),
           },
         }),
+        setCustomUserClaims: async (uid: string, claims: any) => {
+          console.log(
+            "Mock setCustomUserClaims called for uid:",
+            uid,
+            "claims:",
+            claims
+          );
+          return Promise.resolve();
+        },
         // Add other methods as needed
       };
     }
@@ -219,6 +228,15 @@ export const adminAuth = (() => {
           lastSignInTime: new Date().toISOString(),
         },
       }),
+      setCustomUserClaims: async (uid: string, claims: any) => {
+        console.log(
+          "Mock setCustomUserClaims called for uid:",
+          uid,
+          "claims:",
+          claims
+        );
+        return Promise.resolve();
+      },
       // Add other methods as needed
     };
   }

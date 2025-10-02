@@ -251,14 +251,16 @@ ${projectInfo}${attachmentsInfo}${userContext}${debugBanner}`,
       }
 
       // Log specific invoice fields to see what was populated
-      console.log("🧾 Invoice content breakdown:", {
-        title: parsed.title,
-        client: parsed.client,
-        from: parsed.from,
-        items: parsed.items,
-        total: parsed.total,
-        notes: parsed.notes,
-      });
+      if (parsed) {
+        console.log("🧾 Invoice content breakdown:", {
+          title: parsed.title,
+          client: parsed.client,
+          from: parsed.from,
+          items: parsed.items,
+          total: parsed.total,
+          notes: parsed.notes,
+        });
+      }
     } catch (e) {
       console.error("Failed to parse JSON from OpenAI:", e);
       console.error("Raw content:", content);

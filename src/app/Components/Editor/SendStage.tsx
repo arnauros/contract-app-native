@@ -158,6 +158,9 @@ export function SendStage({ onSend, title }: SendStageProps) {
       }
 
       // Get contract data for client info
+      if (!db) {
+        throw new Error("Database not initialized");
+      }
       const contract = await getDoc(doc(db, "contracts", contractId));
       if (!contract.exists()) {
         throw new Error("Contract not found");
