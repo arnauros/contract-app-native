@@ -1765,23 +1765,25 @@ export function ContractEditor({
             )}
 
             {/* Overlapping circular avatar */}
-            <div className="absolute -bottom-16 left-6 h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100 group">
-              <img
-                src={
-                  (logoUrl !== "/placeholder-logo.png"
-                    ? logoUrl
-                    : "/placeholders/profile.png") +
-                  ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
-                }
-                alt="Profile image"
-                className="w-full h-full object-cover"
-                title="Edit Profile Picture In Settings"
-              />
+            <div className="absolute -bottom-16 left-6 h-32 w-32 group">
+              <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100">
+                <img
+                  src={
+                    (logoUrl !== "/placeholder-logo.png"
+                      ? logoUrl
+                      : "/placeholders/profile.png") +
+                    ((logoUrl || "").includes("?") ? "" : `?t=${Date.now()}`)
+                  }
+                  alt="Profile image"
+                  className="w-full h-full object-cover"
+                  title="Edit Profile Picture In Settings"
+                />
+              </div>
               {/* Remove profile image button - only in draft mode */}
               {stage === "edit" && logoUrl !== "/placeholder-logo.png" && (
                 <button
                   onClick={() => setLogoUrl("/placeholder-logo.png")}
-                  className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-20"
                   title="Remove profile image"
                 >
                   <svg
