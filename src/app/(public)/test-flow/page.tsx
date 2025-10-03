@@ -136,28 +136,17 @@ export default function TestFlowPage() {
           throw new Error(errorData.error || `API error: ${response.status}`);
         }
 
-        const { sessionId } = await response.json();
+        const { sessionId, url } = await response.json();
         console.log("Got session ID:", sessionId);
 
-        // Import Stripe directly
-        const stripePromise = await import("@stripe/stripe-js").then((module) =>
-          module.loadStripe(
-            process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-          )
-        );
-
-        if (!stripePromise) {
-          throw new Error("Failed to load Stripe");
+        if (!url) {
+          throw new Error("No checkout URL returned from server");
         }
 
         toast.success("Redirecting to Stripe checkout...");
 
-        // Redirect to checkout
-        const result = await stripePromise.redirectToCheckout({ sessionId });
-
-        if (result.error) {
-          throw result.error;
-        }
+        // Redirect directly to the checkout URL
+        window.location.href = url;
       } catch (apiError) {
         console.error("Checkout API error:", apiError);
         toast.error("Checkout failed. Please try again.");

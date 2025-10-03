@@ -19,6 +19,7 @@
     "fix-all": "node scripts/fix-all.js",
     "verify-stripe": "node scripts/verify-stripe-config.js",
     "test-subscription": "node scripts/test-subscription-guard.js",
+    "test-webhook": "node scripts/test-webhook-local.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
