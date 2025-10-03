@@ -99,6 +99,125 @@ const FormParent: React.FC<FormParentProps> = ({
     loadContracts();
   }, [user]);
 
+  // Auto-populate form data when contract is selected
+  useEffect(() => {
+    const populateFromContract = async () => {
+      if (!selectedContractId || !user) {
+        return;
+      }
+
+      console.log("🔄 Auto-populating form from contract:", selectedContractId);
+      
+      try {
+        const db = getFirestore();
+        const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
+        
+        if (!contractDoc.exists()) {
+          console.warn("Contract not found:", selectedContractId);
+          return;
+        }
+
+        const contractData = contractDoc.data();
+        console.log("📄 Contract data for auto-population:", contractData);
+
+        // Extract contract content text from EditorJS blocks
+        let contractContentText = "";
+        if (contractData.content?.blocks) {
+          contractContentText = contractData.content.blocks
+            .map((block: any) => {
+              if (block.type === "paragraph" && block.data?.text) {
+                return block.data.text;
+              }
+              if (block.type === "header" && block.data?.text) {
+                return block.data.text;
+              }
+              if (block.type === "list" && block.data?.items) {
+                return block.data.items.join(" ");
+              }
+              return "";
+            })
+            .filter(Boolean)
+            .join(" ");
+        }
+
+        // Extract client data using regex patterns from contract content
+        const extractClientData = (text: string) => {
+          const clientNameMatch = text.match(
+            /(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i
+          );
+          const emailMatch = text.match(
+            /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+          );
+          const companyMatch = text.match(
+            /(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i
+          );
+          const amountMatch = text.match(
+            /(?:Total|Amount|Price|Budget)[:\s]*\$?([0-9,]+)/i
+          );
+          const startDateMatch = text.match(
+            /(?:Start|Begin|Commence)[:\s]+([A-Za-z0-9\s,/-]+)/i
+          );
+          const endDateMatch = text.match(
+            /(?:End|Finish|Complete|Due)[:\s]+([A-Za-z0-9\s,/-]+)/i
+          );
+
+          return {
+            clientName: clientNameMatch?.[1]?.trim() || "",
+            clientEmail: emailMatch?.[1]?.trim() || "",
+            clientCompany: companyMatch?.[1]?.trim() || "",
+            budget: amountMatch?.[1]?.replace(/,/g, "") || "",
+            startDate: startDateMatch?.[1]?.trim() || "",
+            endDate: endDateMatch?.[1]?.trim() || "",
+          };
+        };
+
+        const extractedData = extractClientData(contractContentText);
+        
+        // Also check formData fields directly from contract
+        const directData = {
+          clientName: contractData.formData?.clientName || contractData.clientName || "",
+          clientEmail: contractData.formData?.clientEmail || contractData.clientEmail || "",
+          clientCompany: contractData.formData?.clientCompany || contractData.clientCompany || "",
+          budget: contractData.formData?.budget || contractData.budget || contractData.totalAmount || "",
+          startDate: contractData.formData?.startDate || contractData.startDate || "",
+          endDate: contractData.formData?.endDate || contractData.endDate || "",
+          paymentTerms: contractData.formData?.paymentTerms || contractData.paymentTerms || "Net 30 days",
+          currency: contractData.formData?.currency || contractData.currency || "$",
+        };
+
+        // Merge extracted and direct data, preferring direct data
+        const finalData = {
+          clientName: directData.clientName || extractedData.clientName,
+          clientEmail: directData.clientEmail || extractedData.clientEmail,
+          clientCompany: directData.clientCompany || extractedData.clientCompany,
+          budget: directData.budget || extractedData.budget,
+          startDate: directData.startDate || extractedData.startDate,
+          endDate: directData.endDate || extractedData.endDate,
+          paymentTerms: directData.paymentTerms,
+          currency: directData.currency,
+        };
+
+        console.log("🎯 Final auto-population data:", finalData);
+
+        // Update form data with extracted information
+        setFormData(prev => ({
+          ...prev,
+          ...finalData,
+        }));
+
+        toast.success("Contract data populated successfully!", {
+          duration: 2000,
+        });
+
+      } catch (error) {
+        console.error("❌ Error auto-populating from contract:", error);
+        toast.error("Failed to load contract data");
+      }
+    };
+
+    populateFromContract();
+  }, [selectedContractId, user]);
+
   // Sync document type with localStorage
   useEffect(() => {
     const storedType = localStorage.getItem("hero-request-type") as
@@ -916,7 +1035,7 @@ const FormParent: React.FC<FormParentProps> = ({
                         {selectedContractId && (
                           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
                             <p className="text-xs text-green-700">
-                              ✓ Contract selected - client details will be
+                              ✓ Contract selected - client info, budget, and dates will be
                               populated automatically
                             </p>
                           </div>
