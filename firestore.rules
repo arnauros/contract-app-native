@@ -67,7 +67,7 @@ service cloud.firestore {
       // Allow creating a user profile document by the owner with required signup fields
       allow create: if request.auth != null && request.auth.uid == userId &&
                     request.resource.data.keys()
-                      .hasOnly(['email', 'createdAt', 'subscription', 'tutorialState', 'displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt']);
+                      .hasOnly(['email', 'createdAt', 'subscription', 'tutorialState', 'displayName', 'profileImageUrl', 'profileBannerUrl', 'updatedAt', 'contractSettings', 'invoiceSettings']);
 
       // For other writes, require active subscription or admin
       allow write: if (request.auth != null && request.auth.uid == userId && 

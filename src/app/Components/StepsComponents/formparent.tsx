@@ -155,27 +155,27 @@ const FormParent: React.FC<FormParentProps> = ({
           const clientNameMatch = text.match(
             /(?:Client Name|Client)[:\s]+([A-Z][a-zA-Z\s]{2,30})(?:\s*[,\.\n]|$)/i
           );
-          
+
           // Look for email in client information context
           const emailMatch = text.match(
             /(?:Client Email|Email|Contact)[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i
           );
-          
+
           // Look for company in client information context
           const companyMatch = text.match(
             /(?:Client Company|Company|Organization)[:\s]+([A-Z][a-zA-Z\s&]{2,50})(?:\s*[,\.\n]|$)/i
           );
-          
+
           // Look for budget/total in project context
           const amountMatch = text.match(
             /(?:Total Amount|Project Budget|Budget|Total)[:\s]*\$?([0-9,]+)/i
           );
-          
+
           // Look for dates in project timeline context
           const startDateMatch = text.match(
             /(?:Project Start|Start Date|Begin)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i
           );
-          
+
           const endDateMatch = text.match(
             /(?:Project End|End Date|Completion|Due Date)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i
           );
@@ -184,8 +184,18 @@ const FormParent: React.FC<FormParentProps> = ({
           const isValidClientName = (name: string) => {
             if (!name || name.length < 2) return false;
             // Reject if it contains contract language
-            const contractWords = ['contractor', 'client', 'agreement', 'compensate', 'work', 'project', 'services'];
-            return !contractWords.some(word => name.toLowerCase().includes(word));
+            const contractWords = [
+              "contractor",
+              "client",
+              "agreement",
+              "compensate",
+              "work",
+              "project",
+              "services",
+            ];
+            return !contractWords.some((word) =>
+              name.toLowerCase().includes(word)
+            );
           };
 
           const isValidEmail = (email: string) => {
@@ -195,16 +205,32 @@ const FormParent: React.FC<FormParentProps> = ({
           const isValidCompany = (company: string) => {
             if (!company || company.length < 2) return false;
             // Reject if it contains contract language
-            const contractWords = ['contractor', 'client', 'agreement', 'compensate', 'work', 'project', 'services'];
-            return !contractWords.some(word => company.toLowerCase().includes(word));
+            const contractWords = [
+              "contractor",
+              "client",
+              "agreement",
+              "compensate",
+              "work",
+              "project",
+              "services",
+            ];
+            return !contractWords.some((word) =>
+              company.toLowerCase().includes(word)
+            );
           };
 
           const isValidAmount = (amount: string) => {
-            return amount && /^[0-9,]+$/.test(amount) && parseInt(amount.replace(/,/g, '')) > 0;
+            return (
+              amount &&
+              /^[0-9,]+$/.test(amount) &&
+              parseInt(amount.replace(/,/g, "")) > 0
+            );
           };
 
           const isValidDate = (date: string) => {
-            return date && /^[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4}$/.test(date);
+            return (
+              date && /^[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4}$/.test(date)
+            );
           };
 
           const extractedName = clientNameMatch?.[1]?.trim() || "";
@@ -226,9 +252,13 @@ const FormParent: React.FC<FormParentProps> = ({
           return {
             clientName: isValidClientName(extractedName) ? extractedName : "",
             clientEmail: isValidEmail(extractedEmail) ? extractedEmail : "",
-            clientCompany: isValidCompany(extractedCompany) ? extractedCompany : "",
+            clientCompany: isValidCompany(extractedCompany)
+              ? extractedCompany
+              : "",
             budget: isValidAmount(extractedBudget) ? extractedBudget : "",
-            startDate: isValidDate(extractedStartDate) ? extractedStartDate : "",
+            startDate: isValidDate(extractedStartDate)
+              ? extractedStartDate
+              : "",
             endDate: isValidDate(extractedEndDate) ? extractedEndDate : "",
           };
         };
@@ -298,18 +328,33 @@ const FormParent: React.FC<FormParentProps> = ({
         console.log("🎯 Extracted data:", extractedData);
 
         // Check if we actually have meaningful data to populate
-        const hasValidData = finalData.clientName || 
-                           finalData.clientEmail || 
-                           finalData.clientCompany || 
-                           finalData.budget || 
-                           finalData.startDate || 
-                           finalData.endDate;
+        const hasValidData =
+          finalData.clientName ||
+          finalData.clientEmail ||
+          finalData.clientCompany ||
+          finalData.budget ||
+          finalData.startDate ||
+          finalData.endDate;
 
-        // Update form data with extracted information
+        // Update form data with extracted information, ensuring we don't overwrite existing data
         setFormData((prev) => {
           const newData = {
             ...prev,
-            ...finalData,
+            // Only update fields that have meaningful values
+            ...(finalData.clientName && { clientName: finalData.clientName }),
+            ...(finalData.clientEmail && {
+              clientEmail: finalData.clientEmail,
+            }),
+            ...(finalData.clientCompany && {
+              clientCompany: finalData.clientCompany,
+            }),
+            ...(finalData.budget && { budget: finalData.budget }),
+            ...(finalData.startDate && { startDate: finalData.startDate }),
+            ...(finalData.endDate && { endDate: finalData.endDate }),
+            ...(finalData.paymentTerms && {
+              paymentTerms: finalData.paymentTerms,
+            }),
+            ...(finalData.currency && { currency: finalData.currency }),
           };
           console.log("🎯 Setting form data to:", newData);
           return newData;
@@ -321,7 +366,9 @@ const FormParent: React.FC<FormParentProps> = ({
             duration: 2000,
           });
         } else {
-          console.log("⚠️ No valid client data found in contract, skipping auto-population");
+          console.log(
+            "⚠️ No valid client data found in contract, skipping auto-population"
+          );
         }
       } catch (error) {
         console.error("❌ Error auto-populating from contract:", error);
@@ -367,21 +414,32 @@ const FormParent: React.FC<FormParentProps> = ({
         const budget =
           selectedContract.budget || selectedContract.totalAmount || "";
 
-        // Update form data with contract information
+        // Update form data with contract information, ensuring we populate all available fields
         setFormData((prev) => ({
           ...prev,
-          startDate,
-          endDate,
-          budget: budget.toString(),
-          projectBrief:
-            selectedContract.content?.blocks?.[0]?.data?.text ||
-            selectedContract.title ||
-            prev.projectBrief,
-          // Populate client information from selected contract
-          clientName: selectedContract.clientName || prev.clientName,
-          clientEmail: selectedContract.clientEmail || prev.clientEmail,
-          clientCompany: selectedContract.clientCompany || prev.clientCompany,
-          paymentTerms: selectedContract.paymentTerms || prev.paymentTerms,
+          // Always update dates and budget if available
+          ...(startDate && { startDate }),
+          ...(endDate && { endDate }),
+          ...(budget && { budget: budget.toString() }),
+          // Update project brief if available
+          ...(selectedContract.content?.blocks?.[0]?.data?.text && {
+            projectBrief: selectedContract.content.blocks[0].data.text,
+          }),
+          ...(selectedContract.title &&
+            !selectedContract.content?.blocks?.[0]?.data?.text && {
+              projectBrief: selectedContract.title,
+            }),
+          // Populate client information from selected contract, prioritizing contract data
+          clientName: selectedContract.clientName || prev.clientName || "",
+          clientEmail: selectedContract.clientEmail || prev.clientEmail || "",
+          clientCompany:
+            selectedContract.clientCompany || prev.clientCompany || "",
+          paymentTerms:
+            selectedContract.paymentTerms || prev.paymentTerms || "Net 30 days",
+          // Update currency if available
+          ...(selectedContract.currency && {
+            currency: selectedContract.currency,
+          }),
         }));
 
         console.log("✅ Form fields populated:", {
@@ -486,6 +544,32 @@ const FormParent: React.FC<FormParentProps> = ({
     }
   };
 
+  const validateForm = (data: FormData): string[] => {
+    const errors: string[] = [];
+
+    if (!data.clientName?.trim()) {
+      errors.push("Client Name is required");
+    }
+
+    if (!data.clientCompany?.trim()) {
+      errors.push("Client Company is required");
+    }
+
+    if (!data.startDate) {
+      errors.push("Estimated start date is required");
+    }
+
+    if (!data.endDate) {
+      errors.push("Estimated end date is required");
+    }
+
+    if (!data.budget?.trim()) {
+      errors.push("Budget is required");
+    }
+
+    return errors;
+  };
+
   const handleSubmit = async (override?: Partial<FormData>) => {
     if (!user) {
       toast.error("You must be logged in to create a contract");
@@ -494,6 +578,31 @@ const FormParent: React.FC<FormParentProps> = ({
 
     // Use the current document type
     const requestType = documentType;
+
+    // Validate required fields
+    const effective: FormData = {
+      projectBrief: override?.projectBrief ?? formData.projectBrief ?? "",
+      techStack: override?.techStack ?? formData.techStack ?? "",
+      startDate: override?.startDate ?? formData.startDate ?? "",
+      endDate: override?.endDate ?? formData.endDate ?? "",
+      budget: override?.budget ?? formData.budget ?? "",
+      attachments: override?.attachments ?? formData.attachments ?? [],
+      pdf: override?.pdf ?? formData.pdf ?? "",
+      fileSummaries: override?.fileSummaries ?? formData.fileSummaries ?? {},
+      // Include client information
+      clientName: override?.clientName ?? formData.clientName ?? "",
+      clientEmail: override?.clientEmail ?? formData.clientEmail ?? "",
+      clientCompany: override?.clientCompany ?? formData.clientCompany ?? "",
+      paymentTerms: override?.paymentTerms ?? formData.paymentTerms ?? "",
+    } as FormData;
+
+    const validationErrors = validateForm(effective);
+    if (validationErrors.length > 0) {
+      toast.error(
+        `Please fill in all required fields: ${validationErrors.join(", ")}`
+      );
+      return;
+    }
 
     // Check account limits based on request type
     console.log("🔍 Account limits check:", {
@@ -533,23 +642,6 @@ const FormParent: React.FC<FormParentProps> = ({
     try {
       console.log("Current user:", user);
       console.log("Form data:", formData);
-
-      // Compose the effective payload combining state + any overrides (avoids stale state)
-      const effective: FormData = {
-        projectBrief: override?.projectBrief ?? formData.projectBrief ?? "",
-        techStack: override?.techStack ?? formData.techStack ?? "",
-        startDate: override?.startDate ?? formData.startDate ?? "",
-        endDate: override?.endDate ?? formData.endDate ?? "",
-        budget: override?.budget ?? formData.budget ?? "",
-        attachments: override?.attachments ?? formData.attachments ?? [],
-        pdf: override?.pdf ?? formData.pdf ?? "",
-        fileSummaries: override?.fileSummaries ?? formData.fileSummaries ?? {},
-        // Include client information
-        clientName: override?.clientName ?? formData.clientName ?? "",
-        clientEmail: override?.clientEmail ?? formData.clientEmail ?? "",
-        clientCompany: override?.clientCompany ?? formData.clientCompany ?? "",
-        paymentTerms: override?.paymentTerms ?? formData.paymentTerms ?? "",
-      } as FormData;
 
       console.log("🐛 Debug effective object:", {
         effective,
@@ -610,12 +702,16 @@ const FormParent: React.FC<FormParentProps> = ({
         } as any);
       }
 
-      // Fetch user settings and contract data for invoice generation
+      // Fetch user settings and contract data for both invoice and contract generation
       let userSettings = null;
       let contractData = null;
-      if (isInvoice && user) {
-        console.log("🧾 Invoice generation: Starting data fetch...");
-        console.log("🧾 Selected contract ID:", selectedContractId);
+      if (user) {
+        console.log(
+          `${isInvoice ? "🧾 Invoice" : "📄 Contract"} generation: Starting data fetch...`
+        );
+        if (isInvoice) {
+          console.log("🧾 Selected contract ID:", selectedContractId);
+        }
 
         try {
           const db = getFirestore();
@@ -629,8 +725,8 @@ const FormParent: React.FC<FormParentProps> = ({
             console.log("👤 User settings loaded:", userSettings);
           }
 
-          // Fetch contract data if a contract is selected
-          if (selectedContractId) {
+          // Fetch contract data if a contract is selected (only for invoice generation)
+          if (isInvoice && selectedContractId) {
             console.log(
               "📄 Fetching contract data for ID:",
               selectedContractId
@@ -760,7 +856,12 @@ const FormParent: React.FC<FormParentProps> = ({
         pdf: isInvoice ? undefined : effective.pdf,
         debug: debugMode,
         attachments: payloadAttachments,
-        userSettings: isInvoice ? userSettings : undefined,
+        // Include client information for contract generation
+        clientName: effective.clientName,
+        clientEmail: effective.clientEmail,
+        clientCompany: effective.clientCompany,
+        paymentTerms: effective.paymentTerms,
+        userSettings: userSettings,
         contractData: isInvoice ? contractData : undefined,
       };
 
@@ -1168,7 +1269,7 @@ const FormParent: React.FC<FormParentProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Client Name
+                        Client Name <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1181,6 +1282,7 @@ const FormParent: React.FC<FormParentProps> = ({
                           })
                         }
                         className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                        required
                       />
                     </div>
                     <div>
@@ -1202,7 +1304,7 @@ const FormParent: React.FC<FormParentProps> = ({
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Client Company
+                        Client Company <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -1215,6 +1317,7 @@ const FormParent: React.FC<FormParentProps> = ({
                           })
                         }
                         className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                        required
                       />
                     </div>
                     <div>
@@ -1245,7 +1348,7 @@ const FormParent: React.FC<FormParentProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Estimated start
+                      Estimated start <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -1254,11 +1357,12 @@ const FormParent: React.FC<FormParentProps> = ({
                         handleDateChange("startDate", e.target.value)
                       }
                       className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      required
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Estimated end
+                      Estimated end <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -1267,11 +1371,12 @@ const FormParent: React.FC<FormParentProps> = ({
                         handleDateChange("endDate", e.target.value)
                       }
                       className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                      required
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Budget
+                      Budget <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 flex items-center">
@@ -1354,6 +1459,7 @@ const FormParent: React.FC<FormParentProps> = ({
                           }
                         }}
                         className="w-full rounded-md border border-gray-200 pl-14 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+                        required
                       />
                     </div>
                   </div>

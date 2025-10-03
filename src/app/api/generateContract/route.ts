@@ -95,6 +95,10 @@ export async function POST(request: Request) {
     const data = await request.json();
     console.log("Received data for contract generation:", data);
 
+    // Extract user settings
+    const userSettings = data.userSettings;
+    console.log("🔧 User settings received:", userSettings);
+
     // Create cache key based on input data (include names + summaries + pdf to avoid stale hits)
     const cacheKey = JSON.stringify({
       projectBrief: data.projectBrief || "",
@@ -102,6 +106,10 @@ export async function POST(request: Request) {
       startDate: data.startDate || "",
       endDate: data.endDate || "",
       pdf: data.pdf || "",
+      clientName: data.clientName || "",
+      clientEmail: data.clientEmail || "",
+      clientCompany: data.clientCompany || "",
+      paymentTerms: data.paymentTerms || "",
       attachments: (data.attachments || [])
         .map((att: any) => `${att.name || "unknown"}:${att.summary || ""}`)
         .join("|"),
@@ -129,6 +137,24 @@ export async function POST(request: Request) {
       typeof data.budget !== "undefined" && String(data.budget).trim() !== ""
         ? `Budget: ${data.budget}\n`
         : "";
+
+    // Add client information
+    const clientInfo =
+      data.clientName || data.clientEmail || data.clientCompany
+        ? `Client Information:
+${data.clientName ? `Client Name: ${data.clientName}\n` : ""}${data.clientEmail ? `Client Email: ${data.clientEmail}\n` : ""}${data.clientCompany ? `Client Company: ${data.clientCompany}\n` : ""}${data.paymentTerms ? `Payment Terms: ${data.paymentTerms}\n` : ""}`
+        : "";
+
+    // Add user context from settings
+    let userContext = "";
+    if (userSettings?.contract) {
+      userContext = `\nContractor Information (use for "Designer/Developer Name" placeholder):
+- Name: ${userSettings.contract.companyName || userSettings.contract.name || "Contractor"}
+- Company: ${userSettings.contract.companyName || "Contractor Company"}
+- Address: ${userSettings.contract.companyAddress || "Contractor Address"}
+
+IMPORTANT: Replace [Designer/Developer Name] placeholder with the actual contractor name from above.`;
+    }
 
     // Add file summaries to context
     // Prefer real summaries over MOCK_DEBUG when both present
@@ -177,7 +203,7 @@ export async function POST(request: Request) {
             {
               role: "user",
               content: `Create a contract with the following details. The 'Additional Context' lines are authoritative; you MUST reflect their specifics (names, brands, scope, dates, budget) throughout the contract where relevant.
-              ${projectInfo}${techInfo}${timelineInfo}${budgetInfo}${pdfInfo}${documentContext}
+              ${projectInfo}${techInfo}${timelineInfo}${budgetInfo}${pdfInfo}${clientInfo}${userContext}${documentContext}
               ${debugBanner}
 
               ${
@@ -355,7 +381,7 @@ export async function POST(request: Request) {
               },
               {
                 role: "user",
-                content: `${projectInfo}${techInfo}${timelineInfo}${pdfInfo}${documentContext}\n${debugBanner}\nGenerate a concise but complete contract using the context above.`,
+                content: `${projectInfo}${techInfo}${timelineInfo}${pdfInfo}${clientInfo}${userContext}${documentContext}\n${debugBanner}\nGenerate a concise but complete contract using the context above.`,
               },
             ],
             temperature: 0.6,

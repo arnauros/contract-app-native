@@ -54,6 +54,8 @@ const StepIndicator = ({ currentStep }: { currentStep: number }) => {
 function SubscribeContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
@@ -104,12 +106,30 @@ function SubscribeContent() {
         // Create a user document with default subscription data
         await setDoc(doc(db, "users", result.user.uid), {
           email: result.user.email,
+          displayName: name.trim(),
           createdAt: new Date(),
           subscription: {
             tier: "free",
             status: "inactive",
             cancelAtPeriodEnd: false,
             currentPeriodEnd: null,
+          },
+          // Initialize contract and invoice settings with user info
+          contractSettings: {
+            companyName: company.trim() || name.trim(),
+            companyAddress: "",
+          },
+          invoiceSettings: {
+            name: name.trim(),
+            email: result.user.email,
+            company: company.trim() || name.trim(),
+            address: "",
+            iban: "",
+            bankName: "",
+            bicSwift: "",
+            taxId: "",
+            paymentTerms: "net30",
+            currency: "USD",
           },
         });
 
@@ -184,24 +204,29 @@ function SubscribeContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {currentStep === 1
-              ? "Create your account"
-              : "Complete your subscription"}
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {currentStep === 1
-              ? "First, let's set up your account"
-              : `Subscribe to Pro - $${
-                  billingInterval === "monthly" ? "29/month" : "290/year"
-                }`}
-          </p>
+    <div className="min-h-screen flex">
+      {/* Left Column - Subscribe Form */}
+      <div className="flex-1 flex items-center justify-center bg-white py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Basement</h1>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              {currentStep === 1
+                ? "Create your account"
+                : "Complete your subscription"}
+            </h2>
+            <p className="text-gray-600">
+              {currentStep === 1
+                ? "First, let's set up your account"
+                : `Subscribe to Pro - $${
+                    billingInterval === "monthly" ? "29/month" : "290/year"
+                  }`}
+            </p>
 
-          <StepIndicator currentStep={currentStep} />
-        </div>
+            <StepIndicator currentStep={currentStep} />
+          </div>
 
         {errorMessage && (
           <div className="rounded-md bg-red-50 p-4">
@@ -223,8 +248,27 @@ function SubscribeContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                   placeholder="Email address"
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Your name"
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Company name (optional)"
                 />
               </div>
               <div>
@@ -380,6 +424,58 @@ function SubscribeContent() {
         )}
 
         <SubscribeDebug />
+      </div>
+
+      {/* Right Column - Visual Data Display */}
+      <div className="hidden lg:flex lg:flex-1 relative overflow-hidden">
+        {/* Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-400 via-pink-500 to-red-500"></div>
+        
+        {/* Data Cards */}
+        <div className="relative z-10 flex flex-col justify-center items-center space-y-8 p-12">
+          {/* Top Card - Simple Graph */}
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 w-80">
+            <div className="h-32 flex items-end space-x-2">
+              <div className="bg-white/30 h-8 w-8 rounded"></div>
+              <div className="bg-white/30 h-12 w-8 rounded"></div>
+              <div className="bg-white/30 h-16 w-8 rounded"></div>
+              <div className="bg-white/30 h-20 w-8 rounded"></div>
+              <div className="bg-white/30 h-24 w-8 rounded"></div>
+              <div className="bg-white/30 h-28 w-8 rounded"></div>
+            </div>
+          </div>
+
+          {/* Middle Card - Engagement */}
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 w-80">
+            <h3 className="text-white font-semibold text-lg mb-4">ENGAGEMENT</h3>
+            <div className="text-white">
+              <div className="text-3xl font-bold">+78,12%</div>
+              <div className="text-sm opacity-80">last month</div>
+            </div>
+            <p className="text-white/80 text-sm mt-4 leading-relaxed">
+              This significant increase in engagement rate highlights the effectiveness of our recent strategies and content approach.
+            </p>
+            <div className="mt-4 flex space-x-1">
+              <div className="bg-white/30 h-4 w-8 rounded"></div>
+              <div className="bg-white/30 h-6 w-8 rounded"></div>
+              <div className="bg-white/30 h-8 w-8 rounded"></div>
+              <div className="bg-white/30 h-10 w-8 rounded"></div>
+              <div className="bg-white/30 h-12 w-8 rounded"></div>
+            </div>
+          </div>
+
+          {/* Bottom Card - Total Sales */}
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 w-80">
+            <h3 className="text-white font-semibold text-lg mb-4">TOTAL SALES</h3>
+            <div className="text-white">
+              <div className="text-3xl font-bold">$527.8K</div>
+              <div className="text-sm opacity-80">+32% last month</div>
+            </div>
+            <p className="text-white/80 text-sm mt-4 leading-relaxed">
+              This amount of total sales highlights the effectiveness of our recent strategies and content approach.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
