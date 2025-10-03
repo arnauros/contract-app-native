@@ -107,11 +107,13 @@ const FormParent: React.FC<FormParentProps> = ({
       }
 
       console.log("🔄 Auto-populating form from contract:", selectedContractId);
-      
+
       try {
         const db = getFirestore();
-        const contractDoc = await getDoc(doc(db, "contracts", selectedContractId));
-        
+        const contractDoc = await getDoc(
+          doc(db, "contracts", selectedContractId)
+        );
+
         if (!contractDoc.exists()) {
           console.warn("Contract not found:", selectedContractId);
           return;
@@ -119,6 +121,13 @@ const FormParent: React.FC<FormParentProps> = ({
 
         const contractData = contractDoc.data();
         console.log("📄 Contract data for auto-population:", contractData);
+        console.log("📄 Raw content:", contractData.rawContent);
+        console.log("📄 Form data:", contractData.formData);
+        console.log("📄 Direct client fields:", {
+          clientName: contractData.clientName,
+          clientEmail: contractData.clientEmail,
+          clientCompany: contractData.clientCompany,
+        });
 
         // Extract contract content text from EditorJS blocks
         let contractContentText = "";
@@ -172,24 +181,58 @@ const FormParent: React.FC<FormParentProps> = ({
         };
 
         const extractedData = extractClientData(contractContentText);
-        
-        // Also check formData fields directly from contract
+
+        // Also check rawContent and direct fields from contract
         const directData = {
-          clientName: contractData.formData?.clientName || contractData.clientName || "",
-          clientEmail: contractData.formData?.clientEmail || contractData.clientEmail || "",
-          clientCompany: contractData.formData?.clientCompany || contractData.clientCompany || "",
-          budget: contractData.formData?.budget || contractData.budget || contractData.totalAmount || "",
-          startDate: contractData.formData?.startDate || contractData.startDate || "",
-          endDate: contractData.formData?.endDate || contractData.endDate || "",
-          paymentTerms: contractData.formData?.paymentTerms || contractData.paymentTerms || "Net 30 days",
-          currency: contractData.formData?.currency || contractData.currency || "$",
+          clientName:
+            contractData.rawContent?.clientName ||
+            contractData.formData?.clientName ||
+            contractData.clientName ||
+            "",
+          clientEmail:
+            contractData.rawContent?.clientEmail ||
+            contractData.formData?.clientEmail ||
+            contractData.clientEmail ||
+            "",
+          clientCompany:
+            contractData.rawContent?.clientCompany ||
+            contractData.formData?.clientCompany ||
+            contractData.clientCompany ||
+            "",
+          budget:
+            contractData.rawContent?.budget ||
+            contractData.formData?.budget ||
+            contractData.budget ||
+            contractData.totalAmount ||
+            "",
+          startDate:
+            contractData.rawContent?.startDate ||
+            contractData.formData?.startDate ||
+            contractData.startDate ||
+            "",
+          endDate:
+            contractData.rawContent?.endDate ||
+            contractData.formData?.endDate ||
+            contractData.endDate ||
+            "",
+          paymentTerms:
+            contractData.rawContent?.paymentTerms ||
+            contractData.formData?.paymentTerms ||
+            contractData.paymentTerms ||
+            "Net 30 days",
+          currency:
+            contractData.rawContent?.currency ||
+            contractData.formData?.currency ||
+            contractData.currency ||
+            "$",
         };
 
         // Merge extracted and direct data, preferring direct data
         const finalData = {
           clientName: directData.clientName || extractedData.clientName,
           clientEmail: directData.clientEmail || extractedData.clientEmail,
-          clientCompany: directData.clientCompany || extractedData.clientCompany,
+          clientCompany:
+            directData.clientCompany || extractedData.clientCompany,
           budget: directData.budget || extractedData.budget,
           startDate: directData.startDate || extractedData.startDate,
           endDate: directData.endDate || extractedData.endDate,
@@ -198,17 +241,22 @@ const FormParent: React.FC<FormParentProps> = ({
         };
 
         console.log("🎯 Final auto-population data:", finalData);
+        console.log("🎯 Direct data:", directData);
+        console.log("🎯 Extracted data:", extractedData);
 
         // Update form data with extracted information
-        setFormData(prev => ({
-          ...prev,
-          ...finalData,
-        }));
+        setFormData((prev) => {
+          const newData = {
+            ...prev,
+            ...finalData,
+          };
+          console.log("🎯 Setting form data to:", newData);
+          return newData;
+        });
 
         toast.success("Contract data populated successfully!", {
           duration: 2000,
         });
-
       } catch (error) {
         console.error("❌ Error auto-populating from contract:", error);
         toast.error("Failed to load contract data");
@@ -1035,8 +1083,8 @@ const FormParent: React.FC<FormParentProps> = ({
                         {selectedContractId && (
                           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
                             <p className="text-xs text-green-700">
-                              ✓ Contract selected - client info, budget, and dates will be
-                              populated automatically
+                              ✓ Contract selected - client info, budget, and
+                              dates will be populated automatically
                             </p>
                           </div>
                         )}
