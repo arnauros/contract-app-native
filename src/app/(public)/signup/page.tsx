@@ -7,6 +7,7 @@ import { doc, setDoc } from "firebase/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import { STRIPE_PRICE_IDS } from "@/lib/stripe/config";
 
 function SignUpContent() {
   const [email, setEmail] = useState("");
@@ -19,6 +20,28 @@ function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams?.get("returnUrl") || "/dashboard";
+
+  const createCheckoutSession = async (priceId: string, userId: string) => {
+    const response = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        priceId,
+        userId,
+        successUrl: `${window.location.origin}/dashboard?subscription=success`,
+        cancelUrl: `${window.location.origin}/signup?subscription=cancelled`,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create checkout session");
+    }
+
+    const { url } = await response.json();
+    return url;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +97,24 @@ function SignUpContent() {
       });
 
       toast.success("Account created successfully!");
-      router.push(returnUrl);
+
+      // If Pro plan selected, redirect to Stripe checkout
+      if (selectedPlan === "pro") {
+        try {
+          const checkoutUrl = await createCheckoutSession(
+            STRIPE_PRICE_IDS.MONTHLY,
+            result.user.uid
+          );
+          window.location.href = checkoutUrl;
+        } catch (error) {
+          console.error("Checkout error:", error);
+          toast.error("Failed to start subscription. Redirecting to dashboard...");
+          router.push(returnUrl);
+        }
+      } else {
+        // Free plan - redirect to dashboard
+        router.push(returnUrl);
+      }
     } catch (error: any) {
       console.error("Signup error:", error);
       const errorMsg =
@@ -262,7 +302,9 @@ function SignUpContent() {
                           <div className="text-sm font-medium text-gray-900">
                             Pro Plan
                           </div>
-                          <div className="text-sm text-gray-500">$29/month</div>
+                          <div className="text-sm text-gray-500">
+                            $29/month • 14-day free trial
+                          </div>
                         </div>
                       </div>
                     </div>
