@@ -9,6 +9,7 @@ This guide will help you deploy your freelance contract app to Vercel with worki
 You need to configure these environment variables in Vercel:
 
 #### Firebase Configuration
+
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAGsX27lCpZB1V4mMpCjE2R4OUfuIGwLuQ
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=freelance-project-3d0b5.firebaseapp.com
@@ -21,11 +22,13 @@ NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://freelance-project-3d0b5-default-rtdb.e
 ```
 
 #### Firebase Service Account (REQUIRED)
+
 ```
 FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"freelance-project-3d0b5",...}
 ```
 
 #### Stripe Configuration (LIVE MODE)
+
 ```
 STRIPE_SECRET_KEY=sk_live_your_live_secret_key_here
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_your_live_publishable_key_here
@@ -35,6 +38,7 @@ STRIPE_YEARLY_PRICE_ID=price_1RM311EAkEk7AeWQBKwfeYxy
 ```
 
 #### App Configuration
+
 ```
 NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 NEXT_PUBLIC_DISABLE_ANONYMOUS_AUTH=true
@@ -42,6 +46,7 @@ NODE_ENV=production
 ```
 
 #### Other Services
+
 ```
 OPENAI_API_KEY=your_openai_api_key_here
 RESEND_API_KEY=your_resend_api_key_here
@@ -68,16 +73,19 @@ NEXT_PUBLIC_EMAIL_FROM=contracts@arnau.design
 ### Method 1: Deploy via Vercel CLI (Recommended)
 
 1. **Install Vercel CLI**:
+
    ```bash
    npm i -g vercel
    ```
 
 2. **Login to Vercel**:
+
    ```bash
    vercel login
    ```
 
 3. **Deploy**:
+
    ```bash
    vercel --prod
    ```
@@ -96,6 +104,7 @@ NEXT_PUBLIC_EMAIL_FROM=contracts@arnau.design
 ### Method 2: Deploy via GitHub + Vercel Dashboard
 
 1. **Push to GitHub**:
+
    ```bash
    git add .
    git commit -m "feat: prepare for production deployment"
@@ -121,12 +130,15 @@ NEXT_PUBLIC_EMAIL_FROM=contracts@arnau.design
 ## 🔧 Post-Deployment Configuration
 
 ### 1. Update App URL
+
 After deployment, update the `NEXT_PUBLIC_APP_URL` environment variable in Vercel with your actual domain.
 
 ### 2. Configure Stripe Webhook
+
 Update the webhook endpoint URL in Stripe Dashboard to match your Vercel domain.
 
 ### 3. Test the Deployment
+
 1. Visit your deployed app
 2. Go to `/stripe-test` to run comprehensive tests
 3. Test the payment flow with real test cards
@@ -134,11 +146,13 @@ Update the webhook endpoint URL in Stripe Dashboard to match your Vercel domain.
 ## 🧪 Testing Production
 
 ### Test Pages Available:
+
 - `/stripe-test` - Comprehensive test suite
 - `/test-flow` - Simple payment flow test
 - `/subscribe` - Main subscription page
 
 ### Test Cards (Stripe Test Mode):
+
 - **Success**: `4242 4242 4242 4242`
 - **Decline**: `4000 0000 0000 0002`
 - **3D Secure**: `4000 0025 0000 3155`
@@ -163,6 +177,7 @@ Update the webhook endpoint URL in Stripe Dashboard to match your Vercel domain.
    - Check variable names match exactly
 
 ### Debug Tools:
+
 - Use `/stripe-test` page for comprehensive testing
 - Check Vercel function logs for errors
 - Monitor Stripe Dashboard for webhook events
@@ -170,16 +185,19 @@ Update the webhook endpoint URL in Stripe Dashboard to match your Vercel domain.
 ## 📊 Monitoring
 
 ### Stripe Dashboard:
+
 - Monitor webhook deliveries
 - Check subscription status
 - Review payment events
 
 ### Vercel Dashboard:
+
 - Monitor function logs
 - Check deployment status
 - Review performance metrics
 
 ### Firebase Console:
+
 - Monitor user subscriptions
 - Check Firestore data
 - Review authentication logs
@@ -187,6 +205,7 @@ Update the webhook endpoint URL in Stripe Dashboard to match your Vercel domain.
 ## 🎯 Success Criteria
 
 Your deployment is successful when:
+
 - ✅ App loads without errors
 - ✅ User registration/login works
 - ✅ Stripe test connection passes

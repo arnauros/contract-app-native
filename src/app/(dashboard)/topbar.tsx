@@ -16,6 +16,7 @@ import SetupGuidePill from "@/components/SetupGuidePill";
 import { useTutorial } from "@/lib/hooks/useTutorial";
 import { reopenTutorial } from "@/lib/tutorial/tutorialUtils";
 import { useAccountLimits } from "@/lib/hooks/useAccountLimits";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 interface TopbarProps {
   pathname: string;
@@ -116,6 +117,7 @@ function SavingIndicator() {
 
 export default function Topbar({ pathname }: TopbarProps) {
   const { toggleSidebar } = useSidebar();
+  const subscriptionStatus = useSubscription();
   const currentPathname = usePathname();
   const { tutorialState, updateTutorialState } = useTutorial();
   const { loggedIn, user } = useAuth();
@@ -676,7 +678,7 @@ export default function Topbar({ pathname }: TopbarProps) {
           {/* Pro Status - Hidden on contract/invoice pages */}
           {!isContractOrInvoicePage && (
             <>
-              {accountLimits.isPro ? (
+              {(accountLimits.isPro || subscriptionStatus.isActive) ? (
                 <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-md">
                   PRO
                 </div>

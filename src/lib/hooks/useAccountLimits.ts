@@ -24,11 +24,25 @@ export function useAccountLimits(): AccountLimits & {
 } {
   const { user } = useAuth();
   const subscriptionStatus = useSubscription();
-  const [limits, setLimits] = useState<AccountLimits>({
-    contracts: { current: 0, limit: 1, canCreate: true },
-    invoices: { current: 0, limit: 1, canCreate: true },
-    isPro: false,
-    loading: true,
+  // Initialize with cached data if available
+  const [limits, setLimits] = useState<AccountLimits>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('accountLimits');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          return { ...parsed, loading: true }; // Still loading, but use cached data
+        } catch (e) {
+          console.warn('Failed to parse cached account limits:', e);
+        }
+      }
+    }
+    return {
+      contracts: { current: 0, limit: 1, canCreate: true },
+      invoices: { current: 0, limit: 1, canCreate: true },
+      isPro: false,
+      loading: true,
+    };
   });
 
   const checkLimits = async () => {
@@ -39,6 +53,10 @@ export function useAccountLimits(): AccountLimits & {
         isPro: false,
         loading: false,
       });
+      // Clear cache when user logs out
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accountLimits');
+      }
       return;
     }
 
@@ -100,6 +118,11 @@ export function useAccountLimits(): AccountLimits & {
 
       console.log("📊 Final account limits:", finalLimits);
       setLimits(finalLimits);
+      
+      // Cache the limits for faster loading next time
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('accountLimits', JSON.stringify(finalLimits));
+      }
     } catch (error) {
       console.error("Error checking account limits:", error);
       setLimits((prev) => ({ ...prev, loading: false }));
@@ -109,6 +132,14 @@ export function useAccountLimits(): AccountLimits & {
   useEffect(() => {
     checkLimits();
   }, [user, subscriptionStatus.isActive]);
+
+  // Additional effect to refresh limits when subscription status changes
+  useEffect(() => {
+    if (subscriptionStatus.isActive !== limits.isPro) {
+      console.log("🔄 Subscription status changed, refreshing limits immediately");
+      checkLimits();
+    }
+  }, [subscriptionStatus.isActive]);
 
   const refreshLimits = () => {
     checkLimits();
