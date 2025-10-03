@@ -149,34 +149,87 @@ const FormParent: React.FC<FormParentProps> = ({
             .join(" ");
         }
 
-        // Extract client data using regex patterns from contract content
+        // Extract client data using improved regex patterns from contract content
         const extractClientData = (text: string) => {
+          // More precise patterns that look for actual client information sections
           const clientNameMatch = text.match(
-            /(?:Client|Client Name)[:\s]+([A-Za-z\s]+?)(?:\s*\(|,|\.|$)/i
+            /(?:Client Name|Client)[:\s]+([A-Z][a-zA-Z\s]{2,30})(?:\s*[,\.\n]|$)/i
           );
+          
+          // Look for email in client information context
           const emailMatch = text.match(
-            /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
+            /(?:Client Email|Email|Contact)[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i
           );
+          
+          // Look for company in client information context
           const companyMatch = text.match(
-            /(?:Company|Organization|Corporation)[:\s]+([A-Za-z\s&]+?)(?:\s*\(|,|\.|$)/i
+            /(?:Client Company|Company|Organization)[:\s]+([A-Z][a-zA-Z\s&]{2,50})(?:\s*[,\.\n]|$)/i
           );
+          
+          // Look for budget/total in project context
           const amountMatch = text.match(
-            /(?:Total|Amount|Price|Budget)[:\s]*\$?([0-9,]+)/i
+            /(?:Total Amount|Project Budget|Budget|Total)[:\s]*\$?([0-9,]+)/i
           );
+          
+          // Look for dates in project timeline context
           const startDateMatch = text.match(
-            /(?:Start|Begin|Commence)[:\s]+([A-Za-z0-9\s,/-]+)/i
+            /(?:Project Start|Start Date|Begin)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i
           );
+          
           const endDateMatch = text.match(
-            /(?:End|Finish|Complete|Due)[:\s]+([A-Za-z0-9\s,/-]+)/i
+            /(?:Project End|End Date|Completion|Due Date)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i
           );
 
+          // Validate extracted data to ensure it's actually client information
+          const isValidClientName = (name: string) => {
+            if (!name || name.length < 2) return false;
+            // Reject if it contains contract language
+            const contractWords = ['contractor', 'client', 'agreement', 'compensate', 'work', 'project', 'services'];
+            return !contractWords.some(word => name.toLowerCase().includes(word));
+          };
+
+          const isValidEmail = (email: string) => {
+            return email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          };
+
+          const isValidCompany = (company: string) => {
+            if (!company || company.length < 2) return false;
+            // Reject if it contains contract language
+            const contractWords = ['contractor', 'client', 'agreement', 'compensate', 'work', 'project', 'services'];
+            return !contractWords.some(word => company.toLowerCase().includes(word));
+          };
+
+          const isValidAmount = (amount: string) => {
+            return amount && /^[0-9,]+$/.test(amount) && parseInt(amount.replace(/,/g, '')) > 0;
+          };
+
+          const isValidDate = (date: string) => {
+            return date && /^[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4}$/.test(date);
+          };
+
+          const extractedName = clientNameMatch?.[1]?.trim() || "";
+          const extractedEmail = emailMatch?.[1]?.trim() || "";
+          const extractedCompany = companyMatch?.[1]?.trim() || "";
+          const extractedBudget = amountMatch?.[1]?.replace(/,/g, "") || "";
+          const extractedStartDate = startDateMatch?.[1]?.trim() || "";
+          const extractedEndDate = endDateMatch?.[1]?.trim() || "";
+
+          console.log("🔍 Extracted raw data:", {
+            clientName: extractedName,
+            clientEmail: extractedEmail,
+            clientCompany: extractedCompany,
+            budget: extractedBudget,
+            startDate: extractedStartDate,
+            endDate: extractedEndDate,
+          });
+
           return {
-            clientName: clientNameMatch?.[1]?.trim() || "",
-            clientEmail: emailMatch?.[1]?.trim() || "",
-            clientCompany: companyMatch?.[1]?.trim() || "",
-            budget: amountMatch?.[1]?.replace(/,/g, "") || "",
-            startDate: startDateMatch?.[1]?.trim() || "",
-            endDate: endDateMatch?.[1]?.trim() || "",
+            clientName: isValidClientName(extractedName) ? extractedName : "",
+            clientEmail: isValidEmail(extractedEmail) ? extractedEmail : "",
+            clientCompany: isValidCompany(extractedCompany) ? extractedCompany : "",
+            budget: isValidAmount(extractedBudget) ? extractedBudget : "",
+            startDate: isValidDate(extractedStartDate) ? extractedStartDate : "",
+            endDate: isValidDate(extractedEndDate) ? extractedEndDate : "",
           };
         };
 
@@ -244,6 +297,14 @@ const FormParent: React.FC<FormParentProps> = ({
         console.log("🎯 Direct data:", directData);
         console.log("🎯 Extracted data:", extractedData);
 
+        // Check if we actually have meaningful data to populate
+        const hasValidData = finalData.clientName || 
+                           finalData.clientEmail || 
+                           finalData.clientCompany || 
+                           finalData.budget || 
+                           finalData.startDate || 
+                           finalData.endDate;
+
         // Update form data with extracted information
         setFormData((prev) => {
           const newData = {
@@ -254,9 +315,14 @@ const FormParent: React.FC<FormParentProps> = ({
           return newData;
         });
 
-        toast.success("Contract data populated successfully!", {
-          duration: 2000,
-        });
+        // Only show success toast if we actually populated meaningful data
+        if (hasValidData) {
+          toast.success("Contract data populated successfully!", {
+            duration: 2000,
+          });
+        } else {
+          console.log("⚠️ No valid client data found in contract, skipping auto-population");
+        }
       } catch (error) {
         console.error("❌ Error auto-populating from contract:", error);
         toast.error("Failed to load contract data");
