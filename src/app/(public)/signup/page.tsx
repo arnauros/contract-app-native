@@ -108,7 +108,9 @@ function SignUpContent() {
           window.location.href = checkoutUrl;
         } catch (error) {
           console.error("Checkout error:", error);
-          toast.error("Failed to start subscription. Redirecting to dashboard...");
+          toast.error(
+            "Failed to start subscription. Redirecting to dashboard..."
+          );
           router.push(returnUrl);
         }
       } else {
@@ -303,7 +305,7 @@ function SignUpContent() {
                             Pro Plan
                           </div>
                           <div className="text-sm text-gray-500">
-                            $29/month • 14-day free trial
+                            $29/month
                           </div>
                         </div>
                       </div>
