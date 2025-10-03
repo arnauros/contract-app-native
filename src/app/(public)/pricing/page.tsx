@@ -675,7 +675,7 @@ function PricingContent() {
                 </p>
                 <div className="mt-6">
                   <span className="text-5xl font-bold tracking-tight text-gray-900">
-                    $29
+                    $15
                   </span>
                   <span className="ml-2 text-lg text-gray-600">per month</span>
                 </div>
@@ -946,6 +946,155 @@ function PricingContent() {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* Competitive Analysis Table */}
+          <div className="mt-20">
+            <div className="mx-auto max-w-4xl text-center mb-12">
+              <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                How we compare to the competition
+              </h2>
+              <p className="mt-4 text-lg text-gray-600">
+                See why we're the best value for freelancers
+              </p>
+            </div>
+
+            <div className="max-w-5xl mx-auto overflow-hidden rounded-xl shadow-lg ring-1 ring-gray-200">
+              <table className="w-full bg-white">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="py-4 px-6 text-left text-sm font-semibold text-gray-900">
+                      Platform
+                    </th>
+                    <th className="py-4 px-6 text-center text-sm font-semibold text-gray-900">
+                      Monthly Price
+                    </th>
+                    <th className="py-4 px-6 text-center text-sm font-semibold text-gray-900">
+                      Contracts
+                    </th>
+                    <th className="py-4 px-6 text-center text-sm font-semibold text-gray-900">
+                      Invoicing
+                    </th>
+                    <th className="py-4 px-6 text-center text-sm font-semibold text-gray-900">
+                      One-Link Checkout
+                    </th>
+                    <th className="py-4 px-6 text-center text-sm font-semibold text-orange-600 bg-orange-50">
+                      Our Pro Plan
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  <tr className="hover:bg-gray-50">
+                    <td className="py-4 px-6 text-sm font-medium text-gray-900">
+                      FreshBooks Lite
+                    </td>
+                    <td className="py-4 px-6 text-center text-sm text-gray-900">
+                      $15
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-green-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center bg-orange-50">
+                      <span className="text-sm font-medium text-orange-600">Same price, more features</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="py-4 px-6 text-sm font-medium text-gray-900">
+                      Bonsai
+                    </td>
+                    <td className="py-4 px-6 text-center text-sm text-gray-900">
+                      $21
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-green-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-green-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center bg-orange-50">
+                      <span className="text-sm font-medium text-orange-600">$6 cheaper + one-link checkout</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="py-4 px-6 text-center text-sm font-medium text-gray-900">
+                      PandaDoc
+                    </td>
+                    <td className="py-4 px-6 text-center text-sm text-gray-900">
+                      $19
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-green-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center bg-orange-50">
+                      <span className="text-sm font-medium text-orange-600">$4 cheaper + invoicing</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="py-4 px-6 text-sm font-medium text-gray-900">
+                      Concord
+                    </td>
+                    <td className="py-4 px-6 text-center text-sm text-gray-900">
+                      $17
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-green-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="text-sm text-gray-400">—</span>
+                    </td>
+                    <td className="py-4 px-6 text-center bg-orange-50">
+                      <span className="text-sm font-medium text-orange-600">$2 cheaper + invoicing</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-orange-50 bg-orange-50 border-2 border-orange-200">
+                    <td className="py-4 px-6 text-sm font-bold text-orange-900">
+                      Our Pro Plan
+                    </td>
+                    <td className="py-4 px-6 text-center text-sm font-bold text-orange-900">
+                      $15
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-orange-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-orange-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <CheckIcon className="w-5 h-5 text-orange-600 mx-auto" />
+                    </td>
+                    <td className="py-4 px-6 text-center bg-orange-100">
+                      <span className="text-sm font-bold text-orange-900">Best value</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-8 text-center">
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold text-orange-600">Why we win:</span> Same price as FreshBooks Lite but with contract management. 
+                Cheaper than Bonsai and PandaDoc while offering more features. 
+                Only platform with true one-link checkout for contracts + invoicing + payment.
+              </p>
+            </div>
           </div>
 
           {/* Bottom CTA */}
