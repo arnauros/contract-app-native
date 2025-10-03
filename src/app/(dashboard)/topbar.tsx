@@ -678,7 +678,7 @@ export default function Topbar({ pathname }: TopbarProps) {
           {/* Pro Status - Hidden on contract/invoice pages */}
           {!isContractOrInvoicePage && (
             <>
-              {(accountLimits.isPro || subscriptionStatus.isActive) ? (
+              {accountLimits.isPro || subscriptionStatus.isActive ? (
                 <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-md">
                   PRO
                 </div>

@@ -1128,16 +1128,8 @@ const FormParent: React.FC<FormParentProps> = ({
               </div>
             }
             onSubmit={async (message: string, files: File[]) => {
-              // Validate contract selection for invoice mode
-              if (
-                documentType === "invoice" &&
-                (!selectedContractId || selectedContractId === "")
-              ) {
-                toast.error(
-                  "Please select a contract to generate an invoice from"
-                );
-                return;
-              }
+              // Contract selection is optional for invoice creation
+              // Users can create invoices with just basic information
 
               setFormData({ ...formData, projectBrief: message });
 

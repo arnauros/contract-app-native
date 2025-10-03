@@ -26,14 +26,14 @@ export function useAccountLimits(): AccountLimits & {
   const subscriptionStatus = useSubscription();
   // Initialize with cached data if available
   const [limits, setLimits] = useState<AccountLimits>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('accountLimits');
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("accountLimits");
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
           return { ...parsed, loading: true }; // Still loading, but use cached data
         } catch (e) {
-          console.warn('Failed to parse cached account limits:', e);
+          console.warn("Failed to parse cached account limits:", e);
         }
       }
     }
@@ -54,8 +54,8 @@ export function useAccountLimits(): AccountLimits & {
         loading: false,
       });
       // Clear cache when user logs out
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('accountLimits');
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("accountLimits");
       }
       return;
     }
@@ -118,10 +118,10 @@ export function useAccountLimits(): AccountLimits & {
 
       console.log("📊 Final account limits:", finalLimits);
       setLimits(finalLimits);
-      
+
       // Cache the limits for faster loading next time
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accountLimits', JSON.stringify(finalLimits));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accountLimits", JSON.stringify(finalLimits));
       }
     } catch (error) {
       console.error("Error checking account limits:", error);
@@ -136,7 +136,9 @@ export function useAccountLimits(): AccountLimits & {
   // Additional effect to refresh limits when subscription status changes
   useEffect(() => {
     if (subscriptionStatus.isActive !== limits.isPro) {
-      console.log("🔄 Subscription status changed, refreshing limits immediately");
+      console.log(
+        "🔄 Subscription status changed, refreshing limits immediately"
+      );
       checkLimits();
     }
   }, [subscriptionStatus.isActive]);
